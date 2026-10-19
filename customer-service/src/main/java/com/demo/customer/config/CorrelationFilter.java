@@ -1,4 +1,4 @@
-package com.demo.customer;
+package com.demo.customer.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
