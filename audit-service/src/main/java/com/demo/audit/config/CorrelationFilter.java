@@ -1,4 +1,4 @@
-package com.demo.audit;
+package com.demo.audit.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

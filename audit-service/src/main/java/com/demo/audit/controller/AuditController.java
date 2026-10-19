@@ -1,5 +1,7 @@
-package com.demo.audit;
+package com.demo.audit.controller;
 
+import com.demo.audit.service.AuditService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,15 +16,16 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/audit")
 public class AuditController {
-    private final JdbcTemplate db;
+    private final AuditService auditService;
 
-    AuditController(JdbcTemplate db) {
-        this.db = db;
+    @Autowired
+    AuditController(AuditService auditService) {
+        this.auditService = auditService;
     }
 
     @GetMapping("/transfers/{id}")
     @PreAuthorize("hasAuthority('AUDIT_READ')")
     public List<Map<String, Object>> find(@PathVariable UUID id) {
-        return db.queryForList("SELECT id,event_id,actor_id,action,resource_type,resource_id,created_at FROM audit_events WHERE resource_type='TRANSFER' AND resource_id=? ORDER BY created_at DESC LIMIT 100", id);
+        return auditService.find(id);
     }
 }

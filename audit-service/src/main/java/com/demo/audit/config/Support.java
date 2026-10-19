@@ -1,4 +1,4 @@
-package com.demo.audit;
+package com.demo.audit.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
