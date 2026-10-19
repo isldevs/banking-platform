@@ -1,4 +1,4 @@
-package com.demo.config;
+package com.demo.config.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;

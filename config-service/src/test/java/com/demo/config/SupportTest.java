@@ -1,5 +1,6 @@
 package com.demo.config;
 
+import com.demo.config.config.Support;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

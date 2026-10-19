@@ -1,4 +1,4 @@
-package com.demo.config;
+package com.demo.config.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
