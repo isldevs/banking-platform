@@ -126,7 +126,7 @@ cd infrastructure && docker compose ps
 ## Repo tree
 
 ```text
-microservices-platform-gradle-composite/
+microservices-platform/
 ├── settings.gradle                 # includes 8 independent builds
 ├── build.gradle                    # buildAll, testAll, bootJarAll, cleanAll
 ├── gradle.properties
