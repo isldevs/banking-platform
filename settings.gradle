@@ -1,0 +1,15 @@
+// Gradle COMPOSITE build: independent services, NOT a single multi-module build.
+// Each service still has its own settings.gradle, build.gradle and release lifecycle.
+rootProject.name = 'microservices-platform'
+[
+        'config-service',
+        'auth-service',
+        'customer-service',
+        'account-service',
+        'transfer-service',
+        'notification-service',
+        'audit-service',
+        'gateway-service'
+].each { service ->
+    includeBuild(service)
+}

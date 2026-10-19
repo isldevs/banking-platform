@@ -1,0 +1,66 @@
+plugins {
+    id 'base'
+}
+
+// One independent Gradle build per microservice. No shared JPA/domain modules.
+def services = [
+        'config-service',
+        'auth-service',
+        'customer-service',
+        'account-service',
+        'transfer-service',
+        'notification-service',
+        'audit-service',
+        'gateway-service'
+]
+
+// Use Gradle's included-build task references rather than relying on shell loops.
+def serviceTasks = { String taskName ->
+    services.collect { service -> gradle.includedBuild(service).task(":${taskName}") }
+}
+
+tasks.register('buildAll') {
+    group = 'microservices'
+    description = 'Build and test every independent Spring Boot service.'
+    dependsOn serviceTasks('build')
+}
+
+tasks.register('testAll') {
+    group = 'microservices'
+    description = 'Run unit tests in all included service builds.'
+    dependsOn serviceTasks('test')
+}
+
+tasks.register('checkAll') {
+    group = 'microservices'
+    description = 'Run verification checks in all service builds.'
+    dependsOn serviceTasks('check')
+}
+
+tasks.register('bootJarAll') {
+    group = 'microservices'
+    description = 'Package executable Spring Boot JARs for all services.'
+    dependsOn serviceTasks('bootJar')
+}
+
+tasks.register('cleanAll') {
+    group = 'microservices'
+    description = 'Clean outputs of all independent builds.'
+    dependsOn serviceTasks('clean')
+}
+
+tasks.register('showServices') {
+    group = 'microservices'
+    description = 'List the included, independently buildable services.'
+    doLast {
+        println '\nComposite builds:'
+        services.each { println "  - ${it}" }
+        println '\nExample: gradle :account-service:bootJar'
+    }
+}
+
+// Make standard root lifecycle commands work too.
+tasks.named('build') { dependsOn tasks.named('buildAll') }
+tasks.named('check') { dependsOn tasks.named('checkAll') }
+tasks.named('assemble') { dependsOn tasks.named('bootJarAll') }
+tasks.named('clean') { dependsOn tasks.named('cleanAll') }
