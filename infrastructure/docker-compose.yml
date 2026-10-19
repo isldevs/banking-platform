@@ -1,0 +1,242 @@
+name: microservices-platform-demo
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      DB_PASSWORD_CONFIG: ${DB_PASSWORD_CONFIG:?Set DB_PASSWORD_CONFIG}
+      DB_PASSWORD_AUTH: ${DB_PASSWORD_AUTH:?Set DB_PASSWORD_AUTH}
+      DB_PASSWORD_CUSTOMER: ${DB_PASSWORD_CUSTOMER:?Set DB_PASSWORD_CUSTOMER}
+      DB_PASSWORD_ACCOUNT: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
+      DB_PASSWORD_TRANSFER: ${DB_PASSWORD_TRANSFER:?Set DB_PASSWORD_TRANSFER}
+      DB_PASSWORD_NOTIFICATION: ${DB_PASSWORD_NOTIFICATION:?Set DB_PASSWORD_NOTIFICATION}
+      DB_PASSWORD_AUDIT: ${DB_PASSWORD_AUDIT:?Set DB_PASSWORD_AUDIT}
+    ports:
+      - "127.0.0.1:5439:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      retries: 20
+  kafka:
+    image: apache/kafka:3.8.1
+    hostname: kafka
+    ports:
+      - "127.0.0.1:29092:29092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+  config-service:
+    build:
+      context: ../config-service
+    environment:
+      SERVER_PORT: 8888
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_URL: jdbc:postgresql://postgres:5432/config
+      DB_USERNAME: config_user
+      DB_PASSWORD: ${DB_PASSWORD_CONFIG:?Set DB_PASSWORD_CONFIG}
+      AUTH_SERVICE_URL: http://auth-service:8081
+      CUSTOMER_SERVICE_URL: http://customer-service:8082
+      ACCOUNT_SERVICE_URL: http://account-service:8083
+      TRANSFER_SERVICE_URL: http://transfer-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      AUDIT_SERVICE_URL: http://audit-service:8086
+      GATEWAY_SERVICE_URL: http://gateway-service:8080
+    volumes:
+      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+  auth-service:
+    build:
+      context: ../auth-service
+    # Read bind-mounted private PEM with the host user's permissions (WSL/Linux).
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    environment:
+      SERVER_PORT: 8081
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt-private.pem
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD}
+      DB_URL: jdbc:postgresql://postgres:5432/auth
+      DB_USERNAME: auth_user
+      DB_PASSWORD: ${DB_PASSWORD_AUTH:?Set DB_PASSWORD_AUTH}
+      CONFIG_SERVICE_URL: http://config-service:8888
+      CUSTOMER_SERVICE_URL: http://customer-service:8082
+      ACCOUNT_SERVICE_URL: http://account-service:8083
+      TRANSFER_SERVICE_URL: http://transfer-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      AUDIT_SERVICE_URL: http://audit-service:8086
+      GATEWAY_SERVICE_URL: http://gateway-service:8080
+    volumes:
+      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
+      - ./secrets/jwt-private.pem:/app/secrets/jwt-private.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+  customer-service:
+    build:
+      context: ../customer-service
+    environment:
+      SERVER_PORT: 8082
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_URL: jdbc:postgresql://postgres:5432/customer
+      DB_USERNAME: customer_user
+      DB_PASSWORD: ${DB_PASSWORD_CUSTOMER:?Set DB_PASSWORD_CUSTOMER}
+      CONFIG_SERVICE_URL: http://config-service:8888
+      AUTH_SERVICE_URL: http://auth-service:8081
+      ACCOUNT_SERVICE_URL: http://account-service:8083
+      TRANSFER_SERVICE_URL: http://transfer-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      AUDIT_SERVICE_URL: http://audit-service:8086
+      GATEWAY_SERVICE_URL: http://gateway-service:8080
+    volumes:
+      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+  account-service:
+    build:
+      context: ../account-service
+    environment:
+      SERVER_PORT: 8083
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_URL: jdbc:postgresql://postgres:5432/account
+      DB_USERNAME: account_user
+      DB_PASSWORD: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
+      DEMO_FUNDING_ENABLED: 'true'
+      CONFIG_SERVICE_URL: http://config-service:8888
+      AUTH_SERVICE_URL: http://auth-service:8081
+      CUSTOMER_SERVICE_URL: http://customer-service:8082
+      TRANSFER_SERVICE_URL: http://transfer-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      AUDIT_SERVICE_URL: http://audit-service:8086
+      GATEWAY_SERVICE_URL: http://gateway-service:8080
+    volumes:
+      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+  transfer-service:
+    build:
+      context: ../transfer-service
+    environment:
+      SERVER_PORT: 8084
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_URL: jdbc:postgresql://postgres:5432/transfer
+      DB_USERNAME: transfer_user
+      DB_PASSWORD: ${DB_PASSWORD_TRANSFER:?Set DB_PASSWORD_TRANSFER}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CONFIG_SERVICE_URL: http://config-service:8888
+      AUTH_SERVICE_URL: http://auth-service:8081
+      CUSTOMER_SERVICE_URL: http://customer-service:8082
+      ACCOUNT_SERVICE_URL: http://account-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      AUDIT_SERVICE_URL: http://audit-service:8086
+      GATEWAY_SERVICE_URL: http://gateway-service:8080
+    volumes:
+      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+  notification-service:
+    build:
+      context: ../notification-service
+    environment:
+      SERVER_PORT: 8085
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_URL: jdbc:postgresql://postgres:5432/notification
+      DB_USERNAME: notification_user
+      DB_PASSWORD: ${DB_PASSWORD_NOTIFICATION:?Set DB_PASSWORD_NOTIFICATION}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CONFIG_SERVICE_URL: http://config-service:8888
+      AUTH_SERVICE_URL: http://auth-service:8081
+      CUSTOMER_SERVICE_URL: http://customer-service:8082
+      ACCOUNT_SERVICE_URL: http://account-service:8083
+      TRANSFER_SERVICE_URL: http://transfer-service:8084
+      AUDIT_SERVICE_URL: http://audit-service:8086
+      GATEWAY_SERVICE_URL: http://gateway-service:8080
+    volumes:
+      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+  audit-service:
+    build:
+      context: ../audit-service
+    environment:
+      SERVER_PORT: 8086
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_URL: jdbc:postgresql://postgres:5432/audit
+      DB_USERNAME: audit_user
+      DB_PASSWORD: ${DB_PASSWORD_AUDIT:?Set DB_PASSWORD_AUDIT}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CONFIG_SERVICE_URL: http://config-service:8888
+      AUTH_SERVICE_URL: http://auth-service:8081
+      CUSTOMER_SERVICE_URL: http://customer-service:8082
+      ACCOUNT_SERVICE_URL: http://account-service:8083
+      TRANSFER_SERVICE_URL: http://transfer-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      GATEWAY_SERVICE_URL: http://gateway-service:8080
+    volumes:
+      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+  gateway-service:
+    build:
+      context: ../gateway-service
+    environment:
+      SERVER_PORT: 8080
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      CONFIG_SERVICE_URL: http://config-service:8888
+      AUTH_SERVICE_URL: http://auth-service:8081
+      CUSTOMER_SERVICE_URL: http://customer-service:8082
+      ACCOUNT_SERVICE_URL: http://account-service:8083
+      TRANSFER_SERVICE_URL: http://transfer-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      AUDIT_SERVICE_URL: http://audit-service:8086
+    volumes:
+      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+volumes:
+  postgres_data:
+  kafka_data:

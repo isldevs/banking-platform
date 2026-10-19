@@ -1,0 +1,11 @@
+{
+  "eventId": "e02ab40b-5b2d-4e29-bd65-66b65f963a78",
+  "eventType": "transfer.completed.v1",
+  "occurredAt": "2026-10-09T00:00:00Z",
+  "transferId": "9bbd851c-d978-42c8-a8bd-c5672e26268d",
+  "sourceAccountId": "67ce7826-7133-4021-b20d-a5127ec31a2a",
+  "destinationAccountId": "c157dc06-dcc9-4bae-9d4d-a93f02fc5962",
+  "amount": "125.00",
+  "currency": "USD",
+  "requestedBy": "b1c7306e-8be5-482c-ab4e-712f0f34e25d"
+}
