@@ -32,4 +32,4 @@ services:
 demo:
   funding-enabled: ${DEMO_FUNDING_ENABLED:false}
   admin-username: ${DEMO_ADMIN_USERNAME:admin}
-  admin-password: ${DEMO_ADMIN_PASSWORD:}
+  admin-password: ${DEMO_ADMIN_PASSWORD:admin123456789}

@@ -1,4 +1,4 @@
-package com.demo.gateway;
+package com.demo.gateway.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;

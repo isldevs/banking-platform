@@ -1,4 +1,4 @@
-package com.demo.gateway;
+package com.demo.gateway.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

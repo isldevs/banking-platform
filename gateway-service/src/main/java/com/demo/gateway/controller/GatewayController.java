@@ -1,4 +1,4 @@
-package com.demo.gateway;
+package com.demo.gateway.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,12 +19,16 @@ import java.util.Map;
 
 @RestController
 public class GatewayController {
+
     private final RestClient client;
     private final Map<String, String> targets;
 
-    GatewayController(@Value("${services.auth-url}") String auth, @Value("${services.customer-url}") String customer,
-                      @Value("${services.account-url}") String account, @Value("${services.transfer-url}") String transfer,
-                      @Value("${services.notification-url}") String notification, @Value("${services.audit-url}") String audit,
+    GatewayController(@Value("${services.auth-url}") String auth,
+                      @Value("${services.customer-url}") String customer,
+                      @Value("${services.account-url}") String account,
+                      @Value("${services.transfer-url}") String transfer,
+                      @Value("${services.notification-url}") String notification,
+                      @Value("${services.audit-url}") String audit,
                       @Value("${services.config-url}") String config) {
         targets = Map.of("auth", auth, "users", auth, "customers", customer, "accounts", account, "transfers", transfer, "notifications", notification, "audit", audit, "config", config);
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
