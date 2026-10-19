@@ -1,4 +1,4 @@
-package com.demo.auth;
+package com.demo.auth.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;

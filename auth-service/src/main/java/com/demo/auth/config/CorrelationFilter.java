@@ -1,4 +1,4 @@
-package com.demo.auth;
+package com.demo.auth.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
