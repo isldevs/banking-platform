@@ -122,7 +122,7 @@ services:
       SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
-      DEMO_FUNDING_ENABLED: 'true'
+      DEMO_FUNDINGENABLED: 'true'
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
