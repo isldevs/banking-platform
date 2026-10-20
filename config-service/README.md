@@ -4,10 +4,10 @@ Spring Cloud Config Server for the platform. This service is stateless and has n
 
 ## Responsibilities
 
-- Serve shared configuration and service-specific configuration bundled inside the Config Server.
+- Serve shared and service-specific configuration bundled inside the Config Server.
 - Use Spring Cloud Config's native classpath backend; there is no separate `config-repo` service or Git clone at runtime.
-- Apply the shared `application.yml` configuration to every client, then overlay the file matching `spring.application.name`.
-- Support environment-specific overrides with profile files such as `application-docker.yml` and `auth-service-docker.yml`.
+- Keep configuration physically separated by environment: `dev`, `qa`, `stage`, and `prod`.
+- Resolve the requested Config Client profile directly to the matching environment directory.
 - Require HTTP Basic authentication for configuration endpoints.
 - Expose health, info, metrics, and Prometheus actuator endpoints.
 - Start independently of auth-service so every client can bootstrap before authentication services start.
@@ -16,24 +16,45 @@ Spring Cloud Config Server for the platform. This service is stateless and has n
 
 ```text
 config-service/src/main/resources/config/
-├── application.yml                 # shared/base configuration
-├── application-docker.yml          # shared Docker overrides
-├── auth-service.yml                # auth-service specific configuration
-├── auth-service-docker.yml
-├── customer-service.yml
-├── customer-service-docker.yml
-├── account-service.yml
-├── account-service-docker.yml
-├── transfer-service.yml
-├── transfer-service-docker.yml
-├── notification-service.yml
-├── notification-service-docker.yml
-├── audit-service.yml
-├── audit-service-docker.yml
-└── gateway-service.yml
+├── dev/
+│   ├── application.yml
+│   ├── auth-service.yml
+│   ├── customer-service.yml
+│   ├── account-service.yml
+│   ├── transfer-service.yml
+│   ├── notification-service.yml
+│   ├── audit-service.yml
+│   └── gateway-service.yml
+├── qa/
+│   └── same service files
+├── stage/
+│   └── same service files
+└── prod/
+    └── same service files
 ```
 
-Spring Cloud Config resolves configuration using the client's `spring.application.name` and `spring.profiles.active`. With the default `base` profile, a service receives the shared `application.yml` plus its specific file, for example `auth-service.yml`. Docker starts services with the `docker` profile, which loads the shared Docker and service Docker overrides as well.
+There is intentionally **no `base/` directory** and no `*-docker.yml` configuration. Docker is only a deployment mechanism; it does not define a Spring environment.
+
+The native backend uses `classpath:/config/{profile}`. A request such as `/auth-service/dev` loads `config/dev/application.yml` and `config/dev/auth-service.yml`. `/auth-service/qa`, `/auth-service/stage`, and `/auth-service/prod` resolve the corresponding directories.
+
+The repository's environment branches can therefore promote the exact environment directory independently:
+
+```text
+dev → qa → stage → prod
+```
+
+## Environment profiles
+
+The application services support exactly these environment profiles:
+
+```text
+dev
+qa
+stage
+prod
+```
+
+Each service defaults to `dev` when `SPRING_PROFILES_ACTIVE` is not supplied. Deployments set the required environment explicitly. Docker Compose sets `SPRING_PROFILES_ACTIVE=dev`; it does not introduce a Docker profile.
 
 ## Required environment
 
@@ -48,16 +69,16 @@ No Git repository credentials are required. Never commit Config Client credentia
 ## Config Client endpoints
 
 ```text
-GET /auth-service/base/main
-GET /customer-service/base/main
-GET /account-service/base/main
-GET /transfer-service/base/main
-GET /notification-service/base/main
-GET /audit-service/base/main
-GET /gateway-service/base/main
+GET /auth-service/dev
+GET /customer-service/dev
+GET /account-service/dev
+GET /transfer-service/dev
+GET /notification-service/dev
+GET /audit-service/dev
+GET /gateway-service/dev
 ```
 
-The label is retained in the Config Client protocol for compatibility, but the native backend loads the configuration packaged with this service rather than reading a Git branch.
+For QA, stage, or production, replace `dev` with `qa`, `stage`, or `prod`.
 
 ## Run
 
@@ -85,14 +106,3 @@ bash infrastructure/scripts/run-config-service.sh
 ```
 
 Both scripts load the local Config Server credentials from `infrastructure/.env` without printing them. On Windows, the PowerShell script uses installed Gradle if available; otherwise it uses the repository's `gradlew.bat` and does not try Docker. Java 21 is still required. The service listens on port 8888; check it at `http://localhost:8888/actuator/health`.
-
-**Docker option**:
-
-```bash
-bash infrastructure/scripts/init-local.sh
-cd infrastructure
-docker compose up --build -d config-service
-docker compose logs -f config-service
-```
-
-If it exits during startup, capture the output with `docker compose logs --no-color config-service` (Docker) or rerun the standalone command and share the first `Caused by:` section. Never share the value of `CONFIG_SERVER_PASSWORD` or any other secrets.
