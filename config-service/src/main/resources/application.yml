@@ -10,6 +10,7 @@ spring:
           search-locations: classpath:/config/{profile}
 
 server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
   port: ${SERVER_PORT:8888}
   error:
     include-message: never
