@@ -209,6 +209,7 @@ services:
     build:
       context: ../gateway-service
     environment:
+      SPRING_PROFILES_ACTIVE: docker
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
       SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
