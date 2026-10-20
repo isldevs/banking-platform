@@ -70,8 +70,9 @@ services:
       CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?Set CONFIG_SERVER_PASSWORD}
       CONFIG_REPO_LABEL: ${CONFIG_REPO_LABEL:-main}
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
-      SECURITY_JWT_PRIVATEKEYPATH: /app/secrets/jwt-private.pem
+      SECURITY_JWT_KEYSTOREPATH: /app/secrets/jwt-signing.p12
+      SECURITY_JWT_KEYSTOREPASSWORD: ${JWT_KEYSTORE_PASSWORD:?Set JWT_KEYSTORE_PASSWORD}
+      SECURITY_JWT_KEYSTOREALIAS: jwt-signing
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       DEMO_ADMINUSERNAME: ${DEMO_ADMIN_USERNAME:-admin}
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD}
@@ -82,8 +83,7 @@ services:
     ports:
       - "127.0.0.1:8081:8081"
     volumes:
-      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
-      - ./secrets/jwt-private.pem:/app/secrets/jwt-private.pem:ro
+      - ./secrets/jwt-signing.p12:/app/secrets/jwt-signing.p12:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,6 +93,7 @@ services:
   customer-service:
     build:
       context: ../customer-service
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       CONFIG_SERVICE_URL: http://config-service:8888
@@ -114,6 +115,7 @@ services:
   account-service:
     build:
       context: ../account-service
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       CONFIG_SERVICE_URL: http://config-service:8888
@@ -136,6 +138,7 @@ services:
   transfer-service:
     build:
       context: ../transfer-service
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       CONFIG_SERVICE_URL: http://config-service:8888
@@ -159,6 +162,7 @@ services:
   notification-service:
     build:
       context: ../notification-service
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       CONFIG_SERVICE_URL: http://config-service:8888
@@ -182,6 +186,7 @@ services:
   audit-service:
     build:
       context: ../audit-service
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       CONFIG_SERVICE_URL: http://config-service:8888
@@ -205,6 +210,7 @@ services:
   gateway-service:
     build:
       context: ../gateway-service
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       CONFIG_SERVICE_URL: http://config-service:8888
