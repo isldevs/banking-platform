@@ -1,10 +1,5 @@
 spring:
-  # This Config Server is intended for a private/local demo network without
-  # HTTP Basic credentials. Disable Boot's generated in-memory user as well.
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
-  application:
+    application:
     name: config-service
   profiles:
     active: native
