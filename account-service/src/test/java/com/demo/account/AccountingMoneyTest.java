@@ -1,6 +1,6 @@
 package com.demo.account;
 
-import com.demo.account.service.impl.AccountingServiceImpl;
+import com.demo.account.application.service.AccountingServiceImpl;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

@@ -1,0 +1,34 @@
+spring:
+  cloud:
+    config:
+      allowOverride: true
+      overrideSystemProperties: false
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
+server:
+  error:
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+security:
+  jwt:
+    issuer: ${SECURITY_JWT_ISSUER}
+    audience: api
+
+services:
+  customer-url: ${CUSTOMER_SERVICE_URL}
+  account-url: ${ACCOUNT_SERVICE_URL}
+  auth-url: ${AUTH_SERVICE_URL}
+  transfer-url: ${TRANSFER_SERVICE_URL}
+  notification-url: ${NOTIFICATION_SERVICE_URL}
+  audit-url: ${AUDIT_SERVICE_URL}

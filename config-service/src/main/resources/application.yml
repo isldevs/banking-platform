@@ -5,19 +5,13 @@ spring:
     user:
       name: ${CONFIG_SERVER_USERNAME}
       password: ${CONFIG_SERVER_PASSWORD}
+  profiles:
+    active: native
   cloud:
     config:
       server:
-        git:
-          uri: ${CONFIG_REPO_URI:https://github.com/isldevs/microservice-platform-demo.git}
-          default-label: ${CONFIG_REPO_LABEL:main}
-          username: ${CONFIG_REPO_USERNAME:}
-          password: ${CONFIG_REPO_PASSWORD:}
-          search-paths:
-            - ${CONFIG_REPO_SEARCH_PATHS:config-repo}
-          clone-on-start: true
-          force-pull: true
-          delete-untracked-branches: true
+        native:
+          search-locations: classpath:/config/{profile}
 
 server:
   port: ${SERVER_PORT:8888}
