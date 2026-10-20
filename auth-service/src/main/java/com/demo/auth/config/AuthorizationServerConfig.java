@@ -16,13 +16,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
-import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
-import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -30,29 +29,21 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.KeyFactory;
+import java.security.KeyStore;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
 @Configuration
 public class AuthorizationServerConfig {
 
-    /**
-     * A public OAuth2 client intended for local browser/Postman testing.
-     * PKCE is required and no client secret is issued to the client.
-     */
     @Bean
     RegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate) {
         JdbcRegisteredClientRepository repository = new JdbcRegisteredClientRepository(jdbcTemplate);
@@ -70,10 +61,7 @@ public class AuthorizationServerConfig {
                 .scope("account.read")
                 .scope("account.write")
                 .scope("transfer.create")
-                .clientSettings(ClientSettings.builder()
-                        .requireProofKey(true)
-                        .requireAuthorizationConsent(false)
-                        .build())
+                .clientSettings(ClientSettings.builder().requireProofKey(true).requireAuthorizationConsent(false).build())
                 .tokenSettings(TokenSettings.builder()
                         .accessTokenFormat(OAuth2TokenFormat.SELF_CONTAINED)
                         .accessTokenTimeToLive(Duration.ofMinutes(15))
@@ -82,7 +70,6 @@ public class AuthorizationServerConfig {
                         .build())
                 .build();
 
-        // Seed the public local demo client once. It is thereafter stored in PostgreSQL.
         if (repository.findByClientId(browserClient.getClientId()) == null) {
             repository.save(browserClient);
         }
@@ -90,46 +77,41 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    OAuth2AuthorizationService authorizationService(
-            JdbcTemplate jdbcTemplate,
-            RegisteredClientRepository clients) {
+    OAuth2AuthorizationService authorizationService(JdbcTemplate jdbcTemplate, RegisteredClientRepository clients) {
         return new JdbcOAuth2AuthorizationService(jdbcTemplate, clients);
     }
 
     @Bean
-    OAuth2AuthorizationConsentService authorizationConsentService(
-            JdbcTemplate jdbcTemplate,
-            RegisteredClientRepository clients) {
+    OAuth2AuthorizationConsentService authorizationConsentService(JdbcTemplate jdbcTemplate, RegisteredClientRepository clients) {
         return new JdbcOAuth2AuthorizationConsentService(jdbcTemplate, clients);
     }
 
     @Bean
     JWKSource<SecurityContext> jwkSource(
-            @Value("${security.jwt.private-key-path}") String privateKeyPath,
-            @Value("${security.jwt.public-key-path}") String publicKeyPath) throws Exception {
+            @Value("${security.jwt.keystore-path}") String keystorePath,
+            @Value("${security.jwt.keystore-password}") String keystorePassword,
+            @Value("${security.jwt.keystore-alias:jwt-signing}") String keyAlias) throws Exception {
 
-        String privatePem = Files.readString(Path.of(privateKeyPath))
-                .replaceAll("-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s", "");
-        String publicPem = Files.readString(Path.of(publicKeyPath))
-                .replaceAll("-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s", "");
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        try (var input = java.nio.file.Files.newInputStream(java.nio.file.Path.of(keystorePath))) {
+            keyStore.load(input, keystorePassword.toCharArray());
+        }
+        if (!keyStore.containsAlias(keyAlias) || !keyStore.isKeyEntry(keyAlias)) {
+            throw new IllegalStateException("Configured JWT signing alias is missing or is not a key entry");
+        }
 
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        RSAPrivateKey privateKey = (RSAPrivateKey) keyFactory.generatePrivate(
-                new PKCS8EncodedKeySpec(Base64.getDecoder().decode(privatePem)));
-        RSAPublicKey publicKey = (RSAPublicKey) keyFactory.generatePublic(
-                new X509EncodedKeySpec(Base64.getDecoder().decode(publicPem)));
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyStore.getKey(keyAlias, keystorePassword.toCharArray());
+        var certificate = keyStore.getCertificate(keyAlias);
+        if (certificate == null || !(certificate.getPublicKey() instanceof RSAPublicKey publicKey)) {
+            throw new IllegalStateException("Configured JWT keystore entry does not contain an RSA certificate");
+        }
 
-        RSAKey signingKey = new RSAKey.Builder(publicKey)
-                .privateKey(privateKey)
-                .keyID("demo-rsa-1")
-                .build();
-
+        RSAKey signingKey = new RSAKey.Builder(publicKey).privateKey(privateKey).keyID("demo-rsa-1").build();
         return new ImmutableJWKSet<>(new JWKSet(signingKey));
     }
 
     @Bean
-    AuthorizationServerSettings authorizationServerSettings(
-            @Value("${security.jwt.issuer}") String issuer) {
+    AuthorizationServerSettings authorizationServerSettings(@Value("${security.jwt.issuer}") String issuer) {
         return AuthorizationServerSettings.builder().issuer(issuer).build();
     }
 
@@ -138,10 +120,6 @@ public class AuthorizationServerConfig {
         return new BCryptPasswordEncoder(12);
     }
 
-    /**
-     * Reuse the existing identity tables for browser sign-in while preserving the
-     * demo's existing /api/auth/login endpoint.
-     */
     @Bean
     UserDetailsService userDetailsService(JdbcTemplate jdbc) {
         return username -> jdbc.query(
@@ -165,11 +143,6 @@ public class AuthorizationServerConfig {
         ).stream().findFirst().orElseThrow(() -> new UsernameNotFoundException("Invalid credentials"));
     }
 
-    /**
-     * Keep access tokens consumable by the existing gateway/resource-server
-     * permission converter. The signing key and issuer match the legacy demo
-     * login tokens so both flows can be used during the migration.
-     */
     @Bean
     OAuth2TokenCustomizer<JwtEncodingContext> jwtTokenCustomizer(
             JdbcTemplate jdbc,
@@ -178,50 +151,32 @@ public class AuthorizationServerConfig {
             if (!OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
                 return;
             }
-
             context.getClaims().audience(List.of(audience));
-
             Authentication principal = context.getPrincipal();
             if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
                 return;
             }
-
             String username = principal.getName();
             List<UUID> userIds = jdbc.query(
                     "SELECT id FROM users WHERE username = ? AND status = 'ACTIVE'",
-                    (rs, rowNum) -> rs.getObject(1, UUID.class),
-                    username
-            );
-            if (userIds.isEmpty()) {
-                return;
-            }
-
+                    (rs, rowNum) -> rs.getObject(1, UUID.class), username);
+            if (userIds.isEmpty()) return;
             UUID userId = userIds.get(0);
             List<String> permissions = jdbc.queryForList(
                     """
-                    SELECT DISTINCT p.code
-                    FROM permissions p
+                    SELECT DISTINCT p.code FROM permissions p
                     JOIN role_permissions rp ON rp.permission_id = p.id
                     JOIN user_roles ur ON ur.role_id = rp.role_id
                     WHERE ur.user_id = ?
-                    """,
-                    String.class, userId
-            );
+                    """, String.class, userId);
             List<String> roles = jdbc.queryForList(
                     """
-                    SELECT r.name
-                    FROM roles r
+                    SELECT r.name FROM roles r
                     JOIN user_roles ur ON ur.role_id = r.id
                     WHERE ur.user_id = ?
-                    """,
-                    String.class, userId
-            );
-
-            context.getClaims()
-                    .subject(userId.toString())
-                    .claim("username", username)
-                    .claim("permissions", permissions)
-                    .claim("roles", roles);
+                    """, String.class, userId);
+            context.getClaims().subject(userId.toString()).claim("username", username)
+                    .claim("permissions", permissions).claim("roles", roles);
         };
     }
 }
