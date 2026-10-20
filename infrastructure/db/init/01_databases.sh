@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-for service in config auth customer account transfer notification audit; do
+for service in auth customer account transfer notification audit; do
   upper="${service^^}"
   pass_var="DB_PASSWORD_${upper}"
   pass="${!pass_var:?missing database secret}"
