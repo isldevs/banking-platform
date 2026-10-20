@@ -5,3 +5,8 @@ build/
 .vscode/
 **/.gradle/
 **/build/
+
+# Local keys and runtime secrets. Never commit signing private keys.
+/secrets/
+/infrastructure/.env
+/infrastructure/secrets/
