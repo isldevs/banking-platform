@@ -10,3 +10,4 @@ build/
 /secrets/
 /infrastructure/.env
 /infrastructure/secrets/
+**/secrets/
