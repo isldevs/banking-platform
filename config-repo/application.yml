@@ -1,3 +1,9 @@
+spring:
+  cloud:
+    config:
+      allowOverride: true
+      overrideSystemProperties: false
+
 server:
   error:
     include-message: never
