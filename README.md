@@ -59,6 +59,30 @@ demo secrets and generated RSA key live **only in `infrastructure/.env` and `inf
 git-ignored). Do not check them in. In WSL/Linux, auth-service uses your host UID/GID to read the mode-600 private key
 bind mount.
 
+
+## GitHub Actions configuration
+
+To upload local demo settings as repository-level GitHub Actions Variables and Secrets, install the
+[GitHub CLI](https://cli.github.com/) and authenticate with an account that can manage Actions settings:
+
+```bash
+gh auth login
+bash infrastructure/scripts/init-local.sh
+bash infrastructure/scripts/sync-github-actions-config.sh
+```
+
+The sync script creates/updates non-sensitive settings as **Variables** (for example `JWT_ISSUER`,
+`CONFIG_REPO_URI`, `CONFIG_REPO_LABEL`, and `DEMO_ADMIN_USERNAME`) and credentials as **Secrets**
+(for example database passwords, `CONFIG_SERVER_PASSWORD`, `INTERNAL_SERVICE_KEY`, and demo passwords).
+If `infrastructure/.env` does not exist, it generates fresh random demo credentials first; inspect your local
+`.env` before uploading if you already have one. Never replace credentials with placeholders. The script does not
+print secret values.
+
+Review repository variables at
+[`Settings → Secrets and variables → Actions`](https://github.com/isldevs/microservice-platform-demo/settings/variables/actions).
+The existing CI smoke test intentionally generates isolated, short-lived credentials for each run instead of
+depending on persistent repository secrets.
+
 ## Demonstrated end-to-end flow
 
 1. JWT login (seeded `demo` and `admin` users; read passwords from `infrastructure/.env`).
