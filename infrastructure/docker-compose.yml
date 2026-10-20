@@ -1,4 +1,5 @@
 name: microservices-platform-demo
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -17,9 +18,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
+      timeout: 3s
       retries: 20
+
   kafka:
     image: apache/kafka:3.8.1
     hostname: kafka
@@ -40,6 +43,7 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
     volumes:
       - kafka_data:/var/lib/kafka/data
+
   config-service:
     build:
       context: ../config-service
@@ -54,25 +58,27 @@ services:
       CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?Set CONFIG_SERVER_PASSWORD}
     ports:
       - "127.0.0.1:8888:8888"
+
   auth-service:
     build:
       context: ../auth-service
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
     environment:
-      SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
-      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      SECURITY_JWT_PRIVATEKEYPATH: /app/secrets/jwt-private.pem
-      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD}
-      DEMO_ADMINUSERNAME: ${DEMO_ADMIN_USERNAME:-admin}
-      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth
-      SPRING_DATASOURCE_USERNAME: auth_user
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_AUTH:?Set DB_PASSWORD_AUTH}
+      SPRING_PROFILES_ACTIVE: docker
       CONFIG_SERVICE_URL: http://config-service:8888
       CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?Set CONFIG_SERVER_USERNAME}
       CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?Set CONFIG_SERVER_PASSWORD}
       CONFIG_REPO_LABEL: ${CONFIG_REPO_LABEL:-main}
+      SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      SECURITY_JWT_PRIVATEKEYPATH: /app/secrets/jwt-private.pem
+      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DEMO_ADMINUSERNAME: ${DEMO_ADMIN_USERNAME:-admin}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth
+      SPRING_DATASOURCE_USERNAME: auth_user
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_AUTH:?Set DB_PASSWORD_AUTH}
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
       - ./secrets/jwt-private.pem:/app/secrets/jwt-private.pem:ro
@@ -81,69 +87,63 @@ services:
         condition: service_healthy
       config-service:
         condition: service_started
+
   customer-service:
     build:
       context: ../customer-service
     environment:
-      SERVER_PORT: 8082
-      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DB_URL: jdbc:postgresql://postgres:5432/customer
-      DB_USERNAME: customer_user
-      DB_PASSWORD: ${DB_PASSWORD_CUSTOMER:?Set DB_PASSWORD_CUSTOMER}
-      AUTH_SERVICE_URL: http://auth-service:8081
-      ACCOUNT_SERVICE_URL: http://account-service:8083
-      TRANSFER_SERVICE_URL: http://transfer-service:8084
-      NOTIFICATION_SERVICE_URL: http://notification-service:8085
-      AUDIT_SERVICE_URL: http://audit-service:8086
-      GATEWAY_SERVICE_URL: http://gateway-service:8080
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVICE_URL: http://config-service:8888
+      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?Set CONFIG_SERVER_USERNAME}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?Set CONFIG_SERVER_PASSWORD}
+      CONFIG_REPO_LABEL: ${CONFIG_REPO_LABEL:-main}
+      SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_CUSTOMER:?Set DB_PASSWORD_CUSTOMER}
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
+      config-service:
+        condition: service_started
+
   account-service:
     build:
       context: ../account-service
     environment:
-      SERVER_PORT: 8083
-      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DB_URL: jdbc:postgresql://postgres:5432/account
-      DB_USERNAME: account_user
-      DB_PASSWORD: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVICE_URL: http://config-service:8888
+      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?Set CONFIG_SERVER_USERNAME}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?Set CONFIG_SERVER_PASSWORD}
+      CONFIG_REPO_LABEL: ${CONFIG_REPO_LABEL:-main}
+      SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
       DEMO_FUNDING_ENABLED: 'true'
-      AUTH_SERVICE_URL: http://auth-service:8081
-      CUSTOMER_SERVICE_URL: http://customer-service:8082
-      TRANSFER_SERVICE_URL: http://transfer-service:8084
-      NOTIFICATION_SERVICE_URL: http://notification-service:8085
-      AUDIT_SERVICE_URL: http://audit-service:8086
-      GATEWAY_SERVICE_URL: http://gateway-service:8080
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
+      config-service:
+        condition: service_started
+
   transfer-service:
     build:
       context: ../transfer-service
     environment:
-      SERVER_PORT: 8084
-      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DB_URL: jdbc:postgresql://postgres:5432/transfer
-      DB_USERNAME: transfer_user
-      DB_PASSWORD: ${DB_PASSWORD_TRANSFER:?Set DB_PASSWORD_TRANSFER}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      AUTH_SERVICE_URL: http://auth-service:8081
-      CUSTOMER_SERVICE_URL: http://customer-service:8082
-      ACCOUNT_SERVICE_URL: http://account-service:8083
-      NOTIFICATION_SERVICE_URL: http://notification-service:8085
-      AUDIT_SERVICE_URL: http://audit-service:8086
-      GATEWAY_SERVICE_URL: http://gateway-service:8080
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVICE_URL: http://config-service:8888
+      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?Set CONFIG_SERVER_USERNAME}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?Set CONFIG_SERVER_PASSWORD}
+      CONFIG_REPO_LABEL: ${CONFIG_REPO_LABEL:-main}
+      SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_TRANSFER:?Set DB_PASSWORD_TRANSFER}
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
@@ -151,24 +151,22 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+      config-service:
+        condition: service_started
+
   notification-service:
     build:
       context: ../notification-service
     environment:
-      SERVER_PORT: 8085
-      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DB_URL: jdbc:postgresql://postgres:5432/notification
-      DB_USERNAME: notification_user
-      DB_PASSWORD: ${DB_PASSWORD_NOTIFICATION:?Set DB_PASSWORD_NOTIFICATION}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      AUTH_SERVICE_URL: http://auth-service:8081
-      CUSTOMER_SERVICE_URL: http://customer-service:8082
-      ACCOUNT_SERVICE_URL: http://account-service:8083
-      TRANSFER_SERVICE_URL: http://transfer-service:8084
-      AUDIT_SERVICE_URL: http://audit-service:8086
-      GATEWAY_SERVICE_URL: http://gateway-service:8080
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVICE_URL: http://config-service:8888
+      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?Set CONFIG_SERVER_USERNAME}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?Set CONFIG_SERVER_PASSWORD}
+      CONFIG_REPO_LABEL: ${CONFIG_REPO_LABEL:-main}
+      SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_NOTIFICATION:?Set DB_PASSWORD_NOTIFICATION}
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
@@ -176,24 +174,22 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+      config-service:
+        condition: service_started
+
   audit-service:
     build:
       context: ../audit-service
     environment:
-      SERVER_PORT: 8086
-      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DB_URL: jdbc:postgresql://postgres:5432/audit
-      DB_USERNAME: audit_user
-      DB_PASSWORD: ${DB_PASSWORD_AUDIT:?Set DB_PASSWORD_AUDIT}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      AUTH_SERVICE_URL: http://auth-service:8081
-      CUSTOMER_SERVICE_URL: http://customer-service:8082
-      ACCOUNT_SERVICE_URL: http://account-service:8083
-      TRANSFER_SERVICE_URL: http://transfer-service:8084
-      NOTIFICATION_SERVICE_URL: http://notification-service:8085
-      GATEWAY_SERVICE_URL: http://gateway-service:8080
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVICE_URL: http://config-service:8888
+      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?Set CONFIG_SERVER_USERNAME}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?Set CONFIG_SERVER_PASSWORD}
+      CONFIG_REPO_LABEL: ${CONFIG_REPO_LABEL:-main}
+      SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_AUDIT:?Set DB_PASSWORD_AUDIT}
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
@@ -201,17 +197,20 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+      config-service:
+        condition: service_started
+
   gateway-service:
     build:
       context: ../gateway-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
       CONFIG_SERVICE_URL: http://config-service:8888
       CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?Set CONFIG_SERVER_USERNAME}
       CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?Set CONFIG_SERVER_PASSWORD}
       CONFIG_REPO_LABEL: ${CONFIG_REPO_LABEL:-main}
+      SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
+      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     ports:
@@ -219,6 +218,7 @@ services:
     depends_on:
       config-service:
         condition: service_started
+
 volumes:
   postgres_data:
   kafka_data:
