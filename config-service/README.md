@@ -50,7 +50,7 @@ docker compose up --build -d
 
 This service requires `CONFIG_SERVER_USERNAME` and `CONFIG_SERVER_PASSWORD`; starting `gradle bootRun` from an IDE or terminal does **not** automatically load `infrastructure/.env`.
 
-**Windows PowerShell** (with JDK 21 and Gradle 8.10.2 installed):
+**Windows PowerShell** (uses local Gradle if installed; otherwise Docker Desktop):
 
 ```powershell
 # Run once from the repository root in Git Bash or WSL to generate infrastructure/.env
@@ -66,7 +66,7 @@ bash infrastructure/scripts/init-local.sh
 bash infrastructure/scripts/run-config-service.sh
 ```
 
-Both scripts load the local Config Server credentials from `infrastructure/.env` without printing them. They start the service on port 8888. Check it at `http://localhost:8888/actuator/health`.
+Both scripts load the local Config Server credentials from `infrastructure/.env` without printing them. The PowerShell script uses local Gradle if available and automatically falls back to Docker Compose when Gradle is missing. The Bash script requires Gradle locally. The service listens on port 8888; check it at `http://localhost:8888/actuator/health`.
 
 **Docker option** (no local Gradle installation needed; Docker Desktop/Engine is required):
 
