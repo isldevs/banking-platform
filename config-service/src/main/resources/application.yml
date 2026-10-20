@@ -9,7 +9,7 @@ spring:
     config:
       server:
         git:
-          uri: ${CONFIG_REPO_URI:-https://github.com/isldevs/microservice-platform-demo.git}
+          uri: ${CONFIG_REPO_URI:https://github.com/isldevs/microservice-platform-demo.git}
           default-label: ${CONFIG_REPO_LABEL:main}
           username: ${CONFIG_REPO_USERNAME:}
           password: ${CONFIG_REPO_PASSWORD:}
