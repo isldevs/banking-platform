@@ -142,9 +142,10 @@ In Postman, create an OAuth 2.0 Authorization Code (With PKCE) token, use the cl
 
 ## Review these demo limitations before any real deployment
 
-- `auth-service` now provides Spring Authorization Server Authorization Code + PKCE and OIDC discovery for a local demo
-  client. The legacy `POST /api/auth/login` flow remains for the automated demo script. OAuth2 client registration and
-  authorization state are in-memory and are not suitable for production persistence.
+- `auth-service` provides Spring Authorization Server Authorization Code + PKCE and OIDC discovery for a local demo
+  client, while the legacy `POST /api/auth/login` flow remains for the automated demo script. OAuth2 client registration,
+  authorizations/tokens, and consent are persisted in the `auth` PostgreSQL database with JDBC repositories and Flyway.
+  The generated JWT signing key is local/ignored or supplied by an approved key manager; never commit it.
 - Internal service calls use an externally injected shared `X-Service-Key` for **local demo only**; deploy mTLS or
   strong per-service identity with rotation, egress isolation and a real policy at company environments.
 - `account-service` has a **demo funding endpoint** backed by a negative-balance clearing account. Disable
