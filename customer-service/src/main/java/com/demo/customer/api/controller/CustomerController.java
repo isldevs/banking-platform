@@ -1,8 +1,8 @@
-package com.demo.customer.controller;
+package com.demo.customer.api.controller;
 
-import com.demo.customer.config.Support;
-import com.demo.customer.entity.NewCustomer;
-import com.demo.customer.service.CustomerService;
+import com.demo.customer.common.Support;
+import com.demo.customer.api.dto.request.NewCustomer;
+import com.demo.customer.application.port.in.CustomerService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

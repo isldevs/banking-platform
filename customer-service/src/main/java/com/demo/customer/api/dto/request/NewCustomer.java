@@ -1,4 +1,4 @@
-package com.demo.customer.entity;
+package com.demo.customer.api.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

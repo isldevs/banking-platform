@@ -1,4 +1,4 @@
-package com.demo.customer.exception;
+package com.demo.customer.api.error;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.LoggerFactory;

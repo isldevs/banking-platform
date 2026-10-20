@@ -1,4 +1,4 @@
-package com.demo.customer.config;
+package com.demo.customer.infrastructure.security;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

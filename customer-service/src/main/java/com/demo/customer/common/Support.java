@@ -1,4 +1,4 @@
-package com.demo.customer.config;
+package com.demo.customer.common;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
