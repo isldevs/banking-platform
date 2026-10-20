@@ -40,12 +40,32 @@ read_env() {
   ' "$ENV_FILE"
 }
 
+read_env_or_default() {
+  local value
+  value="$(read_env "$1")"
+  if [[ -n "$value" ]]; then
+    printf '%s' "$value"
+  else
+    printf '%s' "$2"
+  fi
+}
+
 set_variable() {
   local name="$1" value="$2"
   [[ -n "$value" ]] || { echo "Skipping unset variable: $name"; return; }
   # Pipe values on stdin so they are not included in gh's command-line arguments.
   printf '%s' "$value" | gh variable set "$name" --repo "$REPO" >/dev/null
   echo "Set Actions variable: $name"
+}
+
+validate_secret() {
+  local name="$1" value
+  value="$(read_env "$name")"
+  if [[ -z "$value" || "$value" == replace-with-* ]]; then
+    echo "Required secret $name is missing or still a placeholder in $ENV_FILE." >&2
+    echo "Set a real value in infrastructure/.env and run this script again." >&2
+    exit 1
+  fi
 }
 
 set_secret() {
@@ -60,15 +80,32 @@ set_secret() {
   echo "Set Actions secret: $name"
 }
 
+# Validate all required credentials before modifying repository settings.
+for name in \
+  POSTGRES_PASSWORD \
+  INTERNAL_SERVICE_KEY \
+  CONFIG_SERVER_PASSWORD \
+  DEMO_ADMIN_PASSWORD \
+  DEMO_USER_PASSWORD \
+  DB_PASSWORD_AUTH \
+  DB_PASSWORD_CUSTOMER \
+  DB_PASSWORD_ACCOUNT \
+  DB_PASSWORD_TRANSFER \
+  DB_PASSWORD_NOTIFICATION \
+  DB_PASSWORD_AUDIT
+do
+  validate_secret "$name"
+done
+
 # Repository variables: configuration that is safe to display in workflow logs.
-set_variable "JWT_ISSUER" "$(read_env JWT_ISSUER)"
-set_variable "APP_UID" "$(read_env APP_UID)"
-set_variable "APP_GID" "$(read_env APP_GID)"
-set_variable "CONFIG_SERVER_USERNAME" "$(read_env CONFIG_SERVER_USERNAME)"
-set_variable "CONFIG_REPO_LABEL" "$(read_env CONFIG_REPO_LABEL)"
-set_variable "DEMO_ADMIN_USERNAME" "$(read_env DEMO_ADMIN_USERNAME)"
-set_variable "CONFIG_REPO_URI" "$(read_env CONFIG_REPO_URI || true)"
-set_variable "CONFIG_REPO_SEARCH_PATHS" "$(read_env CONFIG_REPO_SEARCH_PATHS || true)"
+set_variable "JWT_ISSUER" "$(read_env_or_default JWT_ISSUER http://localhost:8081)"
+set_variable "APP_UID" "$(read_env_or_default APP_UID 1000)"
+set_variable "APP_GID" "$(read_env_or_default APP_GID 1000)"
+set_variable "CONFIG_SERVER_USERNAME" "$(read_env_or_default CONFIG_SERVER_USERNAME config-client)"
+set_variable "CONFIG_REPO_LABEL" "$(read_env_or_default CONFIG_REPO_LABEL main)"
+set_variable "DEMO_ADMIN_USERNAME" "$(read_env_or_default DEMO_ADMIN_USERNAME admin)"
+set_variable "CONFIG_REPO_URI" "$(read_env_or_default CONFIG_REPO_URI https://github.com/isldevs/microservice-platform-demo.git)"
+set_variable "CONFIG_REPO_SEARCH_PATHS" "$(read_env_or_default CONFIG_REPO_SEARCH_PATHS config-repo)"
 set_variable "CONFIG_REPO_USERNAME" "$(read_env CONFIG_REPO_USERNAME || true)"
 
 # Repository secrets: credentials must never be stored as Actions variables.
