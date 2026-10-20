@@ -1,9 +1,0 @@
-server:
-  port: 8082
-
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5439/customer
-    username: customer_user
-  flyway:
-    enabled: true
