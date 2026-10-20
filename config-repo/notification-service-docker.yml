@@ -2,3 +2,5 @@ spring:
   datasource:
     url: jdbc:postgresql://postgres:5432/notification
     username: notification_user
+  kafka:
+    bootstrap-servers: kafka:9092
