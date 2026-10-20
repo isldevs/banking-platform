@@ -31,7 +31,7 @@ installation options and independent repository guidance.
 | Service              | Port | Database     | Responsibility                                         |
 |----------------------|-----:|--------------|--------------------------------------------------------|
 | gateway-service      | 8080 | None         | Public routing, JWT verification, correlation ID       |
-| auth-service         | 8081 | auth         | Users, RBAC, RSA JWT login/refresh/logout              |
+| auth-service         | 8081 | auth         | OAuth2/OIDC Authorization Server + demo login/refresh  |
 | customer-service     | 8082 | customer     | Customer profile, KYC approval                         |
 | account-service      | 8083 | account      | Account ownership, balance, atomic double-entry ledger |
 | transfer-service     | 8084 | transfer     | Idempotency, transfer workflow, recovery, Kafka outbox |
@@ -54,7 +54,7 @@ python3 scripts/demo_flow.py
 
 The Gradle Docker build downloads dependencies on first build, so internet access or a company Maven mirror is needed.
 First startup may require extra time. On Windows use Docker Desktop with WSL2 and execute commands inside WSL or Git
-Bash. Postgres is available on local port `5439`; gateway on `8080`. Kafka listener for external tools on `29092`. The
+Bash. Postgres is available on local port `5439`; gateway on `8080`; auth-service OAuth2/OIDC endpoints on `8081`. Kafka listener for external tools on `29092`. The
 demo secrets and generated RSA key live **only in `infrastructure/.env` and `infrastructure/secrets/`** (both
 git-ignored). Do not check them in. In WSL/Linux, auth-service uses your host UID/GID to read the mode-600 private key
 bind mount.
@@ -105,8 +105,9 @@ cd infrastructure && docker compose ps
 
 ## Review these demo limitations before any real deployment
 
-- The `POST /api/auth/login` password flow is a **teaching demo**, not a full authorization-code/PKCE OAuth 2/OIDC
-  authorization server. Add Spring Authorization Server before connecting untrusted public clients.
+- `auth-service` now provides Spring Authorization Server Authorization Code + PKCE and OIDC discovery for a local demo
+  client. The legacy `POST /api/auth/login` flow remains for the automated demo script. OAuth2 client registration and
+  authorization state are in-memory and are not suitable for production persistence.
 - Internal service calls use an externally injected shared `X-Service-Key` for **local demo only**; deploy mTLS or
   strong per-service identity with rotation, egress isolation and a real policy at company environments.
 - `account-service` has a **demo funding endpoint** backed by a negative-balance clearing account. Disable
@@ -118,7 +119,7 @@ cd infrastructure && docker compose ps
   Config changes do not automatically refresh running clients, so restart affected containers after changes.
 - Gateway includes JWT validation/routing but not a production rate limiter, WAF, TLS termination or hardened
   header/CORS policy.
-- This demo doesn't implement transfer reversal, maker-checker, full audit coverage, OAuth PKCE, distributed tracing,
+- This demo doesn't implement transfer reversal, maker-checker, full audit coverage, production-grade OAuth client lifecycle, distributed tracing,
   backups, CI/CD, complete resilience policies, full tests, or a real UI. These remain milestones from the source
   roadmap, not completed features.
 - This package has not been compiled or integration-tested in this workspace because Gradle dependencies and Docker are
