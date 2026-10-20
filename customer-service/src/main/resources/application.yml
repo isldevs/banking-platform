@@ -7,8 +7,6 @@ spring:
     import: "configserver:${CONFIG_SERVICE_URL:http://localhost:8888}"
   cloud:
     config:
-      username: ${CONFIG_SERVER_USERNAME}
-      password: ${CONFIG_SERVER_PASSWORD}
       fail-fast: true
       retry:
         max-attempts: 20
