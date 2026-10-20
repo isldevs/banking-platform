@@ -1,4 +1,4 @@
-package com.demo.transfer;
+package com.demo.transfer.infrastructure.messaging;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;

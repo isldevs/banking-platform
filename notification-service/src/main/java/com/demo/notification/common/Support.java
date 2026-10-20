@@ -1,4 +1,4 @@
-package com.demo.notification;
+package com.demo.notification.common;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;

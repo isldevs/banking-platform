@@ -1,4 +1,4 @@
-package com.demo.notification;
+package com.demo.notification.infrastructure.observability;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

@@ -1,4 +1,4 @@
-package com.demo.notification;
+package com.demo.notification.infrastructure.security;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

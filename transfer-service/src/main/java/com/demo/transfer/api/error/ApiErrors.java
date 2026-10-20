@@ -1,4 +1,4 @@
-package com.demo.transfer;
+package com.demo.transfer.api.error;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;

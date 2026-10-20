@@ -1,4 +1,4 @@
-package com.demo.notification;
+package com.demo.notification.api.controller;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;

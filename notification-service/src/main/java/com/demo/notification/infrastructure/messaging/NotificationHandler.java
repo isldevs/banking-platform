@@ -1,4 +1,4 @@
-package com.demo.notification;
+package com.demo.notification.infrastructure.messaging;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
