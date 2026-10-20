@@ -1,0 +1,12 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5439/auth
+    username: auth_user
+  flyway:
+    enabled: true
+
+demo:
+  admin-username: admin
