@@ -107,7 +107,7 @@ bash infrastructure/scripts/init-local.sh
 bash infrastructure/scripts/sync-github-actions-config.sh
 ```
 
-The sync script uploads non-sensitive settings such as `JWT_ISSUER`, `APP_UID`, `APP_GID`, `CONFIG_SERVER_USERNAME`, and `DEMO_ADMIN_USERNAME` as Variables. Database passwords, `CONFIG_SERVER_PASSWORD`, `INTERNAL_SERVICE_KEY`, `OAUTH2_DEMO_CLIENT_SECRET`, and demo passwords are uploaded as Secrets.
+The sync script uploads non-sensitive settings such as `JWT_ISSUER`, `APP_UID`, `APP_GID`, and `DEMO_ADMIN_USERNAME` as Variables. Database passwords, `INTERNAL_SERVICE_KEY`, `OAUTH2_DEMO_CLIENT_SECRET`, and demo passwords are uploaded as Secrets. Config Service and its clients do not require Config Server credentials.
 
 ## Security and data ownership
 
