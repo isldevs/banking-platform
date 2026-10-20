@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -41,9 +43,9 @@ public class SecurityConfig {
     JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter c = new JwtAuthenticationConverter();
         c.setJwtGrantedAuthoritiesConverter(jwt -> {
-            List<org.springframework.security.core.GrantedAuthority> result = new ArrayList<>();
+            List<GrantedAuthority> result = new ArrayList<>();
             for (String p : jwt.getClaimAsStringList("permissions") == null ? List.<String>of() : jwt.getClaimAsStringList("permissions"))
-                result.add(new org.springframework.security.core.authority.SimpleGrantedAuthority(p));
+                result.add(new SimpleGrantedAuthority(p));
             return result;
         });
         return c;

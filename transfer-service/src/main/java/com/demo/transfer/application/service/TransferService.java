@@ -3,12 +3,14 @@ package com.demo.transfer.application.service;
 import com.demo.transfer.common.Support;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
@@ -32,8 +34,11 @@ public class TransferService {
     private final String key;
     private final ObjectMapper mapper;
 
-    TransferService(JdbcTemplate db, org.springframework.transaction.PlatformTransactionManager manager,
-                    @Value("${services.account-url}") String accountUrl, @Value("${security.internal-key}") String key, ObjectMapper mapper) {
+    @Autowired
+    TransferService(JdbcTemplate db, PlatformTransactionManager manager,
+                    @Value("${services.account-url}") String accountUrl,
+                    @Value("${security.internal-key}") String key,
+                    ObjectMapper mapper) {
         this.db = db;
         this.tx = new TransactionTemplate(manager);
         this.accountUrl = accountUrl;

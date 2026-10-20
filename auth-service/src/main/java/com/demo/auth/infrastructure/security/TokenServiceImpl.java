@@ -11,6 +11,8 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyStore;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
@@ -33,7 +35,7 @@ public class TokenServiceImpl implements TokenService {
         this.issuer = issuer;
 
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        try (var input = java.nio.file.Files.newInputStream(java.nio.file.Path.of(keystorePath))) {
+        try (var input = Files.newInputStream(Path.of(keystorePath))) {
             keyStore.load(input, keystorePassword.toCharArray());
         }
 

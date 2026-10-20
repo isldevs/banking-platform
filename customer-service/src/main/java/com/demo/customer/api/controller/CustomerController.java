@@ -1,15 +1,9 @@
 package com.demo.customer.api.controller;
 
-import com.demo.customer.common.Support;
 import com.demo.customer.api.dto.request.NewCustomer;
 import com.demo.customer.application.port.in.CustomerService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Past;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -21,9 +15,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
-import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -54,7 +45,7 @@ public class CustomerController {
     @PreAuthorize("hasAuthority('KYC_APPROVE')")
     @Transactional
     public Map<String, Object> approve(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return  customerService.approve(id, jwt);
+        return customerService.approve(id, jwt);
     }
 
     @GetMapping("/internal/customers/{id}/status")

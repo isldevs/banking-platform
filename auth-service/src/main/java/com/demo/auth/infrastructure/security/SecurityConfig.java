@@ -1,15 +1,17 @@
 package com.demo.auth.infrastructure.security;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.annotation.Order;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -91,10 +93,10 @@ public class SecurityConfig {
     JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            List<org.springframework.security.core.GrantedAuthority> result = new ArrayList<>();
+            List<GrantedAuthority> result = new ArrayList<>();
             List<String> permissions = jwt.getClaimAsStringList("permissions");
             for (String permission : permissions == null ? List.<String>of() : permissions) {
-                result.add(new org.springframework.security.core.authority.SimpleGrantedAuthority(permission));
+                result.add(new SimpleGrantedAuthority(permission));
             }
             return result;
         });
