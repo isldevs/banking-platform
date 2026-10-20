@@ -8,5 +8,9 @@ spring:
   flyway:
     enabled: true
 
+security:
+  jwt:
+    private-key-path: ../infrastructure/secrets/jwt-private.pem
+
 demo:
   admin-username: admin
