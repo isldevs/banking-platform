@@ -1,15 +1,13 @@
 # Config Service
 
-Spring Cloud Config Server for the platform.
+Spring Cloud Config Server for the platform. This is a stateless configuration server and has no application database.
 
 ## Responsibilities
 
-- Serve centralized application configuration from a Git repository.
-- Keep configuration versioned and reviewable in Git.
-- Require HTTP Basic authentication for Config Server endpoints.
+- Serve configuration from the Git-backed `config-repo/` directory.
+- Require HTTP Basic authentication for configuration endpoints.
 - Expose health, info, metrics, and Prometheus actuator endpoints.
-
-This service does **not** own a configuration database and does **not** issue OAuth2 tokens. It must remain independent from `auth-service` so configuration can be loaded before the authorization server starts.
+- Start independently of auth-service so clients can bootstrap before auth is available.
 
 ## Required environment
 
@@ -17,53 +15,29 @@ This service does **not** own a configuration database and does **not** issue OA
 SERVER_PORT=8888
 CONFIG_REPO_URI=<Git repository URL>
 CONFIG_REPO_LABEL=main
+CONFIG_REPO_SEARCH_PATHS=config-repo
 CONFIG_REPO_USERNAME=<optional Git username>
 CONFIG_REPO_PASSWORD=<optional Git password or token>
 CONFIG_SERVER_USERNAME=<internal Config Client username>
 CONFIG_SERVER_PASSWORD=<internal Config Client password>
 ```
 
-For a public configuration repository, `CONFIG_REPO_USERNAME` and `CONFIG_REPO_PASSWORD` can be omitted.
+The demo's Git repository is public by default, so Git credentials can be omitted. Keep the Config Server reachable only from trusted networks and the local developer machine. All Config Client credentials and application secrets must remain outside Git.
 
-Do not store application secrets in the configuration repository. Keep credentials, private keys, database passwords, and other secrets in the deployment secret store or environment and inject them into the services at runtime.
-
-## Config repository layout
-
-Use the standard Spring Cloud Config naming convention:
+## Config Client endpoints
 
 ```text
-application.yml
-auth-service.yml
-gateway-service.yml
-gateway-service-docker.yml
-```
-
-A service loads its shared configuration from `application.yml` and its service-specific configuration from `<service-name>.yml`. Environment-specific files override the base configuration. `auth-service` and `gateway-service` are configured as mandatory Config Clients; the other services will be migrated separately.
-
-## Run locally
-
-Set the required environment variables and run:
-
-```bash
-gradle bootRun
-```
-
-The server listens on `http://localhost:8888` by default.
-
-A Config Client can request configuration with:
-
-```text
-GET /<application>/<profile>
-GET /<application>/<profile>/<label>
-```
-
-For example:
-
-```text
-GET /auth-service/default/main
+GET /auth-service/docker/main
+GET /customer-service/docker/main
+GET /account-service/docker/main
+GET /transfer-service/docker/main
+GET /notification-service/docker/main
+GET /audit-service/docker/main
 GET /gateway-service/docker/main
 ```
 
-## Security model
+Use HTTP Basic credentials from `CONFIG_SERVER_USERNAME` and `CONFIG_SERVER_PASSWORD` to inspect these endpoints. Each client has a mandatory `configserver:` import and bounded startup retry.
 
-The Config Server uses HTTP Basic authentication for machine-to-machine access. Do not expose it directly to the public internet. OAuth2/JWT authentication is intentionally not used here because `auth-service` will depend on Config Server during startup, which would otherwise create a bootstrap dependency cycle.
+## Run locally
+
+Run `bash infrastructure/scripts/init-local.sh`, then from `infrastructure/` run `docker compose up --build -d`. For a standalone run, set the required environment variables and execute `gradle bootRun` from this service directory.
