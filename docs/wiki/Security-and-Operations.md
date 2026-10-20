@@ -54,7 +54,7 @@ Use `X-Correlation-Id` where supported to link logs and service requests. Avoid 
 Before using a shared environment:
 
 - [ ] Confirm correct environment profile (`dev`, `qa`, `stage`, or `prod`).
-- [ ] Confirm Config Server is reachable and requires credentials.
+- [ ] Confirm Config Server is reachable only from the intended trusted network; this demo does not require Config Server credentials.
 - [ ] Confirm all database URLs and credentials are supplied securely.
 - [ ] Confirm JWT issuer, audience, signing key, and public key match.
 - [ ] Confirm internal service credentials are unique and supplied securely.
