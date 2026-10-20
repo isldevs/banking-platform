@@ -1,0 +1,12 @@
+server:
+  port: 8086
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5439/audit
+    username: audit_user
+  flyway:
+    enabled: true
+  kafka:
+    consumer:
+      group-id: audit-service
