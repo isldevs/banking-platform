@@ -1,0 +1,12 @@
+server:
+  port: 8084
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5439/transfer
+    username: transfer_user
+  flyway:
+    enabled: true
+  kafka:
+    consumer:
+      group-id: transfer-service
