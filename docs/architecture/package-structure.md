@@ -9,7 +9,9 @@ This repository uses independent Spring Boot services for separate banking capab
 ├── <Service>Application.java
 ├── api/
 │   ├── controller/       # REST entry points
-│   ├── dto/request/      # Request/command DTOs at the API boundary
+│   ├── dto/
+│   │   ├── request/      # Inbound request DTOs; JSON uses snake_case
+│   │   └── response/     # Outbound response DTOs; JSON uses snake_case
 │   └── error/            # HTTP error mapping/advice
 ├── application/
 │   ├── port/in/          # Use-case interfaces called by inbound adapters
@@ -24,6 +26,23 @@ This repository uses independent Spring Boot services for separate banking capab
 │   └── security/         # Spring Security and authorization-server adapters
 └── common/               # Small service-local helpers only
 ```
+
+## API naming convention
+
+All external REST request and response JSON fields use `snake_case`, while Java field/record component names remain idiomatic `camelCase`. DTOs should use Jackson's `@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)` so the transport contract is explicit at the API boundary.
+
+Example:
+
+```json
+{
+  "customer_id": "9f5c7f6e-...",
+  "date_of_birth": "1990-01-15",
+  "source_account_id": "...",
+  "destination_account_id": "..."
+}
+```
+
+Do not rename Java properties to snake_case merely to satisfy the wire contract. Keep Java code idiomatic and apply the naming strategy at the DTO boundary.
 
 ## Service boundaries
 
