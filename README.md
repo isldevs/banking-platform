@@ -112,10 +112,10 @@ cd infrastructure && docker compose ps
 - `account-service` has a **demo funding endpoint** backed by a negative-balance clearing account. Disable
   `DEMO_FUNDING_ENABLED` outside local demo; production funding must reconcile to real external settlement.
 - `config-service` serves non-secret configuration from `config-repo/` through Spring Cloud Config. `auth-service`
-  and `gateway-service` use mandatory Config Client imports with startup retry; the remaining services still use their
-  existing local/environment configuration. Keep database credentials, private keys, and internal service credentials
-  in `infrastructure/.env` or an approved secret store, never in Git. Changes in Config Server do not automatically
-  refresh already-running clients; restart them after configuration changes unless runtime refresh is explicitly added.
+  all seven application services use mandatory Config Client imports with startup retry. Common values, service URLs,
+  database locations, and Kafka settings are stored in `config-repo/`; database passwords, private keys, demo login
+  passwords, and internal service credentials remain in `infrastructure/.env` or an approved secret store, never Git.
+  Config changes do not automatically refresh running clients, so restart affected containers after changes.
 - Gateway includes JWT validation/routing but not a production rate limiter, WAF, TLS termination or hardened
   header/CORS policy.
 - This demo doesn't implement transfer reversal, maker-checker, full audit coverage, OAuth PKCE, distributed tracing,
