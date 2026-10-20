@@ -1,4 +1,4 @@
-package com.demo.account.config;
+package com.demo.account.common;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;

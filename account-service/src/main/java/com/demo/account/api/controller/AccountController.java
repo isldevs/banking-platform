@@ -1,9 +1,9 @@
-package com.demo.account.controller;
+package com.demo.account.api.controller;
 
-import com.demo.account.entity.Funding;
-import com.demo.account.entity.OpenAccount;
-import com.demo.account.entity.TransferCommand;
-import com.demo.account.service.AccountingService;
+import com.demo.account.api.dto.request.Funding;
+import com.demo.account.api.dto.request.OpenAccount;
+import com.demo.account.api.dto.request.TransferCommand;
+import com.demo.account.application.port.in.AccountingService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;

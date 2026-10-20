@@ -1,4 +1,4 @@
-package com.demo.account.entity;
+package com.demo.account.api.dto.request;
 
 import java.math.BigDecimal;
 import java.util.UUID;

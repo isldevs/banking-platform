@@ -1,4 +1,4 @@
-package com.demo.account.entity;
+package com.demo.account.domain.model;
 
 import java.math.BigDecimal;
 import java.util.UUID;

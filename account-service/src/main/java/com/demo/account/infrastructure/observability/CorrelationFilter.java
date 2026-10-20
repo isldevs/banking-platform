@@ -1,4 +1,4 @@
-package com.demo.account.config;
+package com.demo.account.infrastructure.observability;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
