@@ -46,28 +46,17 @@ services:
       context: ../config-service
     environment:
       SERVER_PORT: 8888
-      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DB_URL: jdbc:postgresql://postgres:5432/config
-      DB_USERNAME: config_user
-      DB_PASSWORD: ${DB_PASSWORD_CONFIG:?Set DB_PASSWORD_CONFIG}
-      AUTH_SERVICE_URL: http://auth-service:8081
-      CUSTOMER_SERVICE_URL: http://customer-service:8082
-      ACCOUNT_SERVICE_URL: http://account-service:8083
-      TRANSFER_SERVICE_URL: http://transfer-service:8084
-      NOTIFICATION_SERVICE_URL: http://notification-service:8085
-      AUDIT_SERVICE_URL: http://audit-service:8086
-      GATEWAY_SERVICE_URL: http://gateway-service:8080
-    volumes:
-      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
+      CONFIG_REPO_URI: ${CONFIG_REPO_URI:-https://github.com/isldevs/microservice-platform-demo.git}
+      CONFIG_REPO_LABEL: ${CONFIG_REPO_LABEL:-main}
+      CONFIG_REPO_USERNAME: ${CONFIG_REPO_USERNAME:-}
+      CONFIG_REPO_PASSWORD: ${CONFIG_REPO_PASSWORD:-}
+      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?Set CONFIG_SERVER_USERNAME}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?Set CONFIG_SERVER_PASSWORD}
+    ports:
+      - "127.0.0.1:8888:8888"
   auth-service:
     build:
       context: ../auth-service
-    # Read bind-mounted private PEM with the host user's permissions (WSL/Linux).
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
     environment:
       SERVER_PORT: 8081
