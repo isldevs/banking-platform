@@ -4,7 +4,7 @@ Independent Java 21 / Spring Boot service on port `8081` with its own `auth` dat
 
 ## Centralized configuration
 
-The service uses a mandatory Spring Cloud Config import and loads safe defaults from `config-repo/auth-service.yml` plus common settings from `config-repo/application.yml`. In Docker, the `docker` profile selects `config-repo/auth-service-docker.yml` and `config-repo/application-docker.yml`. Database passwords, the JWT signing private-key path, the issuer override, and demo login passwords are injected through runtime environment variables. The actual signing key is a local file under `infrastructure/secrets/`, ignored by Git; never copy it into the repository or `config-repo/`.
+The service uses a mandatory Spring Cloud Config import and loads safe defaults from `config-repo/auth-service.yml` plus common settings from `config-repo/application.yml`. In Docker, the `docker` profile selects `config-repo/auth-service-docker.yml` and `config-repo/application-docker.yml`. Database passwords, the JWT signing private-key path, the issuer override, and demo login passwords are injected through runtime environment variables. The actual signing key is generated locally under `infrastructure/secrets/`, which is ignored by Git. Never copy private-key contents or either key-file path into Git-backed `config-repo/`.
 
 ## OAuth2 / OIDC demo
 
@@ -23,7 +23,7 @@ Use the seeded `demo` or `admin` username and read its password from `infrastruc
 
 For compatibility, access tokens from both the new OAuth2 flow and the legacy demo login contain `sub`, `username`, `roles`, `permissions`, `iss`, and `aud` claims understood by the current gateway/resource-server configuration.
 
-**Demo limitation:** registered client configuration and OAuth2 authorization state use in-memory stores. Restarting auth-service invalidates active OAuth2 authorization codes and refresh tokens. Use durable authorization storage, external client registration, key rotation, HTTPS, and a supported dependency line before production.
+**Persistence:** registered OAuth2 clients, authorization codes/tokens, and consent records are stored in the `auth` PostgreSQL database using Spring Authorization Server JDBC repositories and Flyway migration `V2__authorization_server.sql`. Expired tokens still need a retention/cleanup policy. The default JDBC authorization service is suitable for this demo, but high-throughput production deployments should evaluate a tuned implementation.
 
 ## Run locally from IntelliJ (no Docker)
 
@@ -39,6 +39,8 @@ In IntelliJ, open **Run → Edit Configurations → AuthApplication** and set th
 - `CONFIG_SERVER_USERNAME=config-client`
 - `CONFIG_SERVER_PASSWORD=<your local value from infrastructure/.env>`
 - `SECURITY_JWT_PRIVATEKEYPATH=<absolute path to infrastructure/secrets/jwt-private.pem>`
+- `SECURITY_JWT_PUBLICKEYPATH=<absolute path to infrastructure/secrets/jwt-public.pem>`
+- `SPRING_DATASOURCE_PASSWORD=<DB_PASSWORD_AUTH from infrastructure/.env>`
 
 Keep the private-key path and contents out of Git-backed config. Start `config-service` first; it must be able to clone the public configuration repo. Auth-service also needs access to its local PostgreSQL database.
 
