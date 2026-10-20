@@ -55,7 +55,7 @@ Docker Compose sets `SPRING_PROFILES_ACTIVE=dev`; it does not introduce a Docker
 
 The demo Config Server does not require a username or password. Config Clients connect to `http://localhost:8888` in local runs or `http://config-service:8888` inside Compose without setting `spring.cloud.config.username` or `spring.cloud.config.password`.
 
-This is appropriate only while the Config Server serves non-secret configuration on a private/trusted network. Do not put secrets in the bundled YAML files. The Compose host port is bound to `127.0.0.1:8888`; keep it private in other deployments as well. A shared or production environment must add an approved network access policy or authentication mechanism before the service is exposed beyond a trusted network.
+This is appropriate only while the Config Server serves non-secret configuration on a private/trusted network. Do not put secrets in the bundled YAML files. Standalone runs bind to `127.0.0.1` by default; Compose sets the container bind address to `0.0.0.0` so peer containers can connect, while publishing host port `8888` only on `127.0.0.1`. Keep it private in other deployments as well. A shared or production environment must add an approved network access policy or authentication mechanism before the service is exposed beyond a trusted network.
 
 ## Config Client endpoints
 
