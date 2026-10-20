@@ -13,6 +13,7 @@ if [[ ! -f .env ]]; then
     echo "CONFIG_SERVER_USERNAME=config-client"
     echo "CONFIG_SERVER_PASSWORD=$(openssl rand -hex 24)"
     echo "CONFIG_REPO_LABEL=main"
+    echo "JWT_KEYSTORE_PASSWORD=$(openssl rand -hex 24)"
     echo "DEMO_ADMIN_PASSWORD=$(openssl rand -hex 18)"
     echo "DEMO_USER_PASSWORD=$(openssl rand -hex 18)"
     for svc in AUTH CUSTOMER ACCOUNT TRANSFER NOTIFICATION AUDIT; do
@@ -24,26 +25,31 @@ else
   echo "Using existing .env (not overwritten)."
 fi
 
-# Add the Config Server client credentials to existing local environments without overwriting them.
-if ! grep -q '^CONFIG_SERVER_USERNAME=' .env; then
-  printf 'CONFIG_SERVER_USERNAME=config-client\n' >> .env
-fi
-if ! grep -q '^CONFIG_SERVER_PASSWORD=' .env; then
-  printf 'CONFIG_SERVER_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env
-fi
-if ! grep -q '^CONFIG_REPO_LABEL=' .env; then
-  printf 'CONFIG_REPO_LABEL=main\n' >> .env
-fi
+# Add required local settings without overwriting existing values.
+if ! grep -q '^CONFIG_SERVER_USERNAME=' .env; then printf 'CONFIG_SERVER_USERNAME=config-client\n' >> .env; fi
+if ! grep -q '^CONFIG_SERVER_PASSWORD=' .env; then printf 'CONFIG_SERVER_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env; fi
+if ! grep -q '^CONFIG_REPO_LABEL=' .env; then printf 'CONFIG_REPO_LABEL=main\n' >> .env; fi
+if ! grep -q '^JWT_KEYSTORE_PASSWORD=' .env; then printf 'JWT_KEYSTORE_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env; fi
+
 mkdir -p secrets
-if [[ ! -f secrets/jwt-private.pem || ! -f secrets/jwt-public.pem ]]; then
-  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out secrets/jwt-private.pem >/dev/null 2>&1
-  openssl pkey -in secrets/jwt-private.pem -pubout -out secrets/jwt-public.pem >/dev/null 2>&1
-  chmod 600 secrets/jwt-private.pem
+KEYSTORE_PASSWORD="$(grep '^JWT_KEYSTORE_PASSWORD=' .env | cut -d= -f2-)"
+if [[ -z "$KEYSTORE_PASSWORD" ]]; then echo 'JWT_KEYSTORE_PASSWORD is empty' >&2; exit 1; fi
+
+# Generate a local PKCS12 signing keystore. The private key is never committed and is not used directly by application config.
+if [[ ! -f secrets/jwt-signing.p12 || ! -f secrets/jwt-public.pem ]]; then
+  temp_key="secrets/.jwt-signing.tmp.key.pem"
+  temp_cert="secrets/.jwt-signing.tmp.crt.pem"
+  trap 'rm -f "$temp_key" "$temp_cert"' EXIT
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$temp_key" >/dev/null 2>&1
+  openssl req -new -x509 -key "$temp_key" -out "$temp_cert" -days 3650 -subj '/CN=microservices-demo-jwt' >/dev/null 2>&1
+  openssl pkcs12 -export -out secrets/jwt-signing.p12 -inkey "$temp_key" -in "$temp_cert" -name jwt-signing -passout "pass:$KEYSTORE_PASSWORD" >/dev/null 2>&1
+  openssl x509 -in "$temp_cert" -pubkey -noout > secrets/jwt-public.pem
+  rm -f "$temp_key" "$temp_cert"
+  trap - EXIT
+  chmod 600 secrets/jwt-signing.p12
 fi
-# Public key contains no private material; non-root service containers must read it.
 chmod 644 secrets/jwt-public.pem
-printf '
-Demo user credentials are stored in infrastructure/.env
-'
-printf 'Start: cd infrastructure && docker compose up --build -d
-'
+
+printf '\nDemo user credentials are stored in infrastructure/.env\n'
+printf 'JWT signing material: infrastructure/secrets/jwt-signing.p12 (ignored by Git)\n'
+printf 'Start: cd infrastructure && docker compose up --build -d\n'
