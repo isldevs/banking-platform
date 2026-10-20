@@ -2,98 +2,223 @@
 
 > Branch: `architecture/banking-ddd-hexagonal`
 >
-> This document describes the HTTP API currently implemented by the platform, with emphasis on the access-token / refresh-token lifecycle and the authenticated client APIs.
+> This page documents the implemented REST APIs and the preferred OAuth 2.0 / OpenID Connect client flow. For new clients, use Spring Authorization Server. The older `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` endpoints remain only for compatibility with the current demo.
 
 ## 1. Service endpoints
 
 | Service | Local base URL | Purpose |
 |---|---|---|
-| Gateway | `http://localhost:8080` | Public entry point; JWT resource-server validation |
-| Auth | `http://localhost:8081` | Login, access-token issuance, refresh-token rotation, logout, user management |
+| Authorization Server / Auth | `http://localhost:8081` | OAuth2/OIDC, token issuance, user identity, legacy auth compatibility |
+| Gateway security service | `http://localhost:8080` | Gateway/security application |
 | Customer | `http://localhost:8082` | Customer and KYC APIs |
 | Account | `http://localhost:8083` | Accounts, balances, funding and ledger APIs |
 | Transfer | `http://localhost:8084` | Transfer creation and lookup |
 | Notification | `http://localhost:8085` | User notifications |
 | Audit | `http://localhost:8086` | Transfer audit history |
 
-The application services are stateless from an HTTP-session perspective. Authenticated APIs use the JWT access token in the `Authorization` header.
+Use the Authorization Server URL for the OAuth2 protocol endpoints documented below. In a deployed environment, substitute the configured issuer and service URLs.
 
 ## 2. Authentication model
 
-### Access token
+### Preferred: OAuth 2.0 Authorization Code + PKCE
 
-The login and refresh endpoints return an OAuth-style bearer access token in the JSON field `accessToken`.
+Spring Authorization Server exposes these protocol endpoints:
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/.well-known/openid-configuration` | OIDC discovery document |
+| GET | `/oauth2/authorize` | Begins user authorization; redirects to sign-in when needed |
+| POST | `/oauth2/token` | Exchanges an authorization code or refresh token for tokens |
+| POST | `/oauth2/revoke` | Revokes an OAuth2 token |
+| GET | `/oauth2/jwks` | Public signing keys used to validate JWTs |
+| GET | `/userinfo` | OIDC UserInfo endpoint |
+
+The configured grant types are `authorization_code` and, for confidential clients, `refresh_token`. **The Resource Owner Password Credentials (password) grant is not enabled and should not be added.** The user's username and password are submitted to the Authorization Server's browser sign-in page as part of the authorization-code flow, not to `/oauth2/token`.
+
+### Registered demo clients
+
+| Client ID | Type | Suitable for | Refresh tokens |
+|---|---|---|---|
+| `demo-browser` | Public; no client secret; PKCE required | Authorization-code examples for a public client | Not issued by Spring Authorization Server |
+| `demo-bff` | Confidential; client secret; PKCE required | Trusted backend/BFF or Postman | Yes; 7-day lifetime with rotation |
+
+The `demo-bff` client is registered when `OAUTH2_DEMO_CLIENT_SECRET` is supplied at runtime. Its secret is stored as a BCrypt hash in the Authorization Server database. The local setup script generates this value in ignored `infrastructure/.env`.
+
+Never put a confidential client secret or a refresh token in browser JavaScript, a mobile app bundle, a URL, or client logs. For a browser/mobile application that needs persistent login, keep OAuth credentials and refresh tokens behind a backend-for-frontend (BFF). Do not treat a public client as confidential by shipping a secret with it.
+
+The demo redirect URI is `https://oauth.pstmn.io/v1/callback`. The registered scopes are `openid`, `profile`, `email`, `customer.read`, `account.read`, `account.write`, and `transfer.create`.
+
+### Access-token claims
+
+The Authorization Server issues RSA-signed JWT access tokens with these claims:
+
+| Claim | Meaning |
+|---|---|
+| `iss` | Configured issuer |
+| `aud` | API audience (`api`) |
+| `sub` | Authenticated user's UUID |
+| `username` | Authenticated username |
+| `permissions` | Permission codes used by API authorization |
+| `roles` | User role names |
+| `iat` / `exp` | Issuance / expiry timestamps |
+
+Access-token lifetime is 15 minutes (900 seconds). Resource-server APIs expect:
 
 ```http
-Authorization: Bearer <access-token>
+Authorization: Bearer <access_token>
 ```
 
-The access token is an RSA-signed JWT with:
+The confidential client's refresh tokens expire after 7 days. Refresh-token rotation is enabled: each successful refresh returns a replacement refresh token, and the previously submitted refresh token must no longer be used.
 
-| Claim | Value |
-|---|---|
-| `iss` | configured JWT issuer |
-| `aud` | `api` |
-| `sub` | authenticated user UUID |
-| `username` | authenticated username |
-| `permissions` | permission codes granted to the user |
-| `roles` | role names granted to the user |
-| `iat` | issue time |
-| `exp` | expiration time |
+## 3. OAuth2/OIDC client API reference
 
-The current implementation issues access tokens for **15 minutes (900 seconds)**. fileciteturn1431file0L2-L2
+### 3.1 Discover the server configuration
 
-### Refresh token
+**GET** `/.well-known/openid-configuration`
 
-Refresh tokens are opaque, URL-safe random values. They are stored server-side as hashes and expire after **7 days**. A successful refresh revokes the presented refresh token and issues a new access-token / refresh-token pair. This is refresh-token rotation. fileciteturn1429file0L2-L2
+No authentication required.
 
-Clients must therefore:
+```bash
+curl http://localhost:8081/.well-known/openid-configuration
+```
 
-1. Store the access token for API authorization.
-2. Store the refresh token securely.
-3. Use the refresh token when the access token expires.
-4. Replace the old refresh token with the newly returned refresh token.
-5. Never send an access token where a refresh token is expected.
-6. Never log either token.
+Use the returned issuer and endpoint URLs instead of hard-coding them in production applications.
 
-## 3. Token lifecycle
+### 3.2 Start authorization
+
+**GET** `/oauth2/authorize`
+
+This is a browser redirect, not a JSON API. A client initiates Authorization Code + PKCE with query parameters including:
+
+| Parameter | Required | Description |
+|---|---|---|
+| `response_type=code` | Yes | Requests an authorization code |
+| `client_id` | Yes | `demo-browser` or `demo-bff` |
+| `redirect_uri` | Yes | Must exactly match the registered URI |
+| `scope` | Yes | Space-delimited registered scopes |
+| `state` | Yes for a robust client | Random value generated by the client; verify it on callback |
+| `code_challenge` | Yes | Base64URL(SHA-256(code_verifier)) |
+| `code_challenge_method=S256` | Yes | PKCE SHA-256 method |
+| `nonce` | Recommended for OIDC | Random value checked against the ID token |
+
+Example authorization request (use an OAuth client library or Postman to generate and retain a matching `code_verifier` and `code_challenge`):
 
 ```text
-                     +----------------+
-                     |   POST /login  |
-                     +-------+--------+
-                             |
-                             v
-                 access_token + refresh_token
-                    |                    |
-                    |                    |
-                    v                    v
-             authenticated APIs   POST /auth/refresh
-                    |                    |
-                    |                    v
-                    |             old refresh revoked
-                    |                    |
-                    |                    v
-                    |          new access + refresh
-                    |                    |
-                    +--------------------+
-                             |
-                             v
-                     POST /auth/logout
-                             |
-                             v
-                    refresh token revoked
+http://localhost:8081/oauth2/authorize?response_type=code&client_id=demo-bff&redirect_uri=https%3A%2F%2Foauth.pstmn.io%2Fv1%2Fcallback&scope=openid%20profile%20email%20customer.read%20account.read%20account.write%20transfer.create&state=<random-state>&nonce=<random-nonce>&code_challenge=<BASE64URL_SHA256_CODE_CHALLENGE>&code_challenge_method=S256
 ```
 
-## 4. Authentication endpoints
+The user signs in through the Authorization Server. On successful authorization, the browser is redirected to the registered URI with a short-lived `code` and the original `state`. Validate `state` before exchanging the code.
 
-### POST `/api/auth/login`
+### 3.3 Exchange an authorization code for tokens
 
-Authenticates a username/password and returns a new token pair.
+**POST** `/oauth2/token`
 
-**Authentication:** none.
+**Content type:** `application/x-www-form-urlencoded`
 
-**Request**
+**Client:** use the confidential `demo-bff` client when the application needs a refresh token. Authenticate the client with HTTP Basic using the configured client ID and secret.
+
+| Form field | Value |
+|---|---|
+| `grant_type` | `authorization_code` |
+| `client_id` | `demo-bff` |
+| `code` | Code returned to the registered redirect URI |
+| `redirect_uri` | The exact registered URI |
+| `code_verifier` | The verifier matching the original PKCE challenge |
+
+Example:
+
+```bash
+curl -X POST http://localhost:8081/oauth2/token \
+  -u "demo-bff:${OAUTH2_DEMO_CLIENT_SECRET}" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=authorization_code" \
+  --data-urlencode "client_id=demo-bff" \
+  --data-urlencode "code=<authorization-code>" \
+  --data-urlencode "redirect_uri=https://oauth.pstmn.io/v1/callback" \
+  --data-urlencode "code_verifier=<original-code-verifier>"
+```
+
+A successful response follows the OAuth2 token response shape. Typical fields:
+
+```json
+{
+  "access_token": "<jwt>",
+  "refresh_token": "<opaque-refresh-token>",
+  "token_type": "Bearer",
+  "expires_in": 900,
+  "scope": "openid profile email customer.read account.read account.write transfer.create",
+  "id_token": "<oidc-id-token>"
+}
+```
+
+The `id_token` is returned when the authorization request includes `openid`. Do not assume all fields will be present for every scope or grant. Store the refresh token only in the trusted client/BFF.
+
+**Important:** the public `demo-browser` client does not receive refresh tokens. Spring Authorization Server does not issue refresh tokens to public clients, regardless of a refresh-token grant entry in their registration.
+
+### 3.4 Refresh an access token
+
+**POST** `/oauth2/token`
+
+**Content type:** `application/x-www-form-urlencoded`
+
+**Client:** confidential `demo-bff` (HTTP Basic authentication).
+
+| Form field | Value |
+|---|---|
+| `grant_type` | `refresh_token` |
+| `client_id` | `demo-bff` |
+| `refresh_token` | The currently valid refresh token |
+
+Example:
+
+```bash
+curl -X POST http://localhost:8081/oauth2/token \
+  -u "demo-bff:${OAUTH2_DEMO_CLIENT_SECRET}" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=refresh_token" \
+  --data-urlencode "client_id=demo-bff" \
+  --data-urlencode "refresh_token=<current-refresh-token>"
+```
+
+On success, replace the locally stored access token and refresh token with the returned values. Because refresh-token reuse is disabled, the submitted refresh token must be treated as consumed. If the refresh request fails, do not retry indefinitely with the same token; initiate a new authorization flow as appropriate.
+
+### 3.5 Revoke a token
+
+**POST** `/oauth2/revoke`
+
+**Content type:** `application/x-www-form-urlencoded`
+
+Use the confidential client credentials. A client can request revocation of the refresh token when the user signs out or when credentials must be invalidated.
+
+```bash
+curl -X POST http://localhost:8081/oauth2/revoke \
+  -u "demo-bff:${OAUTH2_DEMO_CLIENT_SECRET}" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "token=<refresh-token>" \
+  --data-urlencode "token_type_hint=refresh_token"
+```
+
+OAuth2 revocation responses are protocol responses, not the custom JSON error envelope used by the legacy REST endpoints. The client should follow the OAuth2 token revocation specification and treat the token as unusable locally after sign-out.
+
+### 3.6 Call a protected API
+
+After obtaining an access token:
+
+```bash
+curl http://localhost:8082/api/customers/<customer-id> \
+  -H "Authorization: Bearer <access-token>" \
+  -H "X-Correlation-Id: <optional-correlation-id>"
+```
+
+Protected application APIs validate the JWT issuer, audience, signature, and expiry. The permission codes in the `permissions` claim are used for endpoint authorization.
+
+## 4. Legacy authentication compatibility endpoints
+
+These endpoints are deprecated for new clients. They use a separate custom token implementation and refresh-token table; use the OAuth2/OIDC endpoints above instead.
+
+### POST `/api/auth/login` — legacy
+
+Authenticates username/password in a JSON request and issues the legacy token pair.
 
 ```json
 {
@@ -102,114 +227,27 @@ Authenticates a username/password and returns a new token pair.
 }
 ```
 
-Both fields are required. fileciteturn1418file0L2-L2
+A successful response historically includes `access_token`, `refresh_token`, `token_type`, and `expires_in`. Access tokens expire after 900 seconds. The refresh token is an opaque random value persisted as a server-side hash with a 7-day expiry.
 
-**Response `200 OK`**
+### POST `/api/auth/refresh` — legacy
 
-```json
-{
-  "access_token": "<jwt>",
-  "refresh_token": "<opaque-refresh-token>",
-  "token_type": "Bearer",
-  "expires_in": 900
-}
-```
-
-The Java implementation currently constructs the response with the logical fields `accessToken`, `refreshToken`, `tokenType`, and `expiresIn`; the platform's global Jackson naming configuration is intended to expose REST JSON as snake_case. fileciteturn1429file0L2-L2
-
-**Failure cases**
-
-| Status | Code | Meaning |
-|---:|---|---|
-| `400` | `VALIDATION_ERROR` | Missing/invalid request field |
-| `401` | `INVALID_CREDENTIALS` | Username or password is invalid |
-| `403` | `USER_LOCKED_OR_INACTIVE` | User is inactive or temporarily locked |
-
-Five failed password attempts cause the user to be locked for 15 minutes. fileciteturn1429file0L2-L2
-
----
-
-### POST `/api/auth/refresh`
-
-Exchanges a valid refresh token for a new token pair.
-
-**Authentication:** refresh token in request body; no access token required.
-
-**Request**
+Exchanges only a refresh token created by `/api/auth/login`. It does not accept Spring Authorization Server refresh tokens.
 
 ```json
 {
-  "refresh_token": "<refresh-token>"
+  "refresh_token": "<legacy-refresh-token>"
 }
 ```
 
-`refresh_token` is required. fileciteturn1419file0L2-L2
+The refresh token is rotated on success and the old value is revoked.
 
-**Response `200 OK`**
+### POST `/api/auth/logout` — legacy
 
-```json
-{
-  "access_token": "<new-jwt>",
-  "refresh_token": "<new-refresh-token>",
-  "token_type": "Bearer",
-  "expires_in": 900
-}
-```
-
-**Important:** refresh-token rotation means the submitted refresh token becomes invalid after a successful refresh. Reusing it returns an unauthorized response. fileciteturn1429file0L2-L2
-
-**Failure cases**
-
-| Status | Code | Meaning |
-|---:|---|---|
-| `400` | `VALIDATION_ERROR` | Missing refresh token |
-| `401` | `INVALID_REFRESH_TOKEN` | Token is unknown, expired, or already revoked |
-| `401` | `USER_INACTIVE` | Token belongs to an inactive user |
-
----
-
-### POST `/api/auth/logout`
-
-Revokes the supplied refresh token for the authenticated user.
-
-**Authentication:** required access token.
-
-```http
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-**Request**
-
-```json
-{
-  "refresh_token": "<refresh-token>"
-}
-```
-
-**Response `200 OK`**
-
-```json
-{
-  "status": "LOGGED_OUT"
-}
-```
-
-The endpoint revokes the refresh token associated with the current JWT subject. fileciteturn1408file0L2-L2 fileciteturn1429file0L2-L2
-
----
+Requires a bearer access token and the legacy refresh token in JSON. It revokes the refresh token in the legacy store only. Use `POST /oauth2/revoke` for OAuth2 tokens.
 
 ### GET `/api/auth/me`
 
-Returns the identity and authorization information represented by the access token.
-
-**Authentication:** required access token.
-
-```http
-Authorization: Bearer <access-token>
-```
-
-**Response `200 OK`**
+Requires a bearer access token. Returns the subject, username, roles, and permissions from the validated JWT:
 
 ```json
 {
@@ -220,19 +258,9 @@ Authorization: Bearer <access-token>
 }
 ```
 
-The endpoint reads `sub`, `username`, `roles`, and `permissions` directly from the validated JWT. fileciteturn1408file0L2-L2
-
----
-
-## 5. User management
-
 ### POST `/api/users`
 
-Creates a user.
-
-**Authentication:** access token with `USER_MANAGE` permission.
-
-**Request**
+Creates a user. Requires the access token authority `USER_MANAGE`.
 
 ```json
 {
@@ -242,23 +270,11 @@ Creates a user.
 }
 ```
 
-The username and password are required; email is optional. fileciteturn1420file0L2-L2
+Username and password are required; email is optional. The password must be at least 12 characters long. The response contains `user_id`.
 
-The service additionally requires a password length of at least 12 characters. fileciteturn1429file0L2-L2
+## 5. Customer API
 
-**Response `200 OK`**
-
-```json
-{
-  "user_id": "<user-uuid>"
-}
-```
-
----
-
-# 6. Customer API
-
-All `/api/customers/**` endpoints require a valid access token and the permission shown below.
+All public customer API endpoints require a valid access token and the listed permission.
 
 ### POST `/api/customers`
 
@@ -274,7 +290,7 @@ All `/api/customers/**` endpoints require a valid access token and the permissio
 }
 ```
 
-`first_name`, `last_name`, and `date_of_birth` are required; date of birth must be in the past. fileciteturn1432file0L2-L2
+`first_name`, `last_name`, and `date_of_birth` are required; date of birth must be in the past.
 
 ### GET `/api/customers/{id}`
 
@@ -290,17 +306,15 @@ Path parameter `id` is the customer UUID.
 
 ### GET `/internal/customers/{id}/status`
 
-**Authentication:** service-to-service `X-Service-Key`, not a user access token.
+**Authentication:** service-to-service `X-Service-Key`; not a user access-token endpoint.
 
 ```http
 X-Service-Key: <internal-service-key>
 ```
 
-This endpoint is intentionally classified as internal and should not be exposed as a public client API. fileciteturn1409file0L2-L2
+Do not expose this internal endpoint to browser/mobile clients.
 
----
-
-# 7. Account API
+## 6. Account API
 
 ### POST `/api/accounts`
 
@@ -313,7 +327,7 @@ This endpoint is intentionally classified as internal and should not be exposed 
 }
 ```
 
-Both fields are required. fileciteturn1433file0L2-L2
+Both fields are required.
 
 ### GET `/api/accounts/{id}`
 
@@ -343,19 +357,17 @@ Freezes the specified account.
 }
 ```
 
-`amount` is required. fileciteturn1434file0L2-L2
+`amount` is required.
 
 ### GET `/api/accounts/ledger/{operationId}`
 
 **Permission:** `ACCOUNT_FUND`
 
-Returns the ledger information for the supplied operation UUID.
+Returns ledger information for the supplied operation UUID.
 
 ### POST `/internal/accounts/transfer`
 
-**Authentication:** `X-Service-Key`; not a user access-token endpoint.
-
-Request fields:
+**Authentication:** `X-Service-Key`; internal service-to-service endpoint.
 
 ```json
 {
@@ -368,23 +380,15 @@ Request fields:
 }
 ```
 
-The internal transfer command is intentionally service-to-service. fileciteturn1435file0L2-L2
-
 ### GET `/internal/accounts/operations/{id}`
 
-**Authentication:** `X-Service-Key`.
+**Authentication:** `X-Service-Key`. Returns an internal account operation by UUID.
 
-Returns an internal account operation by UUID.
-
----
-
-# 8. Transfer API
+## 7. Transfer API
 
 ### POST `/api/transfers`
 
 **Permission:** `TRANSFER_CREATE`
-
-**Authentication:** access token.
 
 Optional idempotency header:
 
@@ -392,27 +396,21 @@ Optional idempotency header:
 Idempotency-Key: <unique-client-key>
 ```
 
-The request body is the transfer command defined by `TransferService.NewTransfer`. The authenticated user is taken from the JWT subject; clients must not use the request body to impersonate another user. fileciteturn1413file0L2-L2
-
-**Response:** transfer resource/status map returned by the transfer service.
+The authenticated user is taken from the JWT subject; clients must not use the request body to impersonate another user.
 
 ### GET `/api/transfers/{id}`
 
 **Permission:** `TRANSFER_READ`
 
-Returns a transfer visible to the authenticated user. Administrators may receive broader visibility based on the `ADMIN` role. fileciteturn1413file0L2-L2
+Returns a transfer visible to the authenticated user. Administrators may receive broader visibility based on the `ADMIN` role.
 
----
-
-# 9. Notification API
+## 8. Notification API
 
 ### GET `/api/notifications`
 
-**Permission:** `NOTIFICATION_READ` **or** `TRANSFER_READ`.
+**Permission:** `NOTIFICATION_READ` or `TRANSFER_READ`
 
-**Authentication:** access token.
-
-Returns up to the latest 100 notifications belonging to the authenticated user. fileciteturn1415file0L2-L2
+Returns up to the latest 100 notifications belonging to the authenticated user.
 
 Example response shape:
 
@@ -429,47 +427,45 @@ Example response shape:
 ]
 ```
 
----
-
-# 10. Audit API
+## 9. Audit API
 
 ### GET `/api/audit/transfers/{id}`
 
 **Permission:** `AUDIT_READ`
 
-Returns audit events for the specified transfer UUID. fileciteturn1417file0L2-L2
+Returns audit events for the specified transfer UUID.
 
----
+## 10. Authorization summary
 
-# 11. Authorization summary
-
-| Endpoint | Auth mechanism | Required permission |
+| Endpoint | Auth mechanism | Authorization |
 |---|---|---|
-| `POST /api/auth/login` | None | — |
-| `POST /api/auth/refresh` | Refresh token | — |
-| `POST /api/auth/logout` | Access token + refresh token | — |
-| `GET /api/auth/me` | Access token | — |
-| `POST /api/users` | Access token | `USER_MANAGE` |
-| `POST /api/customers` | Access token | `CUSTOMER_CREATE` |
-| `GET /api/customers/{id}` | Access token | `CUSTOMER_READ` |
-| `POST /api/customers/{id}/kyc/approve` | Access token | `KYC_APPROVE` |
-| `POST /api/accounts` | Access token | `ACCOUNT_OPEN` |
-| `GET /api/accounts/{id}` | Access token | `ACCOUNT_READ` |
-| `GET /api/accounts` | Access token | `ACCOUNT_READ` |
-| `POST /api/accounts/{id}/freeze` | Access token | `ACCOUNT_FREEZE` |
-| `POST /api/accounts/{id}/fund` | Access token | `ACCOUNT_FUND` |
-| `GET /api/accounts/ledger/{operationId}` | Access token | `ACCOUNT_FUND` |
-| `POST /api/transfers` | Access token | `TRANSFER_CREATE` |
-| `GET /api/transfers/{id}` | Access token | `TRANSFER_READ` |
-| `GET /api/notifications` | Access token | `NOTIFICATION_READ` or `TRANSFER_READ` |
-| `GET /api/audit/transfers/{id}` | Access token | `AUDIT_READ` |
-| `/internal/**` | `X-Service-Key` | Service credential |
+| `GET /.well-known/openid-configuration` | None | OIDC discovery |
+| `GET /oauth2/authorize` | Browser session / user login | Registered OAuth2 client + requested scopes |
+| `POST /oauth2/token` | OAuth2 client authentication and grant-specific parameters | `authorization_code` or `refresh_token` for supported client types |
+| `POST /oauth2/revoke` | OAuth2 client authentication | OAuth2 token revocation |
+| `POST /api/auth/login` | None; legacy | Deprecated |
+| `POST /api/auth/refresh` | Legacy refresh token | Deprecated; legacy tokens only |
+| `POST /api/auth/logout` | Access token + legacy refresh token | Deprecated; legacy refresh tokens only |
+| `GET /api/auth/me` | Bearer access token | Identity details |
+| `POST /api/users` | Bearer access token | `USER_MANAGE` |
+| `POST /api/customers` | Bearer access token | `CUSTOMER_CREATE` |
+| `GET /api/customers/{id}` | Bearer access token | `CUSTOMER_READ` |
+| `POST /api/customers/{id}/kyc/approve` | Bearer access token | `KYC_APPROVE` |
+| `POST /api/accounts` | Bearer access token | `ACCOUNT_OPEN` |
+| `GET /api/accounts/{id}` | Bearer access token | `ACCOUNT_READ` |
+| `GET /api/accounts` | Bearer access token | `ACCOUNT_READ` |
+| `POST /api/accounts/{id}/freeze` | Bearer access token | `ACCOUNT_FREEZE` |
+| `POST /api/accounts/{id}/fund` | Bearer access token | `ACCOUNT_FUND` |
+| `GET /api/accounts/ledger/{operationId}` | Bearer access token | `ACCOUNT_FUND` |
+| `POST /api/transfers` | Bearer access token | `TRANSFER_CREATE` |
+| `GET /api/transfers/{id}` | Bearer access token | `TRANSFER_READ` |
+| `GET /api/notifications` | Bearer access token | `NOTIFICATION_READ` or `TRANSFER_READ` |
+| `GET /api/audit/transfers/{id}` | Bearer access token | `AUDIT_READ` |
+| `/internal/**` | `X-Service-Key` | Internal service credential |
 
-The gateway is configured as a stateless OAuth2 resource server: health/info endpoints are public, while other gateway requests require authentication. JWT permissions are converted into Spring authorities. fileciteturn1425file0L2-L2
+## 11. Standard request headers
 
-# 12. Standard request headers
-
-### Authenticated request
+### Protected REST request
 
 ```http
 Authorization: Bearer <access-token>
@@ -494,9 +490,11 @@ Content-Type: application/json
 
 Do not use `X-Service-Key` for browser/mobile user authentication.
 
-# 13. Error response
+## 12. Errors
 
-The Auth Service currently exposes a consistent error envelope:
+OAuth2 protocol endpoints return OAuth2-compliant errors, commonly including `error` and `error_description`. They do not use the legacy API error envelope below.
+
+The legacy Auth Service REST endpoints currently expose a custom error envelope:
 
 ```json
 {
@@ -509,75 +507,33 @@ The Auth Service currently exposes a consistent error envelope:
 }
 ```
 
-The implementation generates `timestamp`, `status`, `code`, `message`, `path`, and `correlationId`; the global JSON naming policy exposes camelCase properties as snake_case at the HTTP boundary. fileciteturn1437file0L2-L2
-
-Common platform-level errors include:
+Common application errors include:
 
 | HTTP | Code | Meaning |
 |---:|---|---|
 | `400` | `VALIDATION_ERROR` | Bean validation failed |
 | `400` | `INVALID_JSON` | Request body is not valid JSON |
-| `401` | `INVALID_CREDENTIALS` | Login credentials failed |
-| `401` | `INVALID_REFRESH_TOKEN` | Refresh token invalid/revoked/expired |
-| `401` | `USER_INACTIVE` | Refresh-token owner is inactive |
-| `403` | `USER_LOCKED_OR_INACTIVE` | Login rejected because account is locked/inactive |
+| `401` | `INVALID_CREDENTIALS` | Legacy login credentials failed |
+| `401` | `INVALID_REFRESH_TOKEN` | Legacy refresh token invalid, revoked, or expired |
+| `401` | `USER_INACTIVE` | Legacy refresh token owner is inactive |
+| `403` | `USER_LOCKED_OR_INACTIVE` | Legacy login rejected because account is locked/inactive |
 | `409` | `DATA_CONFLICT` | Database uniqueness/integrity conflict |
 | `500` | `INTERNAL_ERROR` | Unexpected server failure |
 
-# 14. Client implementation example
+## 13. Client security rules
 
-## Login
-
-```bash
-curl -X POST http://localhost:8081/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"<password>"}'
-```
-
-Save the returned `access_token` and `refresh_token` securely.
-
-## Call an authenticated API
-
-```bash
-curl http://localhost:8082/api/customers/<customer-id> \
-  -H 'Authorization: Bearer <access-token>'
-```
-
-## Refresh
-
-```bash
-curl -X POST http://localhost:8081/api/auth/refresh \
-  -H 'Content-Type: application/json' \
-  -d '{"refresh_token":"<refresh-token>"}'
-```
-
-Replace both stored tokens with the new pair returned by the refresh operation.
-
-## Logout
-
-```bash
-curl -X POST http://localhost:8081/api/auth/logout \
-  -H 'Authorization: Bearer <access-token>' \
-  -H 'Content-Type: application/json' \
-  -d '{"refresh_token":"<refresh-token>"}'
-```
-
-After logout, discard both local tokens.
-
-# 15. Security rules for clients
-
-- Treat access tokens as bearer credentials.
+- Use Authorization Code + PKCE for interactive user authentication.
+- Use a confidential client only in a trusted backend/BFF or trusted native client that can securely protect its secret.
+- Keep refresh tokens out of browser JavaScript, mobile bundles, URLs, and logs.
+- On successful refresh, replace both stored tokens and discard the old refresh token.
+- Use `POST /oauth2/revoke` for Authorization Server tokens; do not send OAuth2 refresh tokens to legacy `/api/auth/logout`.
+- Never send a legacy refresh token to `/oauth2/token`.
 - Use HTTPS outside local development.
-- Keep refresh tokens in a secure platform credential store; do not place them in URLs.
-- Never log `Authorization` headers, access tokens, or refresh tokens.
-- Rotate the refresh token whenever `/api/auth/refresh` succeeds.
-- If refresh fails with `INVALID_REFRESH_TOKEN`, require a new login.
+- Never log `Authorization` headers, access tokens, refresh tokens, or client secrets.
 - Do not call `/internal/**` endpoints from browser/mobile clients.
-- Do not trust user IDs supplied by a client when the authenticated subject is available in the JWT.
+- Do not trust client-supplied user IDs when the authenticated subject is available in the JWT.
 - Send a stable `X-Correlation-Id` for traceability where supported.
 
-# 16. Implementation notes
+## 14. Implementation notes
 
-This is the API reference for the **currently implemented code**, not a hypothetical future OAuth/OIDC specification. Several response bodies are still returned as `Map`/database projections rather than dedicated response DTOs. The endpoint contract should therefore be treated as implementation-backed until explicit response DTOs and an OpenAPI contract are added.
-
-The access-token / refresh-token lifecycle is implemented by `AuthController` and `AuthServiceImpl`; access tokens are JWTs and refresh tokens are persisted as hashes with rotation/revocation. fileciteturn1408file0L2-L2 fileciteturn1429file0L2-L2
+This page describes the current implementation, not a hypothetical API. The `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` methods are deprecated compatibility endpoints; new clients should use Spring Authorization Server. Some REST responses are still returned as maps or database projections rather than dedicated response DTOs. A formal OpenAPI specification can be added as a follow-up contract artifact.
