@@ -1,8 +1,8 @@
-package com.demo.customer.service.impl;
+package com.demo.customer.application.service;
 
-import com.demo.customer.config.Support;
-import com.demo.customer.entity.NewCustomer;
-import com.demo.customer.service.CustomerService;
+import com.demo.customer.common.Support;
+import com.demo.customer.api.dto.request.NewCustomer;
+import com.demo.customer.application.port.in.CustomerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;

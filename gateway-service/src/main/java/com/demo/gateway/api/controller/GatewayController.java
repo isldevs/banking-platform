@@ -1,4 +1,4 @@
-package com.demo.gateway.controller;
+package com.demo.gateway.api.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;

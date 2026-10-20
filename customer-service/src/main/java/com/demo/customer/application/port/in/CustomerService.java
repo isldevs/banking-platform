@@ -1,6 +1,6 @@
-package com.demo.customer.service;
+package com.demo.customer.application.port.in;
 
-import com.demo.customer.entity.NewCustomer;
+import com.demo.customer.api.dto.request.NewCustomer;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.Map;

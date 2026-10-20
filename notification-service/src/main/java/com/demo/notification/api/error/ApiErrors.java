@@ -1,10 +1,7 @@
-package com.demo.gateway.exception;
+package com.demo.notification.api.error;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,18 +18,23 @@ public class ApiErrors {
         return build(e.getStatusCode().value(), e.getReason() == null ? "REQUEST_FAILED" : e.getReason(), req);
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
     ResponseEntity<Map<String, Object>> validation(Exception e, HttpServletRequest req) {
         return build(400, "VALIDATION_ERROR", req);
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    ResponseEntity<Map<String, Object>> conflict(Exception e, HttpServletRequest req) {
+        return build(409, "DATA_CONFLICT", req);
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<Map<String, Object>> unexpected(Exception e, HttpServletRequest req) {
-        LoggerFactory.getLogger(ApiErrors.class).error("Unhandled request error for {}", req.getRequestURI(), e);
+        org.slf4j.LoggerFactory.getLogger(ApiErrors.class).error("Unhandled request error for {}", req.getRequestURI(), e);
         return build(500, "INTERNAL_ERROR", req);
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     ResponseEntity<Map<String, Object>> json(Exception e, HttpServletRequest req) {
         return build(400, "INVALID_JSON", req);
     }

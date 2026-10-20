@@ -1,4 +1,4 @@
-package com.demo.gateway.config;
+package com.demo.gateway.infrastructure.security;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

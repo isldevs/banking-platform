@@ -1,4 +1,4 @@
-package com.demo.gateway.config;
+package com.demo.gateway.infrastructure.observability;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
