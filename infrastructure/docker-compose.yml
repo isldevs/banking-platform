@@ -57,6 +57,7 @@ services:
       context: ../config-service
     environment:
       SERVER_PORT: 8888
+      SERVER_ADDRESS: 0.0.0.0
     ports:
       - "127.0.0.1:8888:8888"
 

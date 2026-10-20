@@ -1,9 +1,4 @@
 spring:
-  # This Config Server is intended for a private/local demo network without
-  # HTTP Basic credentials. Disable Boot's generated in-memory user as well.
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   application:
     name: config-service
   profiles:
@@ -15,6 +10,7 @@ spring:
           search-locations: classpath:/config/{profile}
 
 server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
   port: ${SERVER_PORT:8888}
   error:
     include-message: never
