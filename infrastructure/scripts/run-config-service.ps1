@@ -25,6 +25,8 @@ if (-not $values["CONFIG_SERVER_USERNAME"] -or -not $values["CONFIG_SERVER_PASSW
     exit 1
 }
 
+# Let Spring Boot import the dotenv file directly; normalize the path for Spring resource syntax.
+$env:INFRASTRUCTURE_ENV_FILE = ($envFile -replace '\\', '/')
 $env:CONFIG_SERVER_USERNAME = $values["CONFIG_SERVER_USERNAME"]
 $env:CONFIG_SERVER_PASSWORD = $values["CONFIG_SERVER_PASSWORD"]
 $env:CONFIG_REPO_URI = if ($values["CONFIG_REPO_URI"]) { $values["CONFIG_REPO_URI"] } else { "https://github.com/isldevs/microservice-platform-demo.git" }
