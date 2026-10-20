@@ -40,9 +40,11 @@ In IntelliJ, open **Run → Edit Configurations → AuthApplication** and set th
 - `CONFIG_SERVER_PASSWORD=<your local value from infrastructure/.env>`
 - `SECURITY_JWT_PRIVATEKEYPATH=<absolute path to infrastructure/secrets/jwt-private.pem>`
 - `SECURITY_JWT_PUBLICKEYPATH=<absolute path to infrastructure/secrets/jwt-public.pem>`
+- `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/auth`
+- `SPRING_DATASOURCE_USERNAME=auth_user`
 - `SPRING_DATASOURCE_PASSWORD=<DB_PASSWORD_AUTH from infrastructure/.env>`
 
-Keep the private-key path and contents out of Git-backed config. Start `config-service` first; it must be able to clone the public configuration repo. Auth-service also needs access to its local PostgreSQL database.
+Keep private-key contents and file paths out of Git-backed config. Start `config-service` first; it must be able to clone the public configuration repo. Since Docker is unavailable on a locked-down workstation, PostgreSQL must already be installed/running locally (or be reachable on an approved company database host). Create database `auth` owned by role `auth_user`; Flyway applies the identity and OAuth2 persistence migrations automatically. Do not assume the Docker-only host port `5439` is available on a direct local installation.
 
 ## Run with Docker
 
