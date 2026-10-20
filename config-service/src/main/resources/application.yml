@@ -1,16 +1,27 @@
 spring:
   application:
     name: config-service
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5555/config}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:password}
-  flyway:
-    enabled: true
+  security:
+    user:
+      name: ${CONFIG_SERVER_USERNAME}
+      password: ${CONFIG_SERVER_PASSWORD}
+  cloud:
+    config:
+      server:
+        git:
+          uri: ${CONFIG_REPO_URI}
+          default-label: ${CONFIG_REPO_LABEL:main}
+          username: ${CONFIG_REPO_USERNAME:}
+          password: ${CONFIG_REPO_PASSWORD:}
+          clone-on-start: true
+          force-pull: true
+          delete-untracked-branches: true
+
 server:
   port: ${SERVER_PORT:8888}
   error:
     include-message: never
+
 management:
   endpoints:
     web:
@@ -20,22 +31,3 @@ management:
     health:
       probes:
         enabled: true
-security:
-  jwt:
-    issuer: ${JWT_ISSUER:http://localhost:8081}
-    audience: api
-    public-key-path: ${JWT_PUBLIC_KEY_PATH:./secrets/jwt-public.pem}
-    private-key-path: ${JWT_PRIVATE_KEY_PATH:./secrets/jwt-private.pem}
-  internal-key: ${INTERNAL_SERVICE_KEY:}
-services:
-  customer-url: ${CUSTOMER_SERVICE_URL:http://localhost:8082}
-  account-url: ${ACCOUNT_SERVICE_URL:http://localhost:8083}
-  auth-url: ${AUTH_SERVICE_URL:http://localhost:8081}
-  transfer-url: ${TRANSFER_SERVICE_URL:http://localhost:8084}
-  notification-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
-  audit-url: ${AUDIT_SERVICE_URL:http://localhost:8086}
-  config-url: ${CONFIG_SERVICE_URL:http://localhost:8888}
-demo:
-  funding-enabled: ${DEMO_FUNDING_ENABLED:false}
-  admin-username: ${DEMO_ADMIN_USERNAME:admin}
-  admin-password: ${DEMO_ADMIN_PASSWORD:}
