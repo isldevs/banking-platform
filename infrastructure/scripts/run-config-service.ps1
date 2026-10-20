@@ -1,7 +1,9 @@
-# Run config-service directly on Windows using the local infrastructure/.env.
+# Run config-service on Windows. Uses local Gradle if installed; otherwise falls back to Docker Compose.
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
-$envFile = Join-Path $root "infrastructure/.env"
+$infraDir = Join-Path $root "infrastructure"
+$envFile = Join-Path $infraDir ".env"
+$composeFile = Join-Path $infraDir "docker-compose.yml"
 
 if (-not (Test-Path $envFile)) {
     Write-Error "Missing infrastructure/.env. Run infrastructure/scripts/init-local.sh from Git Bash or WSL first."
@@ -38,13 +40,44 @@ foreach ($name in @("CONFIG_REPO_USERNAME", "CONFIG_REPO_PASSWORD")) {
     }
 }
 
-Push-Location (Join-Path $root "config-service")
-try {
-    Write-Host "Starting config-service on http://localhost:$env:SERVER_PORT"
-    Write-Host "Credentials loaded from infrastructure/.env; secret values are not printed."
-    & gradle --no-daemon bootRun
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Write-Host "Config Server credentials loaded from infrastructure/.env; secret values are not printed."
+Write-Host "Target URL: http://localhost:$env:SERVER_PORT/actuator/health"
+
+$gradle = Get-Command gradle -ErrorAction SilentlyContinue
+if ($gradle) {
+    Push-Location (Join-Path $root "config-service")
+    try {
+        Write-Host "Gradle found; starting config-service directly."
+        & gradle --no-daemon bootRun
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+    finally {
+        Pop-Location
+    }
+    exit 0
 }
-finally {
-    Pop-Location
+
+# No Gradle installed: build and run the service in Docker instead.
+$docker = Get-Command docker -ErrorAction SilentlyContinue
+if (-not $docker) {
+    Write-Error "Neither Gradle nor Docker was found. Install Gradle 8.10.2 with JDK 21, or install/start Docker Desktop."
+    exit 1
 }
+
+Write-Host "Gradle was not found; falling back to Docker Compose (no local Gradle install needed)."
+& docker compose version
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Docker Compose is not available. Start/update Docker Desktop or install Docker Compose."
+    exit $LASTEXITCODE
+}
+
+& docker compose --project-directory $infraDir --env-file $envFile -f $composeFile up --build -d config-service
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Docker Compose failed to start config-service. Check Docker Desktop and the build output above."
+    exit $LASTEXITCODE
+}
+
+& docker compose --project-directory $infraDir --env-file $envFile -f $composeFile ps config-service
+Write-Host ""
+Write-Host "Config Server container has been started. Open http://localhost:$env:SERVER_PORT/actuator/health"
+Write-Host "To follow logs, change to the infrastructure directory and run: docker compose logs -f config-service"
