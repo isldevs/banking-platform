@@ -15,8 +15,8 @@ spring:
         max-interval: 5000
         multiplier: 1.2
 
-
 security:
   jwt:
-    private-key-path: ${SECURITY_JWT_PRIVATEKEYPATH}
-    public-key-path: ${SECURITY_JWT_PUBLICKEYPATH}
+    keystore-path: ${SECURITY_JWT_KEYSTOREPATH}
+    keystore-password: ${SECURITY_JWT_KEYSTOREPASSWORD}
+    keystore-alias: ${SECURITY_JWT_KEYSTOREALIAS:jwt-signing}
