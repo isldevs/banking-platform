@@ -95,7 +95,7 @@ python3 scripts/demo_flow.py
 Postgres is available on local port `5439`, gateway on `8080`, auth-service on `8081`, and Kafka's host listener on `29092`.
 Local demo secrets and generated signing material live only in `infrastructure/.env` and `infrastructure/secrets/`; both are git-ignored.
 
-For the OAuth2 client flow and the full service endpoint reference, see [API Reference](docs/wiki/API-Reference.md). New clients should use Spring Authorization Server (`/oauth2/authorize` and `/oauth2/token`); the custom `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` endpoints are deprecated compatibility endpoints.
+The full project documentation source set is indexed in [Wiki Home](docs/wiki/Home.md), with the [API Reference](docs/wiki/API-Reference.md) covering endpoints and token flows. New clients should use Spring Authorization Server (`/oauth2/authorize` and `/oauth2/token`); the custom `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` endpoints are deprecated compatibility endpoints.
 
 ## GitHub Actions configuration
 
