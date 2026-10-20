@@ -34,7 +34,6 @@ services:
   transfer-url: ${TRANSFER_SERVICE_URL:http://localhost:8084}
   notification-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
   audit-url: ${AUDIT_SERVICE_URL:http://localhost:8086}
-  config-url: ${CONFIG_SERVICE_URL:http://localhost:8888}
 demo:
   funding-enabled: ${DEMO_FUNDING_ENABLED:false}
   admin-username: ${DEMO_ADMIN_USERNAME:admin}
