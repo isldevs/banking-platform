@@ -1,9 +1,9 @@
-# Run config-service on Windows. Uses local Gradle if installed; otherwise falls back to Docker Compose.
+# Run config-service on Windows without Docker.
+# Uses system Gradle if installed, otherwise the repository's Gradle Wrapper.
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $infraDir = Join-Path $root "infrastructure"
 $envFile = Join-Path $infraDir ".env"
-$composeFile = Join-Path $infraDir "docker-compose.yml"
 
 if (-not (Test-Path $envFile)) {
     Write-Error "Missing infrastructure/.env. Run infrastructure/scripts/init-local.sh from Git Bash or WSL first."
@@ -40,14 +40,17 @@ foreach ($name in @("CONFIG_REPO_USERNAME", "CONFIG_REPO_PASSWORD")) {
     }
 }
 
+$gradle = Get-Command gradle -ErrorAction SilentlyContinue
+$wrapper = Join-Path $root "gradlew.bat"
+$projectDir = Join-Path $root "config-service"
+
 Write-Host "Config Server credentials loaded from infrastructure/.env; secret values are not printed."
 Write-Host "Target URL: http://localhost:$env:SERVER_PORT/actuator/health"
 
-$gradle = Get-Command gradle -ErrorAction SilentlyContinue
 if ($gradle) {
-    Push-Location (Join-Path $root "config-service")
+    Write-Host "Using installed Gradle."
+    Push-Location $projectDir
     try {
-        Write-Host "Gradle found; starting config-service directly."
         & gradle --no-daemon bootRun
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
@@ -57,27 +60,19 @@ if ($gradle) {
     exit 0
 }
 
-# No Gradle installed: build and run the service in Docker instead.
-$docker = Get-Command docker -ErrorAction SilentlyContinue
-if (-not $docker) {
-    Write-Error "Neither Gradle nor Docker was found. Install Gradle 8.10.2 with JDK 21, or install/start Docker Desktop."
-    exit 1
+if (Test-Path $wrapper) {
+    if (-not (Test-Path (Join-Path $root "gradle/wrapper/gradle-wrapper.jar"))) {
+        Write-Error "Gradle wrapper JAR is missing. Restore gradle/wrapper/gradle-wrapper.jar from the repository."
+        exit 1
+    }
+
+    Write-Host "System Gradle was not found; using repository Gradle Wrapper."
+    Write-Host "The wrapper may download Gradle 8.13 to your user profile on first run; no administrator rights or Docker are required."
+    Write-Host "If your company proxy blocks the Gradle distribution, ask IT for an approved Gradle 8.13 installation/mirror."
+    & $wrapper --no-daemon -p $projectDir bootRun
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    exit 0
 }
 
-Write-Host "Gradle was not found; falling back to Docker Compose (no local Gradle install needed)."
-& docker compose version
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Docker Compose is not available. Start/update Docker Desktop or install Docker Compose."
-    exit $LASTEXITCODE
-}
-
-& docker compose --project-directory $infraDir --env-file $envFile -f $composeFile up --build -d config-service
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Docker Compose failed to start config-service. Check Docker Desktop and the build output above."
-    exit $LASTEXITCODE
-}
-
-& docker compose --project-directory $infraDir --env-file $envFile -f $composeFile ps config-service
-Write-Host ""
-Write-Host "Config Server container has been started. Open http://localhost:$env:SERVER_PORT/actuator/health"
-Write-Host "To follow logs, change to the infrastructure directory and run: docker compose logs -f config-service"
+Write-Error "Gradle is not installed and gradlew.bat was not found. Update your checkout with 'git pull origin main'. This launcher does not attempt Docker because company policy may block it."
+exit 1
