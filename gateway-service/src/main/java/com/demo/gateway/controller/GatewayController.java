@@ -28,9 +28,8 @@ public class GatewayController {
                       @Value("${services.account-url}") String account,
                       @Value("${services.transfer-url}") String transfer,
                       @Value("${services.notification-url}") String notification,
-                      @Value("${services.audit-url}") String audit,
-                      @Value("${services.config-url}") String config) {
-        targets = Map.of("auth", auth, "users", auth, "customers", customer, "accounts", account, "transfers", transfer, "notifications", notification, "audit", audit, "config", config);
+                      @Value("${services.audit-url}") String audit) {
+        targets = Map.of("auth", auth, "users", auth, "customers", customer, "accounts", account, "transfers", transfer, "notifications", notification, "audit", audit);
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(2));
         factory.setReadTimeout(Duration.ofSeconds(8));
