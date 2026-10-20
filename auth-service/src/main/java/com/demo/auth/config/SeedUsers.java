@@ -18,7 +18,7 @@ public class SeedUsers {
                            @Value("${DEMO_ADMIN_PASSWORD:}") String adminPassword,
                            @Value("${DEMO_USER_PASSWORD:}") String userPassword) {
         return args -> {
-            List<String> codes = List.of("USER_READ", "USER_MANAGE", "CUSTOMER_CREATE", "CUSTOMER_READ", "KYC_APPROVE", "ACCOUNT_OPEN", "ACCOUNT_READ", "ACCOUNT_FUND", "ACCOUNT_FREEZE", "TRANSFER_CREATE", "TRANSFER_READ", "AUDIT_READ", "CONFIG_READ", "CONFIG_MANAGE", "NOTIFICATION_READ");
+            List<String> codes = List.of("USER_READ", "USER_MANAGE", "CUSTOMER_CREATE", "CUSTOMER_READ", "KYC_APPROVE", "ACCOUNT_OPEN", "ACCOUNT_READ", "ACCOUNT_FUND", "ACCOUNT_FREEZE", "TRANSFER_CREATE", "TRANSFER_READ", "AUDIT_READ", "NOTIFICATION_READ");
             for (String code : codes)
                 jdbc.update("INSERT INTO permissions(id,code,description) VALUES(?,?,?) ON CONFLICT(code) DO NOTHING", UUID.randomUUID(), code, code);
             for (String role : List.of("ADMIN", "USER"))
