@@ -4,7 +4,8 @@ Spring Cloud Config Server reads this directory from the Git repository. Files f
 
 - `application.yml`: common non-secret defaults and management endpoints.
 - `auth-service.yml`: auth-service runtime defaults.
-- `gateway-service.yml`: gateway routing and JWT validation defaults.
+- `gateway-service.yml`: local gateway routing and JWT validation defaults.
+- `gateway-service-docker.yml`: Docker-network routing overrides for the gateway.
 
 The Config Server exposes this repository on port 8888 and requires HTTP Basic authentication. Clients import configuration with a mandatory `configserver:` location and retry while the server starts.
 
