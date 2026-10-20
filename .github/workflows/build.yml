@@ -45,26 +45,21 @@ jobs:
         working-directory: infrastructure
         run: docker compose up --build -d
 
-      - name: Wait for all application health endpoints
+      - name: Wait for public and internal service health
         working-directory: infrastructure
         shell: bash
         run: |
           set -euo pipefail
-          specs=(
+          public_specs=(
             "config-service http://localhost:8888/actuator/health"
             "auth-service http://localhost:8081/actuator/health"
-            "customer-service http://localhost:8082/actuator/health"
-            "account-service http://localhost:8083/actuator/health"
-            "transfer-service http://localhost:8084/actuator/health"
-            "notification-service http://localhost:8085/actuator/health"
-            "audit-service http://localhost:8086/actuator/health"
             "gateway-service http://localhost:8080/actuator/health"
           )
           declare -A ready=()
           deadline=$((SECONDS + 300))
           while (( SECONDS < deadline )); do
             all_ready=true
-            for spec in "${specs[@]}"; do
+            for spec in "${public_specs[@]}"; do
               read -r name url <<< "$spec"
               if [[ -z "${ready[$name]:-}" ]]; then
                 if curl --silent --show-error --fail --max-time 3 "$url" >/dev/null 2>&1; then
@@ -78,7 +73,7 @@ jobs:
             [[ "$all_ready" == "true" ]] && break
             sleep 3
           done
-          for spec in "${specs[@]}"; do
+          for spec in "${public_specs[@]}"; do
             read -r name url <<< "$spec"
             if [[ -z "${ready[$name]:-}" ]]; then
               echo "Timed out waiting for $name at $url" >&2
@@ -87,6 +82,33 @@ jobs:
             fi
           done
 
+          # Internal service ports stay private; probe them from the Compose network.
+          internal_container="$(docker compose ps -q customer-service)"
+          network="$(docker inspect "$internal_container" --format '{{range $name, $config := .NetworkSettings.Networks}}{{println $name}}{{end}}' | head -n 1)"
+          if [[ -z "$network" ]]; then
+            echo "Could not determine the Compose network" >&2
+            exit 1
+          fi
+          docker run --rm --network "$network" --entrypoint sh curlimages/curl:8.12.1 -ec '
+            specs="customer-service:8082 account-service:8083 transfer-service:8084 notification-service:8085 audit-service:8086"
+            deadline=$(( $(date +%s) + 240 ))
+            while [ "$(date +%s)" -lt "$deadline" ]; do
+              all_ready=true
+              for spec in $specs; do
+                name=${spec%:*}
+                port=${spec##*:}
+                if curl --silent --show-error --fail --max-time 2 "http://$name:$port/actuator/health" >/dev/null 2>&1; then
+                  :
+                else
+                  all_ready=false
+                fi
+              done
+              [ "$all_ready" = true ] && exit 0
+              sleep 3
+            done
+            echo "Timed out waiting for internal service health endpoints" >&2
+            exit 1
+          '
       - name: Run end-to-end banking demo
         working-directory: infrastructure
         run: python3 scripts/demo_flow.py
