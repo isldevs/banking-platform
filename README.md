@@ -7,7 +7,7 @@ platform**.
 
 This workspace now includes root `settings.gradle`, `build.gradle`, and `gradle.properties`.
 It is a **Gradle composite build**, not a multi-module monorepo: each Spring Boot
-service keeps its own independent `settings.gradle`, `build.gradle`, and database.
+service keeps its own independent `settings.gradle` and `build.gradle`; database-backed services own their databases.
 
 ```bash
 # Requires Gradle 8.10.2 and JDK 21
