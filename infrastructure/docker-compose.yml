@@ -79,6 +79,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth
       SPRING_DATASOURCE_USERNAME: auth_user
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_AUTH:?Set DB_PASSWORD_AUTH}
+    ports:
+      - "127.0.0.1:8081:8081"
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
       - ./secrets/jwt-private.pem:/app/secrets/jwt-private.pem:ro
