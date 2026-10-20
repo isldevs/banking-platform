@@ -1,0 +1,10 @@
+server:
+  port: 8081
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME:auth_user}
+  flyway:
+    enabled: true
+demo:
+  admin-username: ${DEMO_ADMINUSERNAME:admin}
