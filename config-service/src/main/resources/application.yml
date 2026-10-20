@@ -1,4 +1,9 @@
 spring:
+  config:
+    # Load values such as CONFIG_SERVER_USERNAME/PASSWORD from infrastructure/.env
+    # when running locally from the config-service directory. Docker Compose
+    # injects these variables into the container, so this import remains optional.
+    import: "optional:file:${INFRASTRUCTURE_ENV_FILE:../infrastructure/.env}[.properties]"
   application:
     name: config-service
   security:
