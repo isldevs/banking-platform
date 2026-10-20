@@ -1,4 +1,4 @@
-package com.demo.audit.service;
+package com.demo.audit.application.port.in;
 
 import java.util.List;
 import java.util.Map;

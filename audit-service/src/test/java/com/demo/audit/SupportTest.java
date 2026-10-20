@@ -1,6 +1,6 @@
 package com.demo.audit;
 
-import com.demo.audit.config.Support;
+import com.demo.audit.common.Support;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

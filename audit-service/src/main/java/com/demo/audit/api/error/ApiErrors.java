@@ -1,4 +1,4 @@
-package com.demo.audit.exception;
+package com.demo.audit.api.error;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
