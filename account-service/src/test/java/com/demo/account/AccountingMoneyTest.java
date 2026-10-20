@@ -1,6 +1,6 @@
 package com.demo.account;
 
-import com.demo.account.service.AccountingService;
+import com.demo.account.service.impl.AccountingServiceImpl;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class AccountingMoneyTest {
     @Test
     void usdPreservesExactDecimal() {
-        assertEquals(new BigDecimal("123.40"), AccountingService.money(new BigDecimal("123.4"), "USD"));
+        assertEquals(new BigDecimal("123.40"), AccountingServiceImpl.money(new BigDecimal("123.4"), "USD"));
     }
 
     @Test
