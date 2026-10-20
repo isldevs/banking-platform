@@ -27,6 +27,9 @@ read_env() {
   ' "$ENV_FILE"
 }
 
+# Spring Boot imports this file as a properties source as well; use an absolute path
+# so the import works regardless of the process working directory.
+export INFRASTRUCTURE_ENV_FILE="$ENV_FILE"
 export CONFIG_SERVER_USERNAME="$(read_env CONFIG_SERVER_USERNAME)"
 export CONFIG_SERVER_PASSWORD="$(read_env CONFIG_SERVER_PASSWORD)"
 export CONFIG_REPO_URI="$(read_env CONFIG_REPO_URI)"
