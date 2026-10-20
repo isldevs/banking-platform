@@ -37,7 +37,7 @@ installation options and independent repository guidance.
 | transfer-service     | 8084 | transfer     | Idempotency, transfer workflow, recovery, Kafka outbox |
 | notification-service | 8085 | notification | Kafka consumer, in-app notices                         |
 | audit-service        | 8086 | audit        | Append-only Kafka audit events                         |
-| config-service       | 8888 | config       | Versioned non-secret application configuration         |
+| config-service       | 8888 | None         | Git-backed Spring Cloud Config Server                  |
 
 `infrastructure` and `contracts` are separate logical Git repositories. You can initialize all ten Git roots using
 `bash infrastructure/scripts/initialize-git.sh`.
@@ -93,7 +93,7 @@ cd infrastructure && docker compose ps
 
 ## Data ownership and transaction guarantees
 
-- Seven **separate PostgreSQL databases** and application roles; services never read another service's tables.
+- Six **separate PostgreSQL databases** and application roles; services never read another service's tables.
 - `account-service` is the financial atomicity boundary. It applies deterministic PostgreSQL row locking, balance
   updates, paired `DEBIT`/`CREDIT` entries, and an `account_operations` idempotency record in **one local transaction**.
 - `transfer-service` owns workflow state and client idempotency. When account-service times out, transfer becomes
@@ -111,9 +111,11 @@ cd infrastructure && docker compose ps
   strong per-service identity with rotation, egress isolation and a real policy at company environments.
 - `account-service` has a **demo funding endpoint** backed by a negative-balance clearing account. Disable
   `DEMO_FUNDING_ENABLED` outside local demo; production funding must reconcile to real external settlement.
-- Config DB keeps **non-secret values only**. Secrets stay in environment/files; production needs an approved secret
-  store, rotation, and secure config delivery. Configuration is demonstrated via versioned CRUD; runtime services use
-  environment bootstrap values rather than automatically refreshing configuration.
+- `config-service` serves non-secret configuration from `config-repo/` through Spring Cloud Config. `auth-service`
+  and `gateway-service` use mandatory Config Client imports with startup retry; the remaining services still use their
+  existing local/environment configuration. Keep database credentials, private keys, and internal service credentials
+  in `infrastructure/.env` or an approved secret store, never in Git. Changes in Config Server do not automatically
+  refresh already-running clients; restart them after configuration changes unless runtime refresh is explicitly added.
 - Gateway includes JWT validation/routing but not a production rate limiter, WAF, TLS termination or hardened
   header/CORS policy.
 - This demo doesn't implement transfer reversal, maker-checker, full audit coverage, OAuth PKCE, distributed tracing,
