@@ -16,6 +16,6 @@ class AccountingMoneyTest {
 
     @Test
     void khmerRielNeedsWholeUnits() {
-        assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> AccountingService.money(new BigDecimal("1.50"), "KHR"));
+        assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> AccountingServiceImpl.money(new BigDecimal("1.50"), "KHR"));
     }
 }
