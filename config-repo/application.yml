@@ -1,3 +1,10 @@
+spring:
+  cloud:
+    config:
+      # Allow deployment environment variables/system properties to override safe defaults.
+      allowOverride: true
+      overrideSystemProperties: false
+
 server:
   error:
     include-message: never
