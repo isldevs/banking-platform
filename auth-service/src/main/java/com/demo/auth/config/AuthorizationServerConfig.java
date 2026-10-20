@@ -16,7 +16,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
-import org.springframework.security.oauth2.core.OAuth2Token;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenType;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
@@ -90,7 +90,7 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    OAuth2AuthorizationConsentService authorizationConsentService(RegisteredClientRepository clients) {
+    OAuth2AuthorizationConsentService authorizationConsentService() {
         return new InMemoryOAuth2AuthorizationConsentService();
     }
 
@@ -166,7 +166,7 @@ public class AuthorizationServerConfig {
             JdbcTemplate jdbc,
             @Value("${security.jwt.audience}") String audience) {
         return context -> {
-            if (!OAuth2Token.ACCESS_TOKEN.equals(context.getTokenType())) {
+            if (!OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
                 return;
             }
 
