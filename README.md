@@ -91,6 +91,19 @@ curl http://localhost:8080/api/auth/me -H "Authorization: Bearer YOUR_ACCESS_TOK
 cd infrastructure && docker compose ps
 ```
 
+## OAuth2 / OIDC browser demo
+
+The Authorization Code + PKCE client is configured for Postman:
+
+- Issuer: `http://localhost:8081`
+- Client ID: `demo-browser` (public client, no secret)
+- Authorization endpoint: `http://localhost:8081/oauth2/authorize`
+- Token endpoint: `http://localhost:8081/oauth2/token`
+- Discovery: `http://localhost:8081/.well-known/openid-configuration`
+- Redirect URI: `https://oauth.pstmn.io/v1/callback`
+
+In Postman, create an OAuth 2.0 Authorization Code (With PKCE) token, use the client ID above, leave client secret blank, and use the seeded `admin` or `demo` credentials from `infrastructure/.env`. The legacy `/api/auth/login` flow remains available for the automated banking demo.
+
 ## Data ownership and transaction guarantees
 
 - Six **separate PostgreSQL databases** and application roles; services never read another service's tables.
@@ -112,19 +125,19 @@ cd infrastructure && docker compose ps
   strong per-service identity with rotation, egress isolation and a real policy at company environments.
 - `account-service` has a **demo funding endpoint** backed by a negative-balance clearing account. Disable
   `DEMO_FUNDING_ENABLED` outside local demo; production funding must reconcile to real external settlement.
-- `config-service` serves non-secret configuration from `config-repo/` through Spring Cloud Config. `auth-service`
-  all seven application services use mandatory Config Client imports with startup retry. Common values, service URLs,
+- `config-service` serves non-secret configuration from `config-repo/` through Spring Cloud Config; all seven
+  application services use mandatory Config Client imports with startup retry. Common values, service URLs,
   database locations, and Kafka settings are stored in `config-repo/`; database passwords, private keys, demo login
   passwords, and internal service credentials remain in `infrastructure/.env` or an approved secret store, never Git.
   Config changes do not automatically refresh running clients, so restart affected containers after changes.
 - Gateway includes JWT validation/routing but not a production rate limiter, WAF, TLS termination or hardened
   header/CORS policy.
 - This demo doesn't implement transfer reversal, maker-checker, full audit coverage, production-grade OAuth client lifecycle, distributed tracing,
-  backups, CI/CD, complete resilience policies, full tests, or a real UI. These remain milestones from the source
+  backups, full resilience policies, complete automated integration coverage, or a real UI. These remain milestones from the source
   roadmap, not completed features.
-- This package has not been compiled or integration-tested in this workspace because Gradle dependencies and Docker are
-  not available here. Run the commands above in a network-enabled development environment and review all failures before
-  using any code in production.
+- GitHub Actions runs `gradle buildAll` for all independent services and a Docker Compose end-to-end demo, including
+  OAuth2/OIDC discovery, JWKS, login, KYC, accounts, transfers, idempotency, ledger, notification, and audit checks.
+  Review the latest Actions run before treating a particular commit as verified; this remains a learning/demo package.
 
 ## Repo tree
 
@@ -140,6 +153,7 @@ microservices-platform/
 ├── notification-service/
 ├── audit-service/
 ├── config-service/
+├── config-repo/                   # Git-backed Spring Cloud Config properties
 ├── gateway-service/
 ├── contracts/                     # Versioned event contract examples
 ├── infrastructure/
