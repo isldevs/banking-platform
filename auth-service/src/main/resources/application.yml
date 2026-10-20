@@ -1,10 +1,6 @@
 spring:
   application:
     name: auth-service
-security:
-  jwt:
-    # The signing key path must come from the runtime environment, never Git-backed config.
-    private-key-path: ${SECURITY_JWT_PRIVATEKEYPATH}
   config:
     import: "configserver:${CONFIG_SERVICE_URL:http://localhost:8888}"
   cloud:
@@ -18,3 +14,8 @@ security:
         initial-interval: 1000
         max-interval: 5000
         multiplier: 1.2
+
+security:
+  jwt:
+    # The signing key path must come from the runtime environment, never Git-backed config.
+    private-key-path: ${SECURITY_JWT_PRIVATEKEYPATH}
