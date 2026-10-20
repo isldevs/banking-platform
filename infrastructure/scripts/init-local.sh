@@ -12,7 +12,6 @@ if [[ ! -f .env ]]; then
     echo "INTERNAL_SERVICE_KEY=$(openssl rand -hex 32)"
     echo "CONFIG_SERVER_USERNAME=config-client"
     echo "CONFIG_SERVER_PASSWORD=$(openssl rand -hex 24)"
-    echo "CONFIG_REPO_LABEL=main"
     echo "JWT_KEYSTORE_PASSWORD=$(openssl rand -hex 24)"
     echo "OAUTH2_DEMO_CLIENT_SECRET=$(openssl rand -hex 32)"
     echo "DEMO_ADMIN_PASSWORD=$(openssl rand -hex 18)"
@@ -29,7 +28,6 @@ fi
 # Add required local settings without overwriting existing values.
 if ! grep -q '^CONFIG_SERVER_USERNAME=' .env; then printf 'CONFIG_SERVER_USERNAME=config-client\n' >> .env; fi
 if ! grep -q '^CONFIG_SERVER_PASSWORD=' .env; then printf 'CONFIG_SERVER_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env; fi
-if ! grep -q '^CONFIG_REPO_LABEL=' .env; then printf 'CONFIG_REPO_LABEL=main\n' >> .env; fi
 if ! grep -q '^JWT_KEYSTORE_PASSWORD=' .env; then printf 'JWT_KEYSTORE_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env; fi
 if ! grep -q '^OAUTH2_DEMO_CLIENT_SECRET=' .env; then printf 'OAUTH2_DEMO_CLIENT_SECRET=%s\n' "$(openssl rand -hex 32)" >> .env; fi
 
