@@ -1,0 +1,12 @@
+server:
+  port: 8085
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5439/notification
+    username: notification_user
+  flyway:
+    enabled: true
+  kafka:
+    consumer:
+      group-id: notification-service
