@@ -91,7 +91,6 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/customer
       DB_USERNAME: customer_user
       DB_PASSWORD: ${DB_PASSWORD_CUSTOMER:?Set DB_PASSWORD_CUSTOMER}
-      CONFIG_SERVICE_URL: http://config-service:8888
       AUTH_SERVICE_URL: http://auth-service:8081
       ACCOUNT_SERVICE_URL: http://account-service:8083
       TRANSFER_SERVICE_URL: http://transfer-service:8084
@@ -115,7 +114,6 @@ services:
       DB_USERNAME: account_user
       DB_PASSWORD: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
       DEMO_FUNDING_ENABLED: 'true'
-      CONFIG_SERVICE_URL: http://config-service:8888
       AUTH_SERVICE_URL: http://auth-service:8081
       CUSTOMER_SERVICE_URL: http://customer-service:8082
       TRANSFER_SERVICE_URL: http://transfer-service:8084
@@ -139,7 +137,6 @@ services:
       DB_USERNAME: transfer_user
       DB_PASSWORD: ${DB_PASSWORD_TRANSFER:?Set DB_PASSWORD_TRANSFER}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      CONFIG_SERVICE_URL: http://config-service:8888
       AUTH_SERVICE_URL: http://auth-service:8081
       CUSTOMER_SERVICE_URL: http://customer-service:8082
       ACCOUNT_SERVICE_URL: http://account-service:8083
@@ -165,7 +162,6 @@ services:
       DB_USERNAME: notification_user
       DB_PASSWORD: ${DB_PASSWORD_NOTIFICATION:?Set DB_PASSWORD_NOTIFICATION}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      CONFIG_SERVICE_URL: http://config-service:8888
       AUTH_SERVICE_URL: http://auth-service:8081
       CUSTOMER_SERVICE_URL: http://customer-service:8082
       ACCOUNT_SERVICE_URL: http://account-service:8083
@@ -191,7 +187,6 @@ services:
       DB_USERNAME: audit_user
       DB_PASSWORD: ${DB_PASSWORD_AUDIT:?Set DB_PASSWORD_AUDIT}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      CONFIG_SERVICE_URL: http://config-service:8888
       AUTH_SERVICE_URL: http://auth-service:8081
       CUSTOMER_SERVICE_URL: http://customer-service:8082
       ACCOUNT_SERVICE_URL: http://account-service:8083
