@@ -1,0 +1,7 @@
+services:
+  auth-url: http://auth-service:8081
+  customer-url: http://customer-service:8082
+  account-url: http://account-service:8083
+  transfer-url: http://transfer-service:8084
+  notification-url: http://notification-service:8085
+  audit-url: http://audit-service:8086
