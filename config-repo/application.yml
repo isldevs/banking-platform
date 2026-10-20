@@ -22,7 +22,6 @@ security:
   jwt:
     issuer: http://localhost:8081
     audience: api
-    public-key-path: ../infrastructure/secrets/jwt-public.pem
 
 services:
   customer-url: http://localhost:8082
