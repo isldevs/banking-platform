@@ -33,14 +33,7 @@ Use the standard Spring Cloud Config naming convention:
 
 ```text
 application.yml
-application-local.yml
 auth-service.yml
-auth-service-local.yml
-customer-service.yml
-account-service.yml
-transfer-service.yml
-notification-service.yml
-audit-service.yml
 gateway-service.yml
 gateway-service-docker.yml
 ```
@@ -67,7 +60,8 @@ GET /<application>/<profile>/<label>
 For example:
 
 ```text
-GET /account-service/local
+GET /auth-service/default/main
+GET /gateway-service/docker/main
 ```
 
 ## Security model
