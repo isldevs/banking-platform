@@ -8,7 +8,7 @@ if [[ ! -f .env ]]; then
     echo 'JWT_ISSUER=http://localhost:8081'
     echo "APP_UID=$(id -u)"
     echo "APP_GID=$(id -g)"
-    echo "POSTGRES_PASSWORD=password"
+    echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
     echo "INTERNAL_SERVICE_KEY=$(openssl rand -hex 32)"
     echo "CONFIG_SERVER_USERNAME=config-client"
     echo "CONFIG_SERVER_PASSWORD=$(openssl rand -hex 24)"
