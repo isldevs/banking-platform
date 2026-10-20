@@ -3,6 +3,7 @@
 import json, os, sys, time, uuid
 from pathlib import Path
 from urllib.request import Request, urlopen
+from urllib.parse import urlparse
 from urllib.error import HTTPError
 
 base=os.environ.get('DEMO_URL','http://localhost:8080')
@@ -28,15 +29,31 @@ def api(method,path,payload=None,token=None,headers=None,expect=(200,201)):
 def login(name,password):
     return api('POST','/api/auth/login',{'username':name,'password':password})['accessToken']
 
-print('Waiting for local services to become ready (up to 120s)...')
+auth_base=os.environ.get('AUTH_URL','http://localhost:8081')
+print('Waiting for gateway and auth-service to become ready (up to 120s)...')
 end_ready=time.time()+120
 while time.time()<end_ready:
     try:
-        with urlopen(base+'/actuator/health',timeout=3) as response:
-            if response.status==200:break
+        with urlopen(base+'/actuator/health',timeout=3) as gateway_health, urlopen(auth_base+'/actuator/health',timeout=3) as auth_health:
+            if gateway_health.status==200 and auth_health.status==200:break
     except Exception:pass
     time.sleep(2)
-else:raise SystemExit('FAIL: API gateway never became healthy. Try docker compose logs gateway-service')
+else:raise SystemExit('FAIL: gateway or auth-service never became healthy. Check docker compose logs')
+
+print('Checking OAuth2/OIDC discovery and signing keys')
+with urlopen(auth_base+'/.well-known/openid-configuration',timeout=10) as response:
+    metadata=json.loads(response.read())
+expected_issuer=vars.get('JWT_ISSUER','http://localhost:8081')
+if metadata.get('issuer') != expected_issuer:
+    raise AssertionError(f"OIDC issuer mismatch: expected {expected_issuer}, got {metadata.get('issuer')}")
+for key,path in [('authorization_endpoint','/oauth2/authorize'),('token_endpoint','/oauth2/token'),('jwks_uri','/oauth2/jwks')]:
+    if urlparse(metadata.get(key,'' )).path != path:
+        raise AssertionError(f"OIDC discovery has invalid {key}: {metadata.get(key)}")
+with urlopen(metadata['jwks_uri'],timeout=10) as response:
+    jwks=json.loads(response.read())
+if not any(key.get('kid')=='demo-rsa-1' and key.get('kty')=='RSA' for key in jwks.get('keys',[])):
+    raise AssertionError('OAuth2 JWKS did not publish the expected demo-rsa-1 RSA key')
+print('PASS: OIDC discovery, authorization/token endpoints, and JWKS signing key')
 
 print('1/9 Logging in as demo and admin')
 end_auth=time.time()+90
