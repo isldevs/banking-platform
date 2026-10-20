@@ -31,6 +31,7 @@ import org.springframework.security.oauth2.server.authorization.settings.OAuth2T
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
+import org.springframework.util.StringUtils;
 
 import java.security.KeyStore;
 import java.security.interfaces.RSAPrivateKey;
@@ -45,14 +46,26 @@ import java.util.UUID;
 public class AuthorizationServerConfig {
 
     @Bean
-    RegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate) {
+    RegisteredClientRepository registeredClientRepository(
+            JdbcTemplate jdbcTemplate,
+            PasswordEncoder passwordEncoder,
+            @Value("${OAUTH2_DEMO_CLIENT_SECRET:}") String confidentialClientSecret) {
+
         JdbcRegisteredClientRepository repository = new JdbcRegisteredClientRepository(jdbcTemplate);
+        TokenSettings tokenSettings = TokenSettings.builder()
+                .accessTokenFormat(OAuth2TokenFormat.SELF_CONTAINED)
+                .accessTokenTimeToLive(Duration.ofMinutes(15))
+                .refreshTokenTimeToLive(Duration.ofDays(7))
+                .reuseRefreshTokens(false)
+                .build();
+
+        // Public client for authorization-code + PKCE only. Spring Authorization Server
+        // does not issue refresh tokens to public clients.
         RegisteredClient browserClient = RegisteredClient.withId("demo-browser-client")
                 .clientId("demo-browser")
-                .clientName("Demo Browser / Postman")
+                .clientName("Demo Browser (public PKCE client)")
                 .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .redirectUri("https://oauth.pstmn.io/v1/callback")
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
@@ -62,17 +75,47 @@ public class AuthorizationServerConfig {
                 .scope("account.write")
                 .scope("transfer.create")
                 .clientSettings(ClientSettings.builder().requireProofKey(true).requireAuthorizationConsent(false).build())
-                .tokenSettings(TokenSettings.builder()
-                        .accessTokenFormat(OAuth2TokenFormat.SELF_CONTAINED)
-                        .accessTokenTimeToLive(Duration.ofMinutes(15))
-                        .refreshTokenTimeToLive(Duration.ofDays(7))
-                        .reuseRefreshTokens(false)
-                        .build())
+                .tokenSettings(tokenSettings)
                 .build();
 
         if (repository.findByClientId(browserClient.getClientId()) == null) {
             repository.save(browserClient);
         }
+
+        // Confidential client for trusted server-side clients / Postman. Its secret
+        // is supplied from the deployment environment and stored as a BCrypt hash.
+        // A secret must never be embedded in browser JavaScript or a mobile app.
+        if (StringUtils.hasText(confidentialClientSecret)) {
+            RegisteredClient confidentialClient = RegisteredClient.withId("demo-bff-client")
+                    .clientId("demo-bff")
+                    .clientName("Demo BFF / Postman (confidential client)")
+                    .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                    .clientSecret(passwordEncoder.encode(confidentialClientSecret))
+                    .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                    .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                    .redirectUri("https://oauth.pstmn.io/v1/callback")
+                    .scope(OidcScopes.OPENID)
+                    .scope(OidcScopes.PROFILE)
+                    .scope(OidcScopes.EMAIL)
+                    .scope("customer.read")
+                    .scope("account.read")
+                    .scope("account.write")
+                    .scope("transfer.create")
+                    .clientSettings(ClientSettings.builder().requireProofKey(true).requireAuthorizationConsent(false).build())
+                    .tokenSettings(tokenSettings)
+                    .build();
+
+            RegisteredClient existing = repository.findByClientId(confidentialClient.getClientId());
+            if (existing == null) {
+                repository.save(confidentialClient);
+            } else if (!passwordEncoder.matches(confidentialClientSecret, existing.getClientSecret())) {
+                // Allow deployment secret rotation without replacing the persisted client ID.
+                jdbcTemplate.update(
+                        "UPDATE oauth2_registered_client SET client_secret = ? WHERE id = ?",
+                        passwordEncoder.encode(confidentialClientSecret), existing.getId());
+            }
+        }
+
         return repository;
     }
 
