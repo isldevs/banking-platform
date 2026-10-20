@@ -25,20 +25,11 @@ if (-not $values["CONFIG_SERVER_USERNAME"] -or -not $values["CONFIG_SERVER_PASSW
     exit 1
 }
 
+# Let Spring Boot import the dotenv file directly; normalize the path for Spring resource syntax.
+$env:INFRASTRUCTURE_ENV_FILE = ($envFile -replace '\\', '/')
 $env:CONFIG_SERVER_USERNAME = $values["CONFIG_SERVER_USERNAME"]
 $env:CONFIG_SERVER_PASSWORD = $values["CONFIG_SERVER_PASSWORD"]
-$env:CONFIG_REPO_URI = if ($values["CONFIG_REPO_URI"]) { $values["CONFIG_REPO_URI"] } else { "https://github.com/isldevs/microservice-platform-demo.git" }
-$env:CONFIG_REPO_LABEL = if ($values["CONFIG_REPO_LABEL"]) { $values["CONFIG_REPO_LABEL"] } else { "main" }
-$env:CONFIG_REPO_SEARCH_PATHS = if ($values["CONFIG_REPO_SEARCH_PATHS"]) { $values["CONFIG_REPO_SEARCH_PATHS"] } else { "config-repo" }
 $env:SERVER_PORT = if ($values["SERVER_PORT"]) { $values["SERVER_PORT"] } else { "8888" }
-
-foreach ($name in @("CONFIG_REPO_USERNAME", "CONFIG_REPO_PASSWORD")) {
-    if ($values[$name]) {
-        [Environment]::SetEnvironmentVariable($name, $values[$name], "Process")
-    } else {
-        Remove-Item "Env:$name" -ErrorAction SilentlyContinue
-    }
-}
 
 $gradle = Get-Command gradle -ErrorAction SilentlyContinue
 $wrapper = Join-Path $root "gradlew.bat"

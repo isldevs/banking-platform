@@ -90,7 +90,9 @@ docker compose up --build -d
 
 ### Run standalone on your machine
 
-This service requires `CONFIG_SERVER_USERNAME` and `CONFIG_SERVER_PASSWORD`; starting `gradle bootRun` from an IDE or terminal does **not** automatically load `infrastructure/.env`.
+The service imports `infrastructure/.env` as a Spring Boot properties source using `spring.config.import` in `application.yml`. The default path is `../infrastructure/.env` when the working directory is `config-service`. Set `INFRASTRUCTURE_ENV_FILE` to an absolute path if you use a different working directory. Docker Compose continues to pass `CONFIG_SERVER_USERNAME` and `CONFIG_SERVER_PASSWORD` as container environment variables.
+
+Config Client HTTP Basic credentials are checked by a stateless `AuthenticationProvider` against the values supplied by `.env`/the process environment. The service intentionally does not use `spring.security.user.*`, because that property creates Boot's default `InMemoryUserDetailsManager`. No database-backed user registry is needed for this single machine-to-machine Config Client credential. The configured values necessarily exist in process memory while the service runs, but there is no in-memory user directory.
 
 **Windows PowerShell** (uses installed Gradle or the repository's Gradle Wrapper; Docker is not used):
 

@@ -1,10 +1,11 @@
 spring:
+  config:
+    # Load values such as CONFIG_SERVER_USERNAME/PASSWORD from infrastructure/.env
+    # when running locally from the config-service directory. Docker Compose
+    # injects these variables into the container, so this import remains optional.
+    import: "optional:file:${INFRASTRUCTURE_ENV_FILE:../infrastructure/.env}[.properties]"
   application:
     name: config-service
-  security:
-    user:
-      name: ${CONFIG_SERVER_USERNAME}
-      password: ${CONFIG_SERVER_PASSWORD}
   profiles:
     active: native
   cloud:
@@ -12,6 +13,14 @@ spring:
       server:
         native:
           search-locations: classpath:/config/{profile}
+
+# Deliberately not spring.security.user.*: that Boot convenience property creates
+# an InMemoryUserDetailsManager. SecurityConfig validates the Config Client
+# credentials through a dedicated stateless AuthenticationProvider instead.
+config-server:
+  security:
+    username: ${CONFIG_SERVER_USERNAME}
+    password: ${CONFIG_SERVER_PASSWORD}
 
 server:
   port: ${SERVER_PORT:8888}
