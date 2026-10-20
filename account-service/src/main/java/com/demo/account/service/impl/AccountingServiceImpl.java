@@ -162,7 +162,7 @@ public class AccountingServiceImpl implements AccountingService {
             throw Support.fail(HttpStatus.FORBIDDEN, "NOT_ACCOUNT_OWNER");
     }
 
-    public BigDecimal money(BigDecimal value, String currency) {
+    public static BigDecimal money(BigDecimal value, String currency) {
         if (value == null || currency == null || !Set.of("USD", "KHR").contains(currency) || value.signum() <= 0)
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_AMOUNT_OR_CURRENCY");
         int scale = "KHR".equals(currency) ? 0 : 2;
