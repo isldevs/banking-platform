@@ -27,5 +27,76 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Build all independent services
+      - name: Build and test all independent services
         run: gradle --no-daemon buildAll
+
+  docker-demo:
+    needs: gradle
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Generate isolated demo credentials and RSA key
+        run: bash infrastructure/scripts/init-local.sh
+
+      - name: Build and start the complete stack
+        working-directory: infrastructure
+        run: docker compose up --build -d
+
+      - name: Wait for all application health endpoints
+        working-directory: infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+          specs=(
+            "config-service http://localhost:8888/actuator/health"
+            "auth-service http://localhost:8081/actuator/health"
+            "customer-service http://localhost:8082/actuator/health"
+            "account-service http://localhost:8083/actuator/health"
+            "transfer-service http://localhost:8084/actuator/health"
+            "notification-service http://localhost:8085/actuator/health"
+            "audit-service http://localhost:8086/actuator/health"
+            "gateway-service http://localhost:8080/actuator/health"
+          )
+          declare -A ready=()
+          deadline=$((SECONDS + 300))
+          while (( SECONDS < deadline )); do
+            all_ready=true
+            for spec in "${specs[@]}"; do
+              read -r name url <<< "$spec"
+              if [[ -z "${ready[$name]:-}" ]]; then
+                if curl --silent --show-error --fail --max-time 3 "$url" >/dev/null 2>&1; then
+                  ready[$name]=1
+                  echo "Healthy: $name"
+                else
+                  all_ready=false
+                fi
+              fi
+            done
+            [[ "$all_ready" == "true" ]] && break
+            sleep 3
+          done
+          for spec in "${specs[@]}"; do
+            read -r name url <<< "$spec"
+            if [[ -z "${ready[$name]:-}" ]]; then
+              echo "Timed out waiting for $name at $url" >&2
+              docker compose ps
+              exit 1
+            fi
+          done
+
+      - name: Run end-to-end banking demo
+        working-directory: infrastructure
+        run: python3 scripts/demo_flow.py
+
+      - name: Print service logs on failure
+        if: failure()
+        working-directory: infrastructure
+        run: docker compose logs --no-color
+
+      - name: Stop and remove demo containers
+        if: always()
+        working-directory: infrastructure
+        run: docker compose down --volumes --remove-orphans
