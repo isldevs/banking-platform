@@ -53,12 +53,10 @@ spring:
     import: "configserver:${CONFIG_SERVICE_URL:http://localhost:8888}"
   cloud:
     config:
-      username: ${CONFIG_SERVER_USERNAME}
-      password: ${CONFIG_SERVER_PASSWORD}
       fail-fast: true
 ```
 
-Config Server client credentials are runtime environment variables. Do not place secret values in committed YAML.
+Config Server does not require client credentials in this local/demo configuration. No `CONFIG_SERVER_USERNAME` or `CONFIG_SERVER_PASSWORD` variables are needed. Keep Config Server limited to a trusted network and never put secret values in committed YAML.
 
 ## Global REST JSON naming
 
@@ -76,7 +74,7 @@ Java properties and record components should remain camelCase; JSON at the REST 
 
 Common runtime configuration includes:
 
-- Config Server URL and client username/password
+- Config Server URL (no client credentials in this demo)
 - Database URLs, usernames, and passwords
 - JWT issuer and signing-keystore path, password, and alias
 - JWT public-key path for resource services

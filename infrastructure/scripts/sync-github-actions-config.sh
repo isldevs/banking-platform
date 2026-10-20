@@ -81,7 +81,6 @@ set_secret() {
 for name in \
   POSTGRES_PASSWORD \
   INTERNAL_SERVICE_KEY \
-  CONFIG_SERVER_PASSWORD \
   OAUTH2_DEMO_CLIENT_SECRET \
   DEMO_ADMIN_PASSWORD \
   DEMO_USER_PASSWORD \
@@ -98,13 +97,11 @@ done
 set_variable "JWT_ISSUER" "$(read_env_or_default JWT_ISSUER http://localhost:8081)"
 set_variable "APP_UID" "$(read_env_or_default APP_UID 1000)"
 set_variable "APP_GID" "$(read_env_or_default APP_GID 1000)"
-set_variable "CONFIG_SERVER_USERNAME" "$(read_env_or_default CONFIG_SERVER_USERNAME config-client)"
 set_variable "DEMO_ADMIN_USERNAME" "$(read_env_or_default DEMO_ADMIN_USERNAME admin)"
 
 for name in \
   POSTGRES_PASSWORD \
   INTERNAL_SERVICE_KEY \
-  CONFIG_SERVER_PASSWORD \
   OAUTH2_DEMO_CLIENT_SECRET \
   DEMO_ADMIN_PASSWORD \
   DEMO_USER_PASSWORD \

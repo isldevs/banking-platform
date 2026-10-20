@@ -33,7 +33,7 @@ When working under an environment where containers are unavailable:
 1. Use an approved PostgreSQL installation or database host and create the service databases/roles required by the project.
 2. Use an approved Kafka service if testing asynchronous workflows.
 3. Start Config Service first on port 8888.
-4. Configure each application with `SPRING_PROFILES_ACTIVE=dev`, Config Server URL and credentials, database connection settings, JWT key paths, and the required service URLs.
+4. Configure each application with `SPRING_PROFILES_ACTIVE=dev`, the Config Server URL, database connection settings, JWT key paths, and the required service URLs. Config Server credentials are not required.
 5. Start Auth Service, then the remaining services, following their dependencies.
 6. Run the root Gradle build and tests before testing end-to-end workflows.
 
@@ -42,8 +42,6 @@ The Docker Compose host port `5439` does not automatically apply to a direct loc
 Auth Service local environment settings include:
 
 - `CONFIG_SERVICE_URL=http://localhost:8888`
-- `CONFIG_SERVER_USERNAME=config-client`
-- `CONFIG_SERVER_PASSWORD=<local value from infrastructure/.env>`
 - `SECURITY_JWT_KEYSTOREPATH=<absolute path to infrastructure/secrets/jwt-signing.p12>`
 - `SECURITY_JWT_KEYSTOREPASSWORD=<JWT_KEYSTORE_PASSWORD from infrastructure/.env>`
 - `SECURITY_JWT_KEYSTOREALIAS=jwt-signing`

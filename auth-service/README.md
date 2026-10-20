@@ -40,12 +40,10 @@ Registered OAuth2 clients, authorization codes/tokens, consent records, and lega
 
 ## Run locally from IntelliJ (no Docker)
 
-First run `bash infrastructure/scripts/init-local.sh` from Git Bash or WSL at the repository root to generate ignored local secrets. Start `config-service` first, then run AuthApplication with at least:
+First run `bash infrastructure/scripts/init-local.sh` from Git Bash or WSL at the repository root to generate ignored local secrets. Start `config-service` first; it serves the bundled non-secret configuration without Config Client credentials. Then run AuthApplication with at least:
 
 - `SPRING_PROFILES_ACTIVE=dev`
 - `CONFIG_SERVICE_URL=http://localhost:8888`
-- `CONFIG_SERVER_USERNAME=config-client`
-- `CONFIG_SERVER_PASSWORD=<local value from infrastructure/.env>`
 - `SECURITY_JWT_KEYSTOREPATH=<absolute path to infrastructure/secrets/jwt-signing.p12>`
 - `SECURITY_JWT_KEYSTOREPASSWORD=<JWT_KEYSTORE_PASSWORD from infrastructure/.env>`
 - `SECURITY_JWT_KEYSTOREALIAS=jwt-signing`
