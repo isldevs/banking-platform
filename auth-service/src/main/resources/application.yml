@@ -15,7 +15,8 @@ spring:
         max-interval: 5000
         multiplier: 1.2
 
+
 security:
   jwt:
-    # The signing key path must come from the runtime environment, never Git-backed config.
     private-key-path: ${SECURITY_JWT_PRIVATEKEYPATH}
+    public-key-path: ${SECURITY_JWT_PUBLICKEYPATH}
