@@ -42,6 +42,7 @@ transfer-service.yml
 notification-service.yml
 audit-service.yml
 gateway-service.yml
+gateway-service-docker.yml
 ```
 
 A service loads its shared configuration from `application.yml` and its service-specific configuration from `<service-name>.yml`. Environment-specific files override the base configuration. `auth-service` and `gateway-service` are configured as mandatory Config Clients; the other services will be migrated separately.
