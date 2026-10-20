@@ -1,4 +1,4 @@
-package com.demo.audit.config;
+package com.demo.audit.infrastructure.observability;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

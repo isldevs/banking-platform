@@ -1,4 +1,4 @@
-package com.demo.audit.config;
+package com.demo.audit.infrastructure.messaging;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

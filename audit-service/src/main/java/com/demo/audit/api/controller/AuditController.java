@@ -1,6 +1,6 @@
-package com.demo.audit.controller;
+package com.demo.audit.api.controller;
 
-import com.demo.audit.service.AuditService;
+import com.demo.audit.application.port.in.AuditService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;

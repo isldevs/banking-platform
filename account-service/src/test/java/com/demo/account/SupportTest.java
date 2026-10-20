@@ -1,6 +1,6 @@
 package com.demo.account;
 
-import com.demo.account.config.Support;
+import com.demo.account.common.Support;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

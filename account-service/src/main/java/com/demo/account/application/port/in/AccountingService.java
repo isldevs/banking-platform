@@ -1,8 +1,8 @@
-package com.demo.account.service;
+package com.demo.account.application.port.in;
 
-import com.demo.account.entity.Funding;
-import com.demo.account.entity.OpenAccount;
-import com.demo.account.entity.TransferCommand;
+import com.demo.account.api.dto.request.Funding;
+import com.demo.account.api.dto.request.OpenAccount;
+import com.demo.account.api.dto.request.TransferCommand;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.List;

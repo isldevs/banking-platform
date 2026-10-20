@@ -1,11 +1,11 @@
-package com.demo.account.service.impl;
+package com.demo.account.application.service;
 
-import com.demo.account.config.Support;
-import com.demo.account.entity.Account;
-import com.demo.account.entity.Funding;
-import com.demo.account.entity.OpenAccount;
-import com.demo.account.entity.TransferCommand;
-import com.demo.account.service.AccountingService;
+import com.demo.account.common.Support;
+import com.demo.account.domain.model.Account;
+import com.demo.account.api.dto.request.Funding;
+import com.demo.account.api.dto.request.OpenAccount;
+import com.demo.account.api.dto.request.TransferCommand;
+import com.demo.account.application.port.in.AccountingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
