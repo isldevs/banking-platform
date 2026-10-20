@@ -7,7 +7,7 @@ A **learning/demo implementation** derived from `MICROSERVICES_README_SOURCE.md`
 | Service | Port | Database | Responsibility |
 |---|---:|---|---|
 | gateway-service | 8080 | None | Public routing, JWT verification, correlation ID |
-| auth-service | 8081 | auth | OAuth2/OIDC Authorization Server + demo login/refresh |
+| auth-service | 8081 | auth | OAuth2/OIDC Authorization Server; legacy demo login/refresh deprecated |
 | customer-service | 8082 | customer | Customer profile, KYC approval |
 | account-service | 8083 | account | Account ownership, balance, atomic ledger |
 | transfer-service | 8084 | transfer | Idempotency, transfer workflow, recovery, Kafka outbox |
@@ -105,7 +105,7 @@ bash infrastructure/scripts/init-local.sh
 bash infrastructure/scripts/sync-github-actions-config.sh
 ```
 
-The sync script uploads non-sensitive settings such as `JWT_ISSUER`, `APP_UID`, `APP_GID`, `CONFIG_SERVER_USERNAME`, and `DEMO_ADMIN_USERNAME` as Variables. Database passwords, `CONFIG_SERVER_PASSWORD`, `INTERNAL_SERVICE_KEY`, and demo passwords are uploaded as Secrets.
+The sync script uploads non-sensitive settings such as `JWT_ISSUER`, `APP_UID`, `APP_GID`, `CONFIG_SERVER_USERNAME`, and `DEMO_ADMIN_USERNAME` as Variables. Database passwords, `CONFIG_SERVER_PASSWORD`, `INTERNAL_SERVICE_KEY`, `OAUTH2_DEMO_CLIENT_SECRET`, and demo passwords are uploaded as Secrets.
 
 ## Security and data ownership
 
