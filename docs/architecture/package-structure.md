@@ -29,7 +29,7 @@ This repository uses independent Spring Boot services for separate banking capab
 
 ## API naming convention
 
-All external REST request and response JSON fields use `snake_case`, while Java field/record component names remain idiomatic `camelCase`. DTOs should use Jackson's `@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)` so the transport contract is explicit at the API boundary.
+All external REST request and response JSON fields use `snake_case`, while Java field/record component names remain idiomatic `camelCase`. The global Jackson naming strategy is configured in the environment-level `config-service` application configuration (`spring.jackson.property-naming-strategy: SNAKE_CASE`). Treat that centralized setting as the source of truth; do not add per-DTO `@JsonNaming` annotations unless a documented endpoint-specific exception is required.
 
 Example:
 
