@@ -8,7 +8,8 @@ Spring Cloud Config Server for the platform. This service is stateless and has n
 - Use Spring Cloud Config's native classpath backend; there is no separate `config-repo` service or Git clone at runtime.
 - Keep configuration physically separated by environment: `dev`, `qa`, `stage`, and `prod`.
 - Resolve the requested Config Client profile directly to the matching environment directory.
-- Serve configuration without HTTP Basic credentials in this local/demo setup.
+- Serve configuration without HTTP authentication in this local/demo setup.
+- Keep this service focused on the Config Server role: no custom `SecurityConfig`, no Spring Security starter, and no Config Server username/password properties.
 - Expose health, info, metrics, and Prometheus actuator endpoints.
 - Start independently of auth-service so every client can bootstrap before authentication services start.
 
