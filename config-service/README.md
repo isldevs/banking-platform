@@ -46,4 +46,35 @@ cd infrastructure
 docker compose up --build -d
 ```
 
-For a standalone run, set the required environment variables and execute `gradle bootRun` from this service directory.
+### Run standalone on your machine
+
+This service requires `CONFIG_SERVER_USERNAME` and `CONFIG_SERVER_PASSWORD`; starting `gradle bootRun` from an IDE or terminal does **not** automatically load `infrastructure/.env`.
+
+**Windows PowerShell** (with JDK 21 and Gradle 8.10.2 installed):
+
+```powershell
+# Run once from the repository root in Git Bash or WSL to generate infrastructure/.env
+bash infrastructure/scripts/init-local.sh
+
+# Return to PowerShell, from the repository root:
+.\infrastructure\scripts\run-config-service.ps1
+```
+
+**Linux / macOS / Git Bash / WSL**:
+
+```bash
+bash infrastructure/scripts/run-config-service.sh
+```
+
+Both scripts load the local Config Server credentials from `infrastructure/.env` without printing them. They start the service on port 8888. Check it at `http://localhost:8888/actuator/health`.
+
+**Docker option** (no local Gradle installation needed; Docker Desktop/Engine is required):
+
+```bash
+bash infrastructure/scripts/init-local.sh
+cd infrastructure
+docker compose up --build -d config-service
+docker compose logs -f config-service
+```
+
+If it still exits during startup, capture the output with `docker compose logs --no-color config-service` (Docker) or rerun the standalone command and share the first `Caused by:` section. Never share the value of `CONFIG_SERVER_PASSWORD` or any other secrets.
