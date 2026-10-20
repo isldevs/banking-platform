@@ -9,6 +9,6 @@ Spring Cloud Config Server reads this directory from the configured Git reposito
 
 All seven application services use mandatory Spring Cloud Config imports, authenticated with HTTP Basic. Docker Compose activates the `docker` profile. The Config Server uses the Git `config-repo/` search path and the selected Git label, defaulting to `main`.
 
-**Never commit secrets or signing private-key paths here.** Database passwords, the internal service key, demo login passwords, and `security.jwt.private-key-path` are supplied through runtime environment variables. The RSA private key itself must remain in a local ignored file or an approved secret/key-management service. JWT issuer/audience, the public-key path, and routing defaults are configuration, but the issuer must match the running demo.
+**Never commit secrets or signing private-key paths here.** Database passwords, the internal service key, demo login passwords, and `security.jwt.private-key-path` are supplied through runtime environment variables. The RSA private key itself must remain in a local ignored file or an approved secret/key-management service. JWT issuer/audience and routing defaults are configuration, but the issuer must match the running demo. Public/private key file paths come from each process's runtime environment rather than this Git repository.
 
 After changing configuration, restart the affected containers. Automatic refresh is intentionally not configured in this demo.
