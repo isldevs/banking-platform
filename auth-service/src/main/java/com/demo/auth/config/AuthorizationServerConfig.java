@@ -20,10 +20,10 @@ import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
-import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationConsentService;
-import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
-import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
@@ -54,7 +54,8 @@ public class AuthorizationServerConfig {
      * PKCE is required and no client secret is issued to the client.
      */
     @Bean
-    RegisteredClientRepository registeredClientRepository() {
+    RegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate) {
+        JdbcRegisteredClientRepository repository = new JdbcRegisteredClientRepository(jdbcTemplate);
         RegisteredClient browserClient = RegisteredClient.withId("demo-browser-client")
                 .clientId("demo-browser")
                 .clientName("Demo Browser / Postman")
@@ -81,17 +82,25 @@ public class AuthorizationServerConfig {
                         .build())
                 .build();
 
-        return new InMemoryRegisteredClientRepository(browserClient);
+        // Seed the public local demo client once. It is thereafter stored in PostgreSQL.
+        if (repository.findByClientId(browserClient.getClientId()) == null) {
+            repository.save(browserClient);
+        }
+        return repository;
     }
 
     @Bean
-    OAuth2AuthorizationService authorizationService(RegisteredClientRepository clients) {
-        return new InMemoryOAuth2AuthorizationService();
+    OAuth2AuthorizationService authorizationService(
+            JdbcTemplate jdbcTemplate,
+            RegisteredClientRepository clients) {
+        return new JdbcOAuth2AuthorizationService(jdbcTemplate, clients);
     }
 
     @Bean
-    OAuth2AuthorizationConsentService authorizationConsentService() {
-        return new InMemoryOAuth2AuthorizationConsentService();
+    OAuth2AuthorizationConsentService authorizationConsentService(
+            JdbcTemplate jdbcTemplate,
+            RegisteredClientRepository clients) {
+        return new JdbcOAuth2AuthorizationConsentService(jdbcTemplate, clients);
     }
 
     @Bean
