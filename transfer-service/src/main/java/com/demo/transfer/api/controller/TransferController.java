@@ -1,4 +1,6 @@
-package com.demo.transfer;
+package com.demo.transfer.api.controller;
+
+import com.demo.transfer.application.service.TransferService;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

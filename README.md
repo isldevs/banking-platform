@@ -191,3 +191,7 @@ microservices-platform/
 │       └── initialize-git.sh
 └── MICROSERVICES_README_SOURCE.md
 ```
+
+## Architecture
+
+The service package conventions, bounded-context boundaries, and banking-specific design guardrails are documented in [Banking Microservice Package Standard](docs/architecture/package-structure.md).

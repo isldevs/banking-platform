@@ -1,4 +1,6 @@
-package com.demo.transfer;
+package com.demo.transfer.application.service;
+
+import com.demo.transfer.common.Support;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;

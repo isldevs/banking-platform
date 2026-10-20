@@ -1,4 +1,4 @@
-package com.demo.transfer;
+package com.demo.transfer.infrastructure.security;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
