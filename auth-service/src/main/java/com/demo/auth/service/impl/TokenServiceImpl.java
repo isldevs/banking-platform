@@ -11,15 +11,10 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.stereotype.Service;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.KeyFactory;
+import java.security.KeyStore;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,17 +25,33 @@ public class TokenServiceImpl implements TokenService {
     private final String issuer;
 
     @Autowired
-    public TokenServiceImpl(@Value("${security.jwt.private-key-path}") String privatePath,
-                            @Value("${security.jwt.public-key-path}") String publicPath,
-                            @Value("${security.jwt.issuer}") String issuer) throws Exception {
+    public TokenServiceImpl(
+            @Value("${security.jwt.keystore-path}") String keystorePath,
+            @Value("${security.jwt.keystore-password}") String keystorePassword,
+            @Value("${security.jwt.keystore-alias:jwt-signing}") String keyAlias,
+            @Value("${security.jwt.issuer}") String issuer) throws Exception {
         this.issuer = issuer;
-        String privatePem = Files.readString(Path.of(privatePath)).replaceAll("-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s", "");
-        String publicPem = Files.readString(Path.of(publicPath)).replaceAll("-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s", "");
-        KeyFactory f = KeyFactory.getInstance("RSA");
-        RSAPrivateKey pri = (RSAPrivateKey) f.generatePrivate(new PKCS8EncodedKeySpec(Base64.getDecoder().decode(privatePem)));
-        RSAPublicKey pub = (RSAPublicKey) f.generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(publicPem)));
-        RSAKey jwk = new RSAKey.Builder(pub).privateKey(pri).keyID("demo-rsa-1").build();
-        this.encoder = new NimbusJwtEncoder(new ImmutableJWKSet<>(new com.nimbusds.jose.jwk.JWKSet(jwk)));
+
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        try (var input = java.nio.file.Files.newInputStream(java.nio.file.Path.of(keystorePath))) {
+            keyStore.load(input, keystorePassword.toCharArray());
+        }
+
+        if (!keyStore.containsAlias(keyAlias) || !keyStore.isKeyEntry(keyAlias)) {
+            throw new IllegalStateException("Configured JWT signing alias is missing or is not a key entry");
+        }
+
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyStore.getKey(keyAlias, keystorePassword.toCharArray());
+        var certificate = keyStore.getCertificate(keyAlias);
+        if (certificate == null || !(certificate.getPublicKey() instanceof RSAPublicKey publicKey)) {
+            throw new IllegalStateException("Configured JWT keystore entry does not contain an RSA certificate");
+        }
+
+        RSAKey signingKey = new RSAKey.Builder(publicKey)
+                .privateKey(privateKey)
+                .keyID("demo-rsa-1")
+                .build();
+        this.encoder = new NimbusJwtEncoder(new ImmutableJWKSet<>(new com.nimbusds.jose.jwk.JWKSet(signingKey)));
     }
 
     @Override
@@ -51,5 +62,4 @@ public class TokenServiceImpl implements TokenService {
                 .claim("username", username).claim("permissions", permissions).claim("roles", roles).build();
         return encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
     }
-
 }
