@@ -15,8 +15,8 @@ public class SeedUsers {
     @Bean
     ApplicationRunner seed(JdbcTemplate jdbc,
                            @Value("${demo.admin-username}") String admin,
-                           @Value("${demo.admin-password:admin123456789}") String adminPassword,
-                           @Value("${DEMO_USER_PASSWORD:user123456789}") String userPassword) {
+                           @Value("${DEMO_ADMIN_PASSWORD:}") String adminPassword,
+                           @Value("${DEMO_USER_PASSWORD:}") String userPassword) {
         return args -> {
             List<String> codes = List.of("USER_READ", "USER_MANAGE", "CUSTOMER_CREATE", "CUSTOMER_READ", "KYC_APPROVE", "ACCOUNT_OPEN", "ACCOUNT_READ", "ACCOUNT_FUND", "ACCOUNT_FREEZE", "TRANSFER_CREATE", "TRANSFER_READ", "AUDIT_READ", "CONFIG_READ", "CONFIG_MANAGE", "NOTIFICATION_READ");
             for (String code : codes)
