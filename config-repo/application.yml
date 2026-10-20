@@ -3,6 +3,8 @@ spring:
     config:
       allowOverride: true
       overrideSystemProperties: false
+  jackson:
+    property-naming-strategy: SNAKE_CASE
 
 server:
   error:
