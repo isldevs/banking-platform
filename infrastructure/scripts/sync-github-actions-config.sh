@@ -22,7 +22,6 @@ if [[ ! -f "$ENV_FILE" ]]; then
   bash "$ROOT_DIR/infrastructure/scripts/init-local.sh"
 fi
 
-# Read dotenv values without sourcing/executing the file.
 read_env() {
   local key="$1"
   awk -v key="$key" '
@@ -53,7 +52,6 @@ read_env_or_default() {
 set_variable() {
   local name="$1" value="$2"
   [[ -n "$value" ]] || { echo "Skipping unset variable: $name"; return; }
-  # Pipe values on stdin so they are not included in gh's command-line arguments.
   printf '%s' "$value" | gh variable set "$name" --repo "$REPO" >/dev/null
   echo "Set Actions variable: $name"
 }
@@ -80,7 +78,6 @@ set_secret() {
   echo "Set Actions secret: $name"
 }
 
-# Validate all required credentials before modifying repository settings.
 for name in \
   POSTGRES_PASSWORD \
   INTERNAL_SERVICE_KEY \
@@ -97,18 +94,12 @@ do
   validate_secret "$name"
 done
 
-# Repository variables: configuration that is safe to display in workflow logs.
 set_variable "JWT_ISSUER" "$(read_env_or_default JWT_ISSUER http://localhost:8081)"
 set_variable "APP_UID" "$(read_env_or_default APP_UID 1000)"
 set_variable "APP_GID" "$(read_env_or_default APP_GID 1000)"
 set_variable "CONFIG_SERVER_USERNAME" "$(read_env_or_default CONFIG_SERVER_USERNAME config-client)"
-set_variable "CONFIG_REPO_LABEL" "$(read_env_or_default CONFIG_REPO_LABEL main)"
 set_variable "DEMO_ADMIN_USERNAME" "$(read_env_or_default DEMO_ADMIN_USERNAME admin)"
-set_variable "CONFIG_REPO_URI" "$(read_env_or_default CONFIG_REPO_URI https://github.com/isldevs/microservice-platform-demo.git)"
-set_variable "CONFIG_REPO_SEARCH_PATHS" "$(read_env_or_default CONFIG_REPO_SEARCH_PATHS config-repo)"
-set_variable "CONFIG_REPO_USERNAME" "$(read_env CONFIG_REPO_USERNAME || true)"
 
-# Repository secrets: credentials must never be stored as Actions variables.
 for name in \
   POSTGRES_PASSWORD \
   INTERNAL_SERVICE_KEY \
@@ -124,17 +115,6 @@ for name in \
 do
   set_secret "$name"
 done
-
-# These are only needed when Config Server clones a private configuration repo.
-config_repo_password="$(read_env CONFIG_REPO_PASSWORD || true)"
-if [[ -n "$config_repo_password" ]]; then
-  if [[ "$config_repo_password" == replace-with-* ]]; then
-    echo "CONFIG_REPO_PASSWORD is still a placeholder; refusing to upload it." >&2
-    exit 1
-  fi
-  printf '%s' "$config_repo_password" | gh secret set CONFIG_REPO_PASSWORD --repo "$REPO" >/dev/null
-  echo "Set optional Actions secret: CONFIG_REPO_PASSWORD"
-fi
 
 echo
 echo "Finished syncing configuration names to $REPO."
