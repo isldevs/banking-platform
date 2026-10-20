@@ -1,10 +1,3 @@
-spring:
-  cloud:
-    config:
-      # Allow deployment environment variables/system properties to override safe defaults.
-      allowOverride: true
-      overrideSystemProperties: false
-
 server:
   error:
     include-message: never
@@ -18,3 +11,38 @@ management:
     health:
       probes:
         enabled: true
+
+security:
+  jwt:
+    issuer: http://localhost:8081
+    audience: api
+    public-key-path: ../infrastructure/secrets/jwt-public.pem
+    private-key-path: ../infrastructure/secrets/jwt-private.pem
+
+services:
+  customer-url: http://localhost:8082
+  account-url: http://localhost:8083
+  auth-url: http://localhost:8081
+  transfer-url: http://localhost:8084
+  notification-url: http://localhost:8085
+  audit-url: http://localhost:8086
+  config-url: http://localhost:8888
+  gateway-url: http://localhost:8080
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:29092
+    producer:
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
+
+demo:
+  funding-enabled: false
+  admin-username: admin
