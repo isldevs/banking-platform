@@ -2,11 +2,7 @@ spring:
   application:
     name: gateway-service
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:base}
-    group:
-      docker:
-        - base
-        - docker
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   config:
     import: "configserver:${CONFIG_SERVICE_URL:http://localhost:8888}"
   cloud:
