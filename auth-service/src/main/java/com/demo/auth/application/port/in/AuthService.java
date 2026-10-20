@@ -1,9 +1,9 @@
-package com.demo.auth.service;
+package com.demo.auth.application.port.in;
 
-import com.demo.auth.entity.Login;
-import com.demo.auth.entity.NewUser;
-import com.demo.auth.entity.Refresh;
-import com.demo.auth.entity.User;
+import com.demo.auth.api.dto.request.Login;
+import com.demo.auth.api.dto.request.NewUser;
+import com.demo.auth.api.dto.request.Refresh;
+import com.demo.auth.domain.model.User;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.oauth2.jwt.Jwt;
 

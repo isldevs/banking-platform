@@ -1,4 +1,4 @@
-package com.demo.auth.exception;
+package com.demo.auth.api.error;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.LoggerFactory;

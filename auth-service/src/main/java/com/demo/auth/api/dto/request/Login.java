@@ -1,4 +1,4 @@
-package com.demo.auth.entity;
+package com.demo.auth.api.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 

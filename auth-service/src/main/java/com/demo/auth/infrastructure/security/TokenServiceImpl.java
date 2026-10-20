@@ -1,6 +1,6 @@
-package com.demo.auth.service.impl;
+package com.demo.auth.infrastructure.security;
 
-import com.demo.auth.service.TokenService;
+import com.demo.auth.application.port.out.TokenService;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import org.springframework.beans.factory.annotation.Autowired;

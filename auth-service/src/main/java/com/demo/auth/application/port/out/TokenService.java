@@ -1,4 +1,4 @@
-package com.demo.auth.service;
+package com.demo.auth.application.port.out;
 
 import java.util.List;
 import java.util.UUID;

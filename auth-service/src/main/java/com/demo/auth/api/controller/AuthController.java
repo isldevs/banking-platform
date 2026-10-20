@@ -1,9 +1,9 @@
-package com.demo.auth.controller;
+package com.demo.auth.api.controller;
 
-import com.demo.auth.entity.Login;
-import com.demo.auth.entity.NewUser;
-import com.demo.auth.entity.Refresh;
-import com.demo.auth.service.AuthService;
+import com.demo.auth.api.dto.request.Login;
+import com.demo.auth.api.dto.request.NewUser;
+import com.demo.auth.api.dto.request.Refresh;
+import com.demo.auth.application.port.in.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;

@@ -1,4 +1,4 @@
-package com.demo.auth.entity;
+package com.demo.auth.domain.model;
 
 import java.time.Instant;
 import java.util.UUID;
