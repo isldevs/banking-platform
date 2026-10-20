@@ -1,16 +1,2 @@
 server:
   port: 8080
-
-security:
-  jwt:
-    issuer: http://localhost:8081
-    audience: api
-    public-key-path: ./secrets/jwt-public.pem
-
-services:
-  auth-url: http://localhost:8081
-  customer-url: http://localhost:8082
-  account-url: http://localhost:8083
-  transfer-url: http://localhost:8084
-  notification-url: http://localhost:8085
-  audit-url: http://localhost:8086
