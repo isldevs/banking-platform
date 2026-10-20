@@ -4,39 +4,60 @@ Spring Cloud Config Server for the platform. This service is stateless and has n
 
 ## Responsibilities
 
-- Serve shared and service-specific configuration from the Git-backed `config-repo/` directory.
+- Serve shared configuration and service-specific configuration bundled inside the Config Server.
+- Use Spring Cloud Config's native classpath backend; there is no separate `config-repo` service or Git clone at runtime.
+- Apply the shared `application.yml` configuration to every client, then overlay the file matching `spring.application.name`.
+- Support environment-specific overrides with profile files such as `application-docker.yml` and `auth-service-docker.yml`.
 - Require HTTP Basic authentication for configuration endpoints.
 - Expose health, info, metrics, and Prometheus actuator endpoints.
 - Start independently of auth-service so every client can bootstrap before authentication services start.
+
+## Configuration layout
+
+```text
+config-service/src/main/resources/config/
+├── application.yml                 # shared/base configuration
+├── application-docker.yml          # shared Docker overrides
+├── auth-service.yml                # auth-service specific configuration
+├── auth-service-docker.yml
+├── customer-service.yml
+├── customer-service-docker.yml
+├── account-service.yml
+├── account-service-docker.yml
+├── transfer-service.yml
+├── transfer-service-docker.yml
+├── notification-service.yml
+├── notification-service-docker.yml
+├── audit-service.yml
+├── audit-service-docker.yml
+└── gateway-service.yml
+```
+
+Spring Cloud Config resolves configuration using the client's `spring.application.name` and `spring.profiles.active`. With the default `base` profile, a service receives the shared `application.yml` plus its specific file, for example `auth-service.yml`. Docker starts services with the `docker` profile, which loads the shared Docker and service Docker overrides as well.
 
 ## Required environment
 
 ```text
 SERVER_PORT=8888
-CONFIG_REPO_URI=<Git repository URL>
-CONFIG_REPO_LABEL=main
-CONFIG_REPO_SEARCH_PATHS=config-repo
-CONFIG_REPO_USERNAME=<optional Git username>
-CONFIG_REPO_PASSWORD=<optional Git password or token>
 CONFIG_SERVER_USERNAME=<internal Config Client username>
 CONFIG_SERVER_PASSWORD=<internal Config Client password>
 ```
 
-The public demo repository is the default, so Git credentials are optional. Keep the Config Server private to trusted networks and the local developer machine. Never commit Config Client credentials or application secrets.
+No Git repository credentials are required. Never commit Config Client credentials or application secrets.
 
 ## Config Client endpoints
 
 ```text
-GET /auth-service/docker/main
-GET /customer-service/docker/main
-GET /account-service/docker/main
-GET /transfer-service/docker/main
-GET /notification-service/docker/main
-GET /audit-service/docker/main
-GET /gateway-service/docker/main
+GET /auth-service/base/main
+GET /customer-service/base/main
+GET /account-service/base/main
+GET /transfer-service/base/main
+GET /notification-service/base/main
+GET /audit-service/base/main
+GET /gateway-service/base/main
 ```
 
-Send HTTP Basic credentials from `CONFIG_SERVER_USERNAME` and `CONFIG_SERVER_PASSWORD` to inspect these endpoints. Each application service uses a mandatory `configserver:` import with bounded startup retry.
+The label is retained in the Config Client protocol for compatibility, but the native backend loads the configuration packaged with this service rather than reading a Git branch.
 
 ## Run
 
@@ -53,10 +74,7 @@ This service requires `CONFIG_SERVER_USERNAME` and `CONFIG_SERVER_PASSWORD`; sta
 **Windows PowerShell** (uses installed Gradle or the repository's Gradle Wrapper; Docker is not used):
 
 ```powershell
-# Run once from the repository root in Git Bash or WSL to generate infrastructure/.env
 bash infrastructure/scripts/init-local.sh
-
-# Return to PowerShell, from the repository root:
 .\infrastructure\scripts\run-config-service.ps1
 ```
 
@@ -66,9 +84,9 @@ bash infrastructure/scripts/init-local.sh
 bash infrastructure/scripts/run-config-service.sh
 ```
 
-Both scripts load the local Config Server credentials from `infrastructure/.env` without printing them. On Windows, the PowerShell script uses installed Gradle if available; otherwise it uses the repository's `gradlew.bat` and does not try Docker. The wrapper downloads Gradle 8.13 into your user profile on first run if the company network permits it. Java 21 is still required. The Bash script requires Gradle locally. The service listens on port 8888; check it at `http://localhost:8888/actuator/health`.
+Both scripts load the local Config Server credentials from `infrastructure/.env` without printing them. On Windows, the PowerShell script uses installed Gradle if available; otherwise it uses the repository's `gradlew.bat` and does not try Docker. Java 21 is still required. The service listens on port 8888; check it at `http://localhost:8888/actuator/health`.
 
-**Docker option** (no local Gradle installation needed; Docker Desktop/Engine is required):
+**Docker option**:
 
 ```bash
 bash infrastructure/scripts/init-local.sh
@@ -77,4 +95,4 @@ docker compose up --build -d config-service
 docker compose logs -f config-service
 ```
 
-If it still exits during startup, capture the output with `docker compose logs --no-color config-service` (Docker) or rerun the standalone command and share the first `Caused by:` section. Never share the value of `CONFIG_SERVER_PASSWORD` or any other secrets.
+If it exits during startup, capture the output with `docker compose logs --no-color config-service` (Docker) or rerun the standalone command and share the first `Caused by:` section. Never share the value of `CONFIG_SERVER_PASSWORD` or any other secrets.
