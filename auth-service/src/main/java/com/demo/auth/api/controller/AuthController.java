@@ -26,17 +26,32 @@ public class AuthController {
         this.authService = authService;
     }
 
+    /**
+     * Legacy compatibility endpoint. New clients should use Spring Authorization
+     * Server's Authorization Code + PKCE flow and POST /oauth2/token.
+     */
+    @Deprecated(forRemoval = false)
     @PostMapping("/api/auth/login")
     public Map<String, Object> login(@Valid @RequestBody Login req, HttpServletRequest http) {
         return authService.login(req, http);
     }
 
+    /**
+     * Legacy refresh-token store. Its tokens are not interchangeable with tokens
+     * created by Spring Authorization Server.
+     */
+    @Deprecated(forRemoval = false)
     @PostMapping("/api/auth/refresh")
     @Transactional
     public Map<String, Object> refresh(@Valid @RequestBody Refresh req) {
         return authService.refresh(req);
     }
 
+    /**
+     * Legacy refresh-token revocation endpoint. Use POST /oauth2/revoke for
+     * Spring Authorization Server tokens.
+     */
+    @Deprecated(forRemoval = false)
     @PostMapping("/api/auth/logout")
     @Transactional
     public Map<String, String> logout(@Valid @RequestBody Refresh req, @AuthenticationPrincipal Jwt principal) {
