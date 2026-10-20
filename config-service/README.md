@@ -8,7 +8,7 @@ Spring Cloud Config Server for the platform. This service is stateless and has n
 - Use Spring Cloud Config's native classpath backend; there is no separate `config-repo` service or Git clone at runtime.
 - Keep configuration physically separated by environment: `dev`, `qa`, `stage`, and `prod`.
 - Resolve the requested Config Client profile directly to the matching environment directory.
-- Require HTTP Basic authentication for configuration endpoints.
+- Serve configuration without HTTP Basic credentials in this local/demo setup.
 - Expose health, info, metrics, and Prometheus actuator endpoints.
 - Start independently of auth-service so every client can bootstrap before authentication services start.
 
@@ -37,12 +37,6 @@ There is intentionally **no `base/` directory** and no `*-docker.yml` configurat
 
 The native backend uses `classpath:/config/{profile}`. A request such as `/auth-service/dev` loads `config/dev/application.yml` and `config/dev/auth-service.yml`. `/auth-service/qa`, `/auth-service/stage`, and `/auth-service/prod` resolve the corresponding directories.
 
-The repository's environment branches can therefore promote the exact environment directory independently:
-
-```text
-dev → qa → stage → prod
-```
-
 ## Environment profiles
 
 The application services support exactly these environment profiles:
@@ -54,17 +48,13 @@ stage
 prod
 ```
 
-Each service defaults to `dev` when `SPRING_PROFILES_ACTIVE` is not supplied. Deployments set the required environment explicitly. Docker Compose sets `SPRING_PROFILES_ACTIVE=dev`; it does not introduce a Docker profile.
+Docker Compose sets `SPRING_PROFILES_ACTIVE=dev`; it does not introduce a Docker profile.
 
-## Required environment
+## Authentication and network access
 
-```text
-SERVER_PORT=8888
-CONFIG_SERVER_USERNAME=<internal Config Client username>
-CONFIG_SERVER_PASSWORD=<internal Config Client password>
-```
+The demo Config Server does not require a username or password. Config Clients connect to `http://localhost:8888` in local runs or `http://config-service:8888` inside Compose without setting `spring.cloud.config.username` or `spring.cloud.config.password`.
 
-No Git repository credentials are required. Never commit Config Client credentials or application secrets.
+This is appropriate only while the Config Server serves non-secret configuration on a private/trusted network. Do not put secrets in the bundled YAML files. The Compose host port is bound to `127.0.0.1:8888`; keep it private in other deployments as well. A shared or production environment must add an approved network access policy or authentication mechanism before the service is exposed beyond a trusted network.
 
 ## Config Client endpoints
 
@@ -80,7 +70,7 @@ GET /gateway-service/dev
 
 For QA, stage, or production, replace `dev` with `qa`, `stage`, or `prod`.
 
-## Run
+## Run with Docker Compose
 
 ```bash
 bash infrastructure/scripts/init-local.sh
@@ -88,16 +78,11 @@ cd infrastructure
 docker compose up --build -d
 ```
 
-### Run standalone on your machine
-
-The service imports `infrastructure/.env` as a Spring Boot properties source using `spring.config.import` in `application.yml`. The default path is `../infrastructure/.env` when the working directory is `config-service`. Set `INFRASTRUCTURE_ENV_FILE` to an absolute path if you use a different working directory. Docker Compose continues to pass `CONFIG_SERVER_USERNAME` and `CONFIG_SERVER_PASSWORD` as container environment variables.
-
-Config Client HTTP Basic credentials are checked by a stateless `AuthenticationProvider` against the values supplied by `.env`/the process environment. The service intentionally does not use `spring.security.user.*`, because that property creates Boot's default `InMemoryUserDetailsManager`. No database-backed user registry is needed for this single machine-to-machine Config Client credential. The configured values necessarily exist in process memory while the service runs, but there is no in-memory user directory.
+## Run standalone on your machine
 
 **Windows PowerShell** (uses installed Gradle or the repository's Gradle Wrapper; Docker is not used):
 
 ```powershell
-bash infrastructure/scripts/init-local.sh
 .\infrastructure\scripts\run-config-service.ps1
 ```
 
@@ -107,4 +92,4 @@ bash infrastructure/scripts/init-local.sh
 bash infrastructure/scripts/run-config-service.sh
 ```
 
-Both scripts load the local Config Server credentials from `infrastructure/.env` without printing them. On Windows, the PowerShell script uses installed Gradle if available; otherwise it uses the repository's `gradlew.bat` and does not try Docker. Java 21 is still required. The service listens on port 8888; check it at `http://localhost:8888/actuator/health`.
+Config Service no longer requires `infrastructure/.env` or any Config Server credential variables. The launch scripts use port 8888 unless `SERVER_PORT` is already set. Java 21 is required. Check health at `http://localhost:8888/actuator/health`.
