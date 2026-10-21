@@ -6,7 +6,9 @@ if [[ ! -f .env ]]; then
   umask 077
   {
     echo 'JWT_ISSUER=http://localhost:8081'
-    echo 'JWT_AUDIENCE=microservice-platform'
+    # Existing resource servers expect audience "api"; the auth-service now
+    # issues legacy and authorization-server access tokens with this value.
+    echo 'JWT_AUDIENCE=api'
     echo "APP_UID=$(id -u)"
     echo "APP_GID=$(id -g)"
     echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
@@ -25,7 +27,7 @@ else
 fi
 
 # Add required local settings without overwriting existing values.
-if ! grep -q '^JWT_AUDIENCE=' .env; then printf 'JWT_AUDIENCE=%s\n' 'microservice-platform' >> .env; fi
+if ! grep -q '^JWT_AUDIENCE=' .env; then printf 'JWT_AUDIENCE=%s\n' 'api' >> .env; fi
 if ! grep -q '^JWT_KEYSTORE_PASSWORD=' .env; then printf 'JWT_KEYSTORE_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env; fi
 if ! grep -q '^OAUTH2_DEMO_CLIENT_SECRET=' .env; then printf 'OAUTH2_DEMO_CLIENT_SECRET=%s\n' "$(openssl rand -hex 32)" >> .env; fi
 
