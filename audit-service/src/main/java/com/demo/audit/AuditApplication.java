@@ -8,6 +8,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class AuditApplication {
     public static void main(String[] args) {
+        System.out.print("\n============================================================\n AUDIT-SERVICE\n============================================================\n\n");
         SpringApplication.run(AuditApplication.class, args);
     }
 }
