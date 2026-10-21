@@ -5,7 +5,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -22,12 +21,14 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 @Configuration
 public class SecurityConfig {
@@ -45,36 +46,41 @@ public class SecurityConfig {
 
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtAuthenticationConverter c = new JwtAuthenticationConverter();
-        c.setJwtGrantedAuthoritiesConverter(jwt -> {
-            List<GrantedAuthority> result = new ArrayList<>();
-            for (String p : jwt.getClaimAsStringList("permissions") == null
-                    ? List.<String>of() : jwt.getClaimAsStringList("permissions")) {
-                result.add(new SimpleGrantedAuthority(p));
-            }
-            return result;
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            List<String> permissions = jwt.getClaimAsStringList("permissions");
+            return (permissions == null ? Stream.<String>empty() : permissions.stream())
+                    .filter(Objects::nonNull)
+                    .map(SimpleGrantedAuthority::new)
+                    .map(GrantedAuthority.class::cast)
+                    .toList();
         });
-        return c;
+        return converter;
     }
 
     @Bean
     JwtDecoder jwtDecoder(@Value("${security.jwt.public-key-path}") String path,
                           @Value("${security.jwt.issuer}") String issuer,
-                          @Value("${security.jwt.audience}") String audience) throws Exception {
-        String pem = Files.readString(Path.of(path))
-                .replaceAll("-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s", "");
-        RSAPublicKey key = (RSAPublicKey) KeyFactory.getInstance("RSA")
-                .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(pem)));
-        NimbusJwtDecoder d = NimbusJwtDecoder.withPublicKey(key).build();
-        OAuth2TokenValidator<Jwt> base = JwtValidators.createDefaultWithIssuer(issuer);
-        OAuth2TokenValidator<Jwt> aud = t -> {
-            List<String> audiences = t.getAudience();
-            return audiences != null && audiences.contains(audience)
-                    ? OAuth2TokenValidatorResult.success()
-                    : OAuth2TokenValidatorResult.failure(
-                            new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
-        };
-        d.setJwtValidator(new DelegatingOAuth2TokenValidator<>(base, aud));
-        return d;
+                          @Value("${security.jwt.audience}") String audience) {
+        try {
+            String pem = Files.readString(Path.of(path))
+                    .replaceAll("-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s", "");
+            RSAPublicKey key = (RSAPublicKey) KeyFactory.getInstance("RSA")
+                    .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(pem)));
+            NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(key).build();
+            OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
+            OAuth2TokenValidator<Jwt> audienceValidator = token -> {
+                List<String> audiences = token.getAudience();
+                return audiences != null && audiences.contains(audience)
+                        ? OAuth2TokenValidatorResult.success()
+                        : OAuth2TokenValidatorResult.failure(
+                                new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
+            };
+            decoder.setJwtValidator(
+                    new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
+            return decoder;
+        } catch (java.io.IOException | GeneralSecurityException exception) {
+            throw new IllegalStateException("Unable to initialize gateway JWT validation from the public key", exception);
+        }
     }
 }
