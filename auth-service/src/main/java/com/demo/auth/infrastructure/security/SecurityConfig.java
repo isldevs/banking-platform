@@ -46,10 +46,6 @@ import java.util.UUID;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    /**
-     * OAuth2/OIDC protocol endpoints. The login page is handled by the next
-     * chain so browser authorization-code flows can retain their session.
-     */
     @Bean
     @Order(1)
     SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -62,10 +58,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /**
-     * Browser sign-in for Authorization Code + PKCE. Keep failed-login tracking
-     * and the 15-minute lockout behavior consistent with the legacy API login.
-     */
     @Bean
     @Order(2)
     SecurityFilterChain browserLoginSecurityFilterChain(HttpSecurity http, JdbcTemplate jdbc) throws Exception {
@@ -121,9 +113,6 @@ public class SecurityConfig {
                 request.getRemoteAddr(), request.getHeader("User-Agent"));
     }
 
-    /**
-     * Stateless API/resource-server security for the existing demo APIs.
-     */
     @Bean
     @Order(3)
     SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -164,9 +153,13 @@ public class SecurityConfig {
                 .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(pem)));
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(key).build();
         OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
-        OAuth2TokenValidator<Jwt> audienceValidator = token -> token.getAudience().contains(audience)
-                ? OAuth2TokenValidatorResult.success()
-                : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_audience"));
+        OAuth2TokenValidator<Jwt> audienceValidator = token -> {
+            List<String> audiences = token.getAudience();
+            return audiences != null && audiences.contains(audience)
+                    ? OAuth2TokenValidatorResult.success()
+                    : OAuth2TokenValidatorResult.failure(
+                            new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
+        };
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
         return decoder;
     }
