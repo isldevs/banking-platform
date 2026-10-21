@@ -1,10 +1,9 @@
 package com.demo.auth.infrastructure.security;
 
 import com.demo.auth.application.port.out.TokenService;
-import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import com.nimbusds.jwk.JWKSet;
+import com.nimbusds.jwk.RSAKey;
+import com.nimbusds.jwk.source.ImmutableJWKSet;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -71,8 +70,9 @@ public class TokenServiceImpl implements TokenService {
             return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(signingKey)));
         } catch (IOException exception) {
             throw new IllegalStateException("Unable to read the configured JWT keystore", exception);
-        } catch (GeneralSecurityException | JOSEException exception) {
-            throw new IllegalStateException("Unable to initialize JWT signing from the configured keystore", exception);
+        } catch (GeneralSecurityException exception) {
+            throw new IllegalStateException(
+                    "Unable to initialize JWT signing from the configured keystore", exception);
         }
     }
 
