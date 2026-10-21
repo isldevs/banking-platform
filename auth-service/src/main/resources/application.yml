@@ -16,6 +16,6 @@ spring:
 
 security:
   jwt:
-    keystore-path: ${SECURITY_JWT_KEYSTOREPATH}
-    keystore-password: ${SECURITY_JWT_KEYSTOREPASSWORD}
-    keystore-alias: ${SECURITY_JWT_KEYSTOREALIAS:jwt-signing}
+    keystore-path: ${SECURITY_JWT_KEYSTORE_PATH}
+    keystore-password: ${SECURITY_JWT_KEYSTORE_PASSWORD}
+    keystore-alias: ${SECURITY_JWT_KEYSTORE_ALIAS:jwt-signing}
