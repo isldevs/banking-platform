@@ -27,8 +27,9 @@ def api(method,path,payload=None,token=None,headers=None,expect=(200,201)):
     return result
 
 def login(name,password):
-    # Login request DTO uses the global snake_case JSON naming policy.
-    return api('POST','/api/auth/login',{'user_name':name,'password':password})['access_token']
+    # The Java record component is username (no camel-case boundary), and the
+    # legacy Map response uses accessToken as its literal map key.
+    return api('POST','/api/auth/login',{'username':name,'password':password})['accessToken']
 
 auth_base=os.environ.get('AUTH_URL','http://localhost:8081')
 print('Waiting for gateway and auth-service to become ready (up to 120s)...')
