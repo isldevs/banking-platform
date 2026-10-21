@@ -27,7 +27,8 @@ def api(method,path,payload=None,token=None,headers=None,expect=(200,201)):
     return result
 
 def login(name,password):
-    return api('POST','/api/auth/login',{'username':name,'password':password})['accessToken']
+    # Login request DTO uses the global snake_case JSON naming policy.
+    return api('POST','/api/auth/login',{'user_name':name,'password':password})['access_token']
 
 auth_base=os.environ.get('AUTH_URL','http://localhost:8081')
 print('Waiting for gateway and auth-service to become ready (up to 120s)...')
@@ -66,17 +67,17 @@ while True:
         if time.time()>end_auth:raise
         time.sleep(2)
 print('2/9 Creating demo customer, then approving KYC')
-customer=api('POST','/api/customers',{'firstName':'Demo','lastName':'Customer','dateOfBirth':'1998-01-01','phone':'00000000'},user)
+customer=api('POST','/api/customers',{'first_name':'Demo','last_name':'Customer','date_of_birth':'1998-01-01','phone':'00000000'},user)
 customer_id=customer['id']
 api('POST',f'/api/customers/{customer_id}/kyc/approve',{},admin)
 print('3/9 Opening two owned USD accounts')
-a=api('POST','/api/accounts',{'customerId':customer_id,'currency':'USD'},user)
-b=api('POST','/api/accounts',{'customerId':customer_id,'currency':'USD'},user)
+a=api('POST','/api/accounts',{'customer_id':customer_id,'currency':'USD'},user)
+b=api('POST','/api/accounts',{'customer_id':customer_id,'currency':'USD'},user)
 print('4/9 Funding first account with offsetting clearing ledger entry')
 api('POST',f"/api/accounts/{a['id']}/fund",{'amount':'500.00'},admin)
 print('5/9 Performing transfer for 125.00 USD')
 key='demo-'+str(uuid.uuid4())
-body={'sourceAccountId':a['id'],'destinationAccountId':b['id'],'amount':'125.00','currency':'USD','reference':'Demo order'}
+body={'source_account_id':a['id'],'destination_account_id':b['id'],'amount':'125.00','currency':'USD','reference':'Demo order'}
 result=api('POST','/api/transfers',body,user,{'Idempotency-Key':key})
 assert result['status']=='COMPLETED', result
 print('6/9 Retrying identical request using same idempotency key')
@@ -85,11 +86,11 @@ assert result['id']==again['id'], 'Duplicate created new transfer!'
 print('7/9 Verifying balances and ledger-backed atomic account operation')
 source=api('GET',f"/api/accounts/{a['id']}",token=user)
 target=api('GET',f"/api/accounts/{b['id']}",token=user)
-assert str(source['availableBalance']) in ('375.00','375.0','375'),source
-assert str(target['availableBalance']) in ('125.00','125.0','125'),target
+assert str(source['available_balance']) in ('375.00','375.0','375'),source
+assert str(target['available_balance']) in ('125.00','125.0','125'),target
 ledger=api('GET',f"/api/accounts/ledger/{result['id']}",token=admin)
 assert ledger['balanced'] is True and len(ledger['entries'])==2,ledger
-assert str(ledger['totalDebit'])==str(ledger['totalCredit']),ledger
+assert str(ledger['total_debit'])==str(ledger['total_credit']),ledger
 print('8/9 Ensuring same key with different body fails')
 bad={**body,'amount':'1.00'}
 api('POST','/api/transfers',bad,user,{'Idempotency-Key':key},expect=(409,))
@@ -100,7 +101,7 @@ while time.time()<end:
     audits=api('GET',f"/api/audit/transfers/{result['id']}",token=admin)
     if any(result['id'] in n['message'] for n in notes) and audits:
         print('\nPASS: auth, KYC, 2 accounts, funding, transfer, idempotency, balances, Kafka notification and audit')
-        print(json.dumps({'customerId':customer_id,'accountA':a['id'],'accountB':b['id'],'transferId':result['id'],'sourceBalance':str(source['availableBalance']),'targetBalance':str(target['availableBalance']),'notifications':len(notes),'auditEvents':len(audits),'ledgerBalanced':ledger['balanced']},indent=2))
+        print(json.dumps({'customer_id':customer_id,'account_a':a['id'],'account_b':b['id'],'transfer_id':result['id'],'source_balance':str(source['available_balance']),'target_balance':str(target['available_balance']),'notifications':len(notes),'audit_events':len(audits),'ledger_balanced':ledger['balanced']},indent=2))
         sys.exit(0)
     time.sleep(2)
 raise SystemExit('FAIL: transfer passed but Kafka notifications/audit did not arrive; check broker & outbox logs')
