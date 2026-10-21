@@ -1,6 +1,8 @@
 package com.demo.auth.infrastructure.security;
 
 import com.demo.auth.application.port.out.TokenService;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,11 +10,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwtEncodingException;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
@@ -33,30 +38,42 @@ public class TokenServiceImpl implements TokenService {
             @Value("${security.jwt.keystore-password}") String keystorePassword,
             @Value("${security.jwt.keystore-alias:jwt-signing}") String keyAlias,
             @Value("${security.jwt.issuer}") String issuer,
-            @Value("${security.jwt.audience}") String audience) throws Exception {
+            @Value("${security.jwt.audience}") String audience) {
         this.issuer = issuer;
         this.audience = audience;
+        this.encoder = createEncoder(keystorePath, keystorePassword, keyAlias);
+    }
 
-        KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        try (var input = Files.newInputStream(Path.of(keystorePath))) {
-            keyStore.load(input, keystorePassword.toCharArray());
+    private static JwtEncoder createEncoder(String keystorePath, String keystorePassword, String keyAlias) {
+        try {
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            try (var input = Files.newInputStream(Path.of(keystorePath))) {
+                keyStore.load(input, keystorePassword.toCharArray());
+            }
+
+            if (!keyStore.containsAlias(keyAlias) || !keyStore.isKeyEntry(keyAlias)) {
+                throw new IllegalStateException(
+                        "Configured JWT signing alias is missing or is not a key entry");
+            }
+
+            RSAPrivateKey privateKey =
+                    (RSAPrivateKey) keyStore.getKey(keyAlias, keystorePassword.toCharArray());
+            var certificate = keyStore.getCertificate(keyAlias);
+            if (certificate == null || !(certificate.getPublicKey() instanceof RSAPublicKey publicKey)) {
+                throw new IllegalStateException(
+                        "Configured JWT keystore entry does not contain an RSA certificate");
+            }
+
+            RSAKey signingKey = new RSAKey.Builder(publicKey)
+                    .privateKey(privateKey)
+                    .keyID("demo-rsa-1")
+                    .build();
+            return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(signingKey)));
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unable to read the configured JWT keystore", exception);
+        } catch (GeneralSecurityException | JOSEException exception) {
+            throw new IllegalStateException("Unable to initialize JWT signing from the configured keystore", exception);
         }
-
-        if (!keyStore.containsAlias(keyAlias) || !keyStore.isKeyEntry(keyAlias)) {
-            throw new IllegalStateException("Configured JWT signing alias is missing or is not a key entry");
-        }
-
-        RSAPrivateKey privateKey = (RSAPrivateKey) keyStore.getKey(keyAlias, keystorePassword.toCharArray());
-        var certificate = keyStore.getCertificate(keyAlias);
-        if (certificate == null || !(certificate.getPublicKey() instanceof RSAPublicKey publicKey)) {
-            throw new IllegalStateException("Configured JWT keystore entry does not contain an RSA certificate");
-        }
-
-        RSAKey signingKey = new RSAKey.Builder(publicKey)
-                .privateKey(privateKey)
-                .keyID("demo-rsa-1")
-                .build();
-        this.encoder = new NimbusJwtEncoder(new ImmutableJWKSet<>(new com.nimbusds.jose.jwk.JWKSet(signingKey)));
     }
 
     @Override
@@ -65,6 +82,10 @@ public class TokenServiceImpl implements TokenService {
         JwtClaimsSet claims = JwtClaimsSet.builder().issuer(issuer).audience(List.of(audience))
                 .subject(id.toString()).issuedAt(now).expiresAt(now.plusSeconds(900))
                 .claim("username", username).claim("permissions", permissions).claim("roles", roles).build();
-        return encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        try {
+            return encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        } catch (JwtEncodingException exception) {
+            throw new IllegalStateException("Unable to sign JWT access token", exception);
+        }
     }
 }
