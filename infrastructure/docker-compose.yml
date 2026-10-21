@@ -69,9 +69,11 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      SECURITY_JWT_KEYSTOREPATH: /app/secrets/jwt-signing.p12
-      SECURITY_JWT_KEYSTOREPASSWORD: ${JWT_KEYSTORE_PASSWORD:?Set JWT_KEYSTORE_PASSWORD}
-      SECURITY_JWT_KEYSTOREALIAS: jwt-signing
+      SECURITY_JWT_AUDIENCE: ${JWT_AUDIENCE:?Set JWT_AUDIENCE}
+      SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
+      SECURITY_JWT_KEYSTORE_PATH: /app/secrets/jwt-signing.p12
+      SECURITY_JWT_KEYSTORE_PASSWORD: ${JWT_KEYSTORE_PASSWORD:?Set JWT_KEYSTORE_PASSWORD}
+      SECURITY_JWT_KEYSTORE_ALIAS: jwt-signing
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       DEMO_ADMINUSERNAME: ${DEMO_ADMIN_USERNAME:-admin}
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD}
@@ -85,6 +87,7 @@ services:
       - "127.0.0.1:8081:8081"
     volumes:
       - ./secrets/jwt-signing.p12:/app/secrets/jwt-signing.p12:ro
+      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
