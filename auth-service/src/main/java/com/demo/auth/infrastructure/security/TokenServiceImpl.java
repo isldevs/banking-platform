@@ -25,14 +25,17 @@ public class TokenServiceImpl implements TokenService {
 
     private final JwtEncoder encoder;
     private final String issuer;
+    private final String audience;
 
     @Autowired
     public TokenServiceImpl(
             @Value("${security.jwt.keystore-path}") String keystorePath,
             @Value("${security.jwt.keystore-password}") String keystorePassword,
             @Value("${security.jwt.keystore-alias:jwt-signing}") String keyAlias,
-            @Value("${security.jwt.issuer}") String issuer) throws Exception {
+            @Value("${security.jwt.issuer}") String issuer,
+            @Value("${security.jwt.audience}") String audience) throws Exception {
         this.issuer = issuer;
+        this.audience = audience;
 
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
         try (var input = Files.newInputStream(Path.of(keystorePath))) {
@@ -59,7 +62,7 @@ public class TokenServiceImpl implements TokenService {
     @Override
     public String access(UUID id, String username, List<String> permissions, List<String> roles) {
         Instant now = Instant.now();
-        JwtClaimsSet claims = JwtClaimsSet.builder().issuer(issuer).audience(List.of("api"))
+        JwtClaimsSet claims = JwtClaimsSet.builder().issuer(issuer).audience(List.of(audience))
                 .subject(id.toString()).issuedAt(now).expiresAt(now.plusSeconds(900))
                 .claim("username", username).claim("permissions", permissions).claim("roles", roles).build();
         return encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
