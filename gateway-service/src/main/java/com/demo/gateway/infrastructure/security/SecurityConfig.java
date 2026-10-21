@@ -3,6 +3,7 @@ package com.demo.gateway.infrastructure.security;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -32,8 +33,12 @@ import java.util.List;
 public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.csrf(AbstractHttpConfigurer::disable).sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(a -> a.requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+        http.csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(a -> a
+                        .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                        // Authentication entry points must be reachable before a JWT exists.
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(jwtAuthenticationConverter())));
         return http.build();
@@ -44,8 +49,10 @@ public class SecurityConfig {
         JwtAuthenticationConverter c = new JwtAuthenticationConverter();
         c.setJwtGrantedAuthoritiesConverter(jwt -> {
             List<GrantedAuthority> result = new ArrayList<>();
-            for (String p : jwt.getClaimAsStringList("permissions") == null ? List.<String>of() : jwt.getClaimAsStringList("permissions"))
+            for (String p : jwt.getClaimAsStringList("permissions") == null
+                    ? List.<String>of() : jwt.getClaimAsStringList("permissions")) {
                 result.add(new SimpleGrantedAuthority(p));
+            }
             return result;
         });
         return c;
@@ -55,11 +62,19 @@ public class SecurityConfig {
     JwtDecoder jwtDecoder(@Value("${security.jwt.public-key-path}") String path,
                           @Value("${security.jwt.issuer}") String issuer,
                           @Value("${security.jwt.audience}") String audience) throws Exception {
-        String pem = Files.readString(Path.of(path)).replaceAll("-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s", "");
-        RSAPublicKey key = (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(pem)));
+        String pem = Files.readString(Path.of(path))
+                .replaceAll("-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s", "");
+        RSAPublicKey key = (RSAPublicKey) KeyFactory.getInstance("RSA")
+                .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(pem)));
         NimbusJwtDecoder d = NimbusJwtDecoder.withPublicKey(key).build();
         OAuth2TokenValidator<Jwt> base = JwtValidators.createDefaultWithIssuer(issuer);
-        OAuth2TokenValidator<Jwt> aud = t -> t.getAudience().contains(audience) ? OAuth2TokenValidatorResult.success() : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_audience"));
+        OAuth2TokenValidator<Jwt> aud = t -> {
+            List<String> audiences = t.getAudience();
+            return audiences != null && audiences.contains(audience)
+                    ? OAuth2TokenValidatorResult.success()
+                    : OAuth2TokenValidatorResult.failure(
+                            new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
+        };
         d.setJwtValidator(new DelegatingOAuth2TokenValidator<>(base, aud));
         return d;
     }
