@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: ${ACCOUNT_DATASOURCE_URL}
-    username: ${ACCOUNT_DATASOURCE_USERNAME}
-    password: ${ACCOUNT_DATASOURCE_PASSWORD}
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USERNAME}
+    password: ${DATASOURCE_PASSWORD}
   flyway:
     enabled: true
 
