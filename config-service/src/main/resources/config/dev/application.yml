@@ -22,13 +22,13 @@ management:
 
 security:
   jwt:
-    issuer: ${SECURITY_JWT_ISSUER:http://localhost:8081}
+    issuer: ${SECURITY_JWT_ISSUER}
     audience: api
 
 services:
-  customer-url: ${CUSTOMER_SERVICE_URL:http://localhost:8082}
-  account-url: ${ACCOUNT_SERVICE_URL:http://localhost:8083}
-  auth-url: ${AUTH_SERVICE_URL:http://localhost:8081}
-  transfer-url: ${TRANSFER_SERVICE_URL:http://localhost:8084}
-  notification-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
-  audit-url: ${AUDIT_SERVICE_URL:http://localhost:8086}
+  customer-url: ${CUSTOMER_SERVICE_URL}
+  account-url: ${ACCOUNT_SERVICE_URL}
+  auth-url: ${AUTH_SERVICE_URL}
+  transfer-url: ${TRANSFER_SERVICE_URL}
+  notification-url: ${NOTIFICATION_SERVICE_URL}
+  audit-url: ${AUDIT_SERVICE_URL}

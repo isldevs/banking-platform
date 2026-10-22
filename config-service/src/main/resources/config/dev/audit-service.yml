@@ -3,8 +3,9 @@ server:
 
 spring:
   datasource:
-    url: ${DATASOURCE_URL}
-    username: ${DATASOURCE_USERNAME}
+    url: ${AUDIT_DATASOURCE_URL}
+    username: ${AUDIT_DATASOURCE_USERNAME}
+    password: ${AUDIT_DATASOURCE_PASSWORD}
   flyway:
     enabled: true
   kafka:
