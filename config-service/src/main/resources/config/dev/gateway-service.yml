@@ -1,2 +1,8 @@
 server:
   port: 8080
+
+security:
+  jwt:
+    public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH}
+    issuer: ${SECURITY_JWT_ISSUER}
+    audience: ${SECURITY_JWT_AUDIENCE}
