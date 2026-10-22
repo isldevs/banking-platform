@@ -66,6 +66,51 @@ Environment branches can therefore promote configuration cleanly:
 dev -> qa -> stage -> prod
 ```
 
+## Runtime configuration and local development
+
+The recommended local flow keeps secret values outside committed configuration:
+
+```text
+infrastructure/.env.example
+        |
+        v
+infrastructure/.env
+        |
+        v
+scripts/local-env.ps1 / scripts/local-env.cmd
+        |
+        v
+Gradle bootRun -> Spring Boot service -> Config Service
+```
+
+`infrastructure/.env` is ignored by Git and is the local source for passwords, JWT settings, demo credentials, database values, and other runtime values. Config Server owns the configuration structure and references runtime environment variables instead of storing secrets in committed YAML.
+
+Create the local environment from the safe template:
+
+```powershell
+Copy-Item infrastructure\.env.example infrastructure\.env
+```
+
+On Windows PowerShell:
+
+```powershell
+. .\scripts\local-env.ps1 auth
+.\gradlew.bat :auth-service:bootRun
+```
+
+On Windows CMD:
+
+```cmd
+call scripts\local-env.cmd auth
+gradlew.bat :auth-service:bootRun
+```
+
+For another service, replace `auth` with `customer`, `account`, `transfer`, `notification`, `audit`, or `gateway`.
+
+The local scripts generate JWT signing material under the ignored `.jwt/` directory when required. Docker's initialization flow keeps its generated signing material under ignored `infrastructure/secrets/`.
+
+See `docs/wiki/Getting-Started.md` and `docs/wiki/Configuration.md` for the complete local environment and configuration contract.
+
 ## Gradle composite build
 
 The workspace includes root `settings.gradle`, `build.gradle`, and `gradle.properties`. It is a Gradle composite build, not a multi-module monorepo: each Spring Boot service keeps its own independent Gradle build.
@@ -82,7 +127,7 @@ Windows PowerShell:
 
 See `docs/GRADLE_COMPOSITE_BUILD.md` for build details. Java 21 is required.
 
-## Quick start
+## Quick start with Docker Compose
 
 ```bash
 bash infrastructure/scripts/init-local.sh
