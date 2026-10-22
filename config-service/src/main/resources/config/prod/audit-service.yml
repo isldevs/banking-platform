@@ -2,8 +2,8 @@ server:
   port: 8086
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME:audit_user}
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USERNAME:audit_user}
   flyway:
     enabled: true
   kafka:

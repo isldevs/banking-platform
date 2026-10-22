@@ -3,8 +3,8 @@ server:
 
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME:auth_user}
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USERNAME:auth_user}
   flyway:
     enabled: true
 

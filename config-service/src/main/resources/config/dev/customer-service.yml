@@ -3,7 +3,11 @@ server:
 
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5439/customer}
-    username: ${SPRING_DATASOURCE_USERNAME:customer_user}
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USERNAME}
   flyway:
     enabled: true
+
+security:
+  jwt:
+    public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH}

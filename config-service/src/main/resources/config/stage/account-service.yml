@@ -2,9 +2,9 @@ server:
   port: 8083
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME:account_user}
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USERNAME:account_user}
   flyway:
     enabled: true
 demo:
-  funding-enabled: ${DEMO_FUNDINGENABLED:false}
+  funding-enabled: ${FUNDING_ENABLED:false}

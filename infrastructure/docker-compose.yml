@@ -79,9 +79,9 @@ services:
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD}
       DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD}
       OAUTH2_DEMO_CLIENT_SECRET: ${OAUTH2_DEMO_CLIENT_SECRET:?Set OAUTH2_DEMO_CLIENT_SECRET}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth
-      SPRING_DATASOURCE_USERNAME: auth_user
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_AUTH:?Set DB_PASSWORD_AUTH}
+      DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth
+      DATASOURCE_USERNAME: auth_user
+      DATASOURCE_PASSWORD: ${DB_PASSWORD_AUTH:?Set DB_PASSWORD_AUTH}
       <<: *service-endpoints
     ports:
       - "127.0.0.1:8081:8081"
@@ -104,9 +104,9 @@ services:
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
       SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/customer
-      SPRING_DATASOURCE_USERNAME: customer_user
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_CUSTOMER:?Set DB_PASSWORD_CUSTOMER}
+      DATASOURCE_URL: jdbc:postgresql://postgres:5432/customer
+      DATASOURCE_USERNAME: customer_user
+      DATASOURCE_PASSWORD: ${DB_PASSWORD_CUSTOMER:?Set DB_PASSWORD_CUSTOMER}
       <<: *service-endpoints
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
@@ -126,10 +126,10 @@ services:
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
       SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/account
-      SPRING_DATASOURCE_USERNAME: account_user
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
-      DEMO_FUNDINGENABLED: 'true'
+      DATASOURCE_URL: jdbc:postgresql://postgres:5432/account
+      DATASOURCE_USERNAME: account_user
+      DATASOURCE_PASSWORD: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
+      FUNDING_ENABLED: 'true'
       <<: *service-endpoints
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
@@ -149,9 +149,9 @@ services:
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
       SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/transfer
-      SPRING_DATASOURCE_USERNAME: transfer_user
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_TRANSFER:?Set DB_PASSWORD_TRANSFER}
+      DATASOURCE_URL: jdbc:postgresql://postgres:5432/transfer
+      DATASOURCE_USERNAME: transfer_user
+      DATASOURCE_PASSWORD: ${DB_PASSWORD_TRANSFER:?Set DB_PASSWORD_TRANSFER}
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
       <<: *service-endpoints
     volumes:
@@ -174,9 +174,9 @@ services:
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
       SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification
-      SPRING_DATASOURCE_USERNAME: notification_user
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_NOTIFICATION:?Set DB_PASSWORD_NOTIFICATION}
+      DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification
+      DATASOURCE_USERNAME: notification_user
+      DATASOURCE_PASSWORD: ${DB_PASSWORD_NOTIFICATION:?Set DB_PASSWORD_NOTIFICATION}
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
       <<: *service-endpoints
     volumes:
@@ -199,9 +199,9 @@ services:
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
       SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/audit
-      SPRING_DATASOURCE_USERNAME: audit_user
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD_AUDIT:?Set DB_PASSWORD_AUDIT}
+      DATASOURCE_URL: jdbc:postgresql://postgres:5432/audit
+      DATASOURCE_USERNAME: audit_user
+      DATASOURCE_PASSWORD: ${DB_PASSWORD_AUDIT:?Set DB_PASSWORD_AUDIT}
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
       <<: *service-endpoints
     volumes:

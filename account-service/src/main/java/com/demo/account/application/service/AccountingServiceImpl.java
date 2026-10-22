@@ -40,7 +40,7 @@ public class AccountingServiceImpl implements AccountingService {
     AccountingServiceImpl(JdbcTemplate db,
                           Support support,
                           @Value("${services.customer-url}") String customerUrl,
-                          @Value("${demo.funding-enabled:false}") boolean fundingEnabled) {
+                          @Value("${funding-enabled:false}") boolean fundingEnabled) {
         this.db = db;
         this.support = support;
         this.customerUrl = customerUrl;

@@ -46,9 +46,9 @@ Auth Service local environment settings include:
 - `SECURITY_JWT_KEYSTOREPASSWORD=<JWT_KEYSTORE_PASSWORD from infrastructure/.env>`
 - `SECURITY_JWT_KEYSTOREALIAS=jwt-signing`
 - `OAUTH2_DEMO_CLIENT_SECRET=<value from infrastructure/.env>`
-- `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/auth`
-- `SPRING_DATASOURCE_USERNAME=auth_user`
-- `SPRING_DATASOURCE_PASSWORD=<DB_PASSWORD_AUTH from infrastructure/.env>`
+- `DATASOURCE_URL=jdbc:postgresql://localhost:5432/auth`
+- `DATASOURCE_USERNAME=auth_user`
+- `DATASOURCE_PASSWORD=<DB_PASSWORD_AUTH from infrastructure/.env>`
 
 ## Check service health
 

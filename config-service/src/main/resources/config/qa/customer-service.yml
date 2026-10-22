@@ -2,7 +2,7 @@ server:
   port: 8082
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME:customer_user}
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USERNAME:customer_user}
   flyway:
     enabled: true
