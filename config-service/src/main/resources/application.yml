@@ -1,8 +1,6 @@
 spring:
   application:
     name: config-service
-  config:
-    import: optional:classpath:application-version.properties
   profiles:
     active: native
   cloud:
