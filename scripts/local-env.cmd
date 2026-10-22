@@ -109,6 +109,14 @@ if /I "%LOCAL_SERVICE%"=="auth" (
     set "DATASOURCE_PASSWORD=%DB_PASSWORD_AUTH%"
 )
 
+if /I not "%LOCAL_SERVICE%"=="gateway" (
+    if not defined DATASOURCE_URL goto :missing_datasource_url
+    echo %DATASOURCE_URL% | findstr /B /C:"jdbc:" >nul
+    if errorlevel 1 goto :invalid_datasource_url
+    if not defined DATASOURCE_USERNAME goto :missing_datasource_username
+    if not defined DATASOURCE_PASSWORD goto :missing_datasource_password
+)
+
 if not exist "%KEYSTORE%" (
     echo Generating local JWT signing keystore: %KEYSTORE%
     keytool -genkeypair ^
@@ -172,7 +180,7 @@ endlocal & (
 echo.
 echo ========================================
 echo Local environment loaded
- echo Service: %LOCAL_SERVICE%
+echo Service: %LOCAL_SERVICE%
 echo ========================================
 echo SPRING_PROFILES_ACTIVE=%SPRING_PROFILES_ACTIVE%
 echo CONFIG_SERVICE_URL=%CONFIG_SERVICE_URL%
@@ -239,4 +247,16 @@ echo ERROR: DB_PASSWORD_NOTIFICATION is required for notification-service.
 exit /b 1
 :missing_db_audit
 echo ERROR: DB_PASSWORD_AUDIT is required for audit-service.
+exit /b 1
+:missing_datasource_url
+echo ERROR: DATASOURCE_URL was not configured for %LOCAL_SERVICE%-service.
+exit /b 1
+:invalid_datasource_url
+echo ERROR: DATASOURCE_URL for %LOCAL_SERVICE%-service must start with jdbc:.
+exit /b 1
+:missing_datasource_username
+echo ERROR: DATASOURCE_USERNAME was not configured for %LOCAL_SERVICE%-service.
+exit /b 1
+:missing_datasource_password
+echo ERROR: DATASOURCE_PASSWORD was not configured for %LOCAL_SERVICE%-service.
 exit /b 1
