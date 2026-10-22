@@ -133,6 +133,14 @@ switch ($localService) {
     }
 }
 
+if ($localService -ne 'gateway') {
+    if ([string]::IsNullOrWhiteSpace($env:DATASOURCE_URL) -or $env:DATASOURCE_URL -notlike 'jdbc:*') {
+        throw "Invalid DATASOURCE_URL for $localService. It must start with 'jdbc:'."
+    }
+    Require-Env 'DATASOURCE_USERNAME'
+    Require-Env 'DATASOURCE_PASSWORD'
+}
+
 if (-not (Test-Path $keystore)) {
     Write-Host "Generating local JWT signing keystore: $keystore"
     & keytool -genkeypair `
