@@ -38,8 +38,6 @@ springBoot {
 }
 
 def generatedVersionDir = layout.buildDirectory.dir('generated-resources/version')
-sourcesets {
-}
 
 sourceSets {
     main {
