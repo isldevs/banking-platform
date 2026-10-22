@@ -11,7 +11,7 @@ spring:
 
 security:
   jwt:
-    public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH}
+    public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH:${user.dir}/../.jwt/jwt-public.pem}
 
 demo:
   funding-enabled: ${FUNDING_ENABLED:false}
