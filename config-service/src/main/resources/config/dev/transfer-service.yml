@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: ${TRANSFER_DATASOURCE_URL}
-    username: ${TRANSFER_DATASOURCE_USERNAME}
-    password: ${TRANSFER_DATASOURCE_PASSWORD}
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USERNAME}
+    password: ${DATASOURCE_PASSWORD}
   flyway:
     enabled: true
   kafka:
