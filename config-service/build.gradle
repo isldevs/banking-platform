@@ -38,6 +38,18 @@ springBoot {
 }
 
 def generatedVersionDir = layout.buildDirectory.dir('generated-resources/version')
+def generatedVersionFile = generatedVersionDir.map { it.file('application-version.properties') }
+
+tasks.register('generateVersionProperties') {
+    inputs.property('applicationVersion', project.version)
+    outputs.file(generatedVersionFile)
+
+    doLast {
+        def outputFile = generatedVersionFile.get().asFile
+        outputFile.parentFile.mkdirs()
+        outputFile.text = "application.version=${project.version}\n"
+    }
+}
 
 sourceSets {
     main {
@@ -48,13 +60,7 @@ sourceSets {
 }
 
 tasks.named('processResources') {
-    inputs.property('applicationVersion', project.version)
-
-    doFirst {
-        def outputDir = generatedVersionDir.get().asFile
-        outputDir.mkdirs()
-        file("${outputDir}/application-version.properties").text = "application.version=${project.version}\n"
-    }
+    dependsOn(tasks.named('generateVersionProperties'))
 }
 
 tasks.named('bootJar') {
