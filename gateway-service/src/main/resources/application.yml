@@ -13,7 +13,3 @@ spring:
         initial-interval: 1000
         max-interval: 5000
         multiplier: 1.2
-
-security:
-  jwt:
-    public-key-path: ${JWT_PUBLIC_KEY_PATH}
