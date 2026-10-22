@@ -75,7 +75,7 @@ services:
       SECURITY_JWT_KEYSTORE_PASSWORD: ${JWT_KEYSTORE_PASSWORD:?Set JWT_KEYSTORE_PASSWORD}
       SECURITY_JWT_KEYSTORE_ALIAS: jwt-signing
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DEMO_ADMINUSERNAME: ${DEMO_ADMIN_USERNAME:-admin}
+      DEMO_ADMIN_USERNAME: ${DEMO_ADMIN_USERNAME:-admin}
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD}
       DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD}
       OAUTH2_DEMO_CLIENT_SECRET: ${OAUTH2_DEMO_CLIENT_SECRET:?Set OAUTH2_DEMO_CLIENT_SECRET}
@@ -102,7 +102,7 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/customer
       SPRING_DATASOURCE_USERNAME: customer_user
@@ -124,7 +124,7 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/account
       SPRING_DATASOURCE_USERNAME: account_user
@@ -147,7 +147,7 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/transfer
       SPRING_DATASOURCE_USERNAME: transfer_user
@@ -172,7 +172,7 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification
       SPRING_DATASOURCE_USERNAME: notification_user
@@ -197,7 +197,7 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/audit
       SPRING_DATASOURCE_USERNAME: audit_user
@@ -222,7 +222,7 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8081}
-      SECURITY_JWT_PUBLICKEYPATH: /app/secrets/jwt-public.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       <<: *service-endpoints
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro

@@ -16,4 +16,4 @@ spring:
 
 security:
   jwt:
-    public-key-path: ${SECURITY_JWT_PUBLICKEYPATH}
+    public-key-path: ${JWT_PUBLIC_KEY_PATH}

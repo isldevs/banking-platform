@@ -8,4 +8,4 @@ Uses a mandatory Spring Cloud Config Client import. Common defaults are in `conf
 
 ## Run
 
-From the repository root: `bash infrastructure/scripts/init-local.sh`, then `cd infrastructure && docker compose up --build -d`. For standalone `gradle bootRun`, start PostgreSQL and Config Server, source `infrastructure/.env`, and set `CONFIG_SERVICE_URL=http://localhost:8888` plus `SPRING_DATASOURCE_PASSWORD` and `SECURITY_JWT_PUBLICKEYPATH`.
+From the repository root: `bash infrastructure/scripts/init-local.sh`, then `cd infrastructure && docker compose up --build -d`. For standalone `gradle bootRun`, start PostgreSQL and Config Server, source `infrastructure/.env`, and set `CONFIG_SERVICE_URL=http://localhost:8888` plus `SPRING_DATASOURCE_PASSWORD` and `JWT_PUBLIC_KEY_PATH`.

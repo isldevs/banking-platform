@@ -15,4 +15,4 @@ security:
     audience: ${SECURITY_JWT_AUDIENCE}
 
 demo:
-  admin-username: ${DEMO_ADMINUSERNAME:admin}
+  admin-username: ${DEMO_ADMIN_USERNAME:admin}
