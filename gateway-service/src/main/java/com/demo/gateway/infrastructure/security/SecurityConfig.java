@@ -15,17 +15,10 @@ import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.GeneralSecurityException;
-import java.security.KeyFactory;
-import java.security.interfaces.RSAPublicKey;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -37,7 +30,6 @@ public class SecurityConfig {
         http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                        // Authentication entry points must be reachable before a JWT exists.
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(jwtAuthenticationConverter())));
@@ -59,28 +51,19 @@ public class SecurityConfig {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(@Value("${security.jwt.public-key-path}") String path,
-                          @Value("${security.jwt.issuer}") String issuer,
+    JwtDecoder jwtDecoder(@Value("${security.jwt.issuer}") String issuer,
                           @Value("${security.jwt.audience}") String audience) {
-        try {
-            String pem = Files.readString(Path.of(path))
-                    .replaceAll("-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s", "");
-            RSAPublicKey key = (RSAPublicKey) KeyFactory.getInstance("RSA")
-                    .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(pem)));
-            NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(key).build();
-            OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
-            OAuth2TokenValidator<Jwt> audienceValidator = token -> {
-                List<String> audiences = token.getAudience();
-                return audiences != null && audiences.contains(audience)
-                        ? OAuth2TokenValidatorResult.success()
-                        : OAuth2TokenValidatorResult.failure(
-                                new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
-            };
-            decoder.setJwtValidator(
-                    new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
-            return decoder;
-        } catch (java.io.IOException | GeneralSecurityException exception) {
-            throw new IllegalStateException("Unable to initialize gateway JWT validation from the public key", exception);
-        }
+        JwtDecoder decoder = JwtDecoders.fromIssuerLocation(issuer);
+        OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
+        OAuth2TokenValidator<Jwt> audienceValidator = token -> {
+            List<String> audiences = token.getAudience();
+            return audiences != null && audiences.contains(audience)
+                    ? OAuth2TokenValidatorResult.success()
+                    : OAuth2TokenValidatorResult.failure(
+                            new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
+        };
+        decoder.setJwtValidator(
+                new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
+        return decoder;
     }
 }
