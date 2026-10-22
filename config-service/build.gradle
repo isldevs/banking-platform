@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.demo'
-version = project.findProperty('appVersion') ?: '0.1.0'
+version = project.findProperty('appVersion') ?: '0.0.1'
 
 java {
     toolchain {
@@ -35,6 +35,28 @@ dependencyManagement {
 
 springBoot {
     buildInfo()
+}
+
+def generatedVersionDir = layout.buildDirectory.dir('generated-resources/version')
+sourcesets {
+}
+
+sourceSets {
+    main {
+        resources {
+            srcDir(generatedVersionDir)
+        }
+    }
+}
+
+tasks.named('processResources') {
+    inputs.property('applicationVersion', project.version)
+
+    doFirst {
+        def outputDir = generatedVersionDir.get().asFile
+        outputDir.mkdirs()
+        file("${outputDir}/application-version.properties").text = "application.version=${project.version}\n"
+    }
 }
 
 tasks.named('bootJar') {
