@@ -23,7 +23,7 @@ management:
 security:
   jwt:
     issuer: ${SECURITY_JWT_ISSUER}
-    audience: api
+    audience: ${SECURITY_JWT_AUDIENCE}
 
 services:
   customer-url: ${CUSTOMER_SERVICE_URL}
