@@ -47,7 +47,6 @@ if not defined SECURITY_INTERNALKEY set "SECURITY_INTERNALKEY=local-dev-internal
 if not defined DEMO_ADMIN_USERNAME set "DEMO_ADMIN_USERNAME=admin"
 if not defined DEMO_ADMIN_PASSWORD set "DEMO_ADMIN_PASSWORD=local-dev-admin-password"
 if not defined DEMO_USER_PASSWORD set "DEMO_USER_PASSWORD=local-dev-user-password"
-if not defined OAUTH2_DEMO_CLIENT_SECRET if defined OAUTH2_DEMO_CLIENT_SECRET set "OAUTH2_DEMO_CLIENT_SECRET=%OAUTH2_DEMO_CLIENT_SECRET%"
 if not defined OAUTH2_DEMO_CLIENT_SECRET set "OAUTH2_DEMO_CLIENT_SECRET=local-dev-oauth2-client-secret"
 if not defined FUNDING_ENABLED set "FUNDING_ENABLED=true"
 if not defined SPRING_KAFKA_BOOTSTRAPSERVERS set "SPRING_KAFKA_BOOTSTRAPSERVERS=localhost:29092"
@@ -128,6 +127,7 @@ if not exist "%PUBLIC_KEY%" (
 
 rem Return every local variable to the caller's CMD session.
 endlocal & (
+  set "LOCAL_SERVICE=%LOCAL_SERVICE%"
   set "SPRING_PROFILES_ACTIVE=%SPRING_PROFILES_ACTIVE%"
   set "CONFIG_SERVICE_URL=%CONFIG_SERVICE_URL%"
   set "SECURITY_JWT_KEYSTORE_PATH=%SECURITY_JWT_KEYSTORE_PATH%"
@@ -164,7 +164,7 @@ endlocal & (
 echo.
 echo ========================================
 echo Local environment loaded
- echo Service: %LOCAL_SERVICE%
+echo Service: %LOCAL_SERVICE%
 echo ========================================
 echo SPRING_PROFILES_ACTIVE=%SPRING_PROFILES_ACTIVE%
 echo CONFIG_SERVICE_URL=%CONFIG_SERVICE_URL%
