@@ -8,4 +8,4 @@ Uses a mandatory Spring Cloud Config Client import. Shared settings, Kafka and s
 
 ## Run
 
-From the repository root: `bash infrastructure/scripts/init-local.sh`, then `cd infrastructure && docker compose up --build -d`. For standalone `gradle bootRun`, start PostgreSQL, Kafka, and Config Server; source `infrastructure/.env`; set `CONFIG_SERVICE_URL=http://localhost:8888`, `SPRING_DATASOURCE_PASSWORD`, and `JWT_PUBLIC_KEY_PATH`.
+From the repository root: `bash infrastructure/scripts/init-local.sh`, then `cd infrastructure && docker compose up --build -d`. For standalone `gradle bootRun`, start PostgreSQL, Kafka, and Config Server; source `infrastructure/.env`; set `CONFIG_SERVICE_URL=http://localhost:8888`, `SPRING_DATASOURCE_PASSWORD`, and `SECURITY_JWT_PUBLIC_KEY_PATH`.

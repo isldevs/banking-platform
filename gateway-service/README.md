@@ -16,4 +16,4 @@ cd infrastructure
 docker compose up --build -d
 ```
 
-For a standalone `gradle bootRun`, start Config Server first and source `infrastructure/.env`. Set `CONFIG_SERVICE_URL=http://localhost:8888`, `JWT_PUBLIC_KEY_PATH` to the generated public key under `infrastructure/secrets/`, and the issuer and internal-key environment variables. The default profile uses localhost routing; the Docker Compose deployment activates the `docker` profile to route to container DNS names.
+For a standalone `gradle bootRun`, start Config Server first and source `infrastructure/.env`. Set `CONFIG_SERVICE_URL=http://localhost:8888`, `SECURITY_JWT_PUBLIC_KEY_PATH` to the generated public key under `infrastructure/secrets/`, and the issuer and internal-key environment variables. The default profile uses localhost routing; the Docker Compose deployment activates the `docker` profile to route to container DNS names.

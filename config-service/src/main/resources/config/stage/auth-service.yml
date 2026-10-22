@@ -8,7 +8,7 @@ spring:
     enabled: true
 security:
   jwt:
-    public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH}
+    public-key-path: ${DEMO_ADMIN_USERNAME}
     issuer: ${SECURITY_JWT_ISSUER}
     audience: ${SECURITY_JWT_AUDIENCE}
 demo:
