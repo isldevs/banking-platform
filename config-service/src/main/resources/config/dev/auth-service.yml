@@ -10,7 +10,9 @@ spring:
 
 security:
   jwt:
-    public-key-path: ${DEMO_ADMIN_USERNAME}
+    keystore-path: ${SECURITY_JWT_KEYSTORE_PATH}
+    keystore-password: ${SECURITY_JWT_KEYSTORE_PASSWORD}
+    keystore-alias: ${SECURITY_JWT_KEYSTORE_ALIAS:jwt-signing}
     issuer: ${SECURITY_JWT_ISSUER}
     audience: ${SECURITY_JWT_AUDIENCE}
 
