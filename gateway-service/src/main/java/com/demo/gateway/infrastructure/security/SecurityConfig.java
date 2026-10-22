@@ -14,8 +14,9 @@ import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.JwtDecoders;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -53,7 +54,8 @@ public class SecurityConfig {
     @Bean
     JwtDecoder jwtDecoder(@Value("${security.jwt.issuer}") String issuer,
                           @Value("${security.jwt.audience}") String audience) {
-        JwtDecoder decoder = JwtDecoders.fromIssuerLocation(issuer);
+        NimbusJwtDecoder decoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuer);
+
         OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
         OAuth2TokenValidator<Jwt> audienceValidator = token -> {
             List<String> audiences = token.getAudience();
@@ -62,6 +64,7 @@ public class SecurityConfig {
                     : OAuth2TokenValidatorResult.failure(
                             new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
         };
+
         decoder.setJwtValidator(
                 new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
         return decoder;
