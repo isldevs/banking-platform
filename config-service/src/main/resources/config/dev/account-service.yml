@@ -13,7 +13,7 @@ spring:
   flyway:
     enabled: true
 
-a management:
+management:
   endpoints:
     web:
       exposure:
