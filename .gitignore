@@ -11,3 +11,5 @@ build/
 /infrastructure/.env
 /infrastructure/secrets/
 **/secrets/
+/.jwt/
+/.local/
