@@ -8,7 +8,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class AccountApplication {
     public static void main(String[] args) {
-        System.out.print("\n============================================================\n ACCOUNT-SERVICE\n============================================================\n\n");
         SpringApplication.run(AccountApplication.class, args);
     }
 }

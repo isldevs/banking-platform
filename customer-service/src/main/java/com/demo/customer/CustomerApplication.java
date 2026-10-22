@@ -8,7 +8,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class CustomerApplication {
     public static void main(String[] args) {
-        System.out.print("\n============================================================\n CUSTOMER-SERVICE\n============================================================\n\n");
         SpringApplication.run(CustomerApplication.class, args);
     }
 }
