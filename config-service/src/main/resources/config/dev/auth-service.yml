@@ -8,9 +8,11 @@ spring:
 
 security:
   jwt:
-    keystore-path: ${SECURITY_JWT_KEYSTORE_PATH}
+    # Local Gradle runs normally use auth-service as the working directory.
+    # Docker supplies SECURITY_JWT_KEYSTORE_PATH explicitly.
+    keystore-path: ${SECURITY_JWT_KEYSTORE_PATH:${user.dir}/../.jwt/jwt-signing.p12}
     keystore-password: ${SECURITY_JWT_KEYSTORE_PASSWORD}
-    keystore-alias: ${SECURITY_JWT_KEYSTORE_ALIAS}
+    keystore-alias: ${SECURITY_JWT_KEYSTORE_ALIAS:jwt-signing}
     issuer: ${SECURITY_JWT_ISSUER}
     audience: ${SECURITY_JWT_AUDIENCE}
 
