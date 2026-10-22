@@ -11,6 +11,7 @@ spring:
 
 application:
   title: CONFIG-SERVICE
+  version: ${APP_VERSION:0.1.0}
 
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}
