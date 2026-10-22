@@ -1,10 +1,8 @@
-server:
-  port: 8081
-
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5439/auth}
-    username: ${SPRING_DATASOURCE_USERNAME:auth_user}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5555/auth}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
   flyway:
     enabled: true
 
@@ -12,7 +10,7 @@ security:
   jwt:
     keystore-path: ${SECURITY_JWT_KEYSTORE_PATH}
     keystore-password: ${SECURITY_JWT_KEYSTORE_PASSWORD}
-    keystore-alias: ${SECURITY_JWT_KEYSTORE_ALIAS:jwt-signing}
+    keystore-alias: ${SECURITY_JWT_KEYSTORE_ALIAS}
     issuer: ${SECURITY_JWT_ISSUER}
     audience: ${SECURITY_JWT_AUDIENCE}
 

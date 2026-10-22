@@ -6,6 +6,7 @@ import com.demo.auth.api.dto.request.Refresh;
 import com.demo.auth.application.port.in.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -22,6 +23,7 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @Autowired
     AuthController(AuthService authService) {
         this.authService = authService;
     }

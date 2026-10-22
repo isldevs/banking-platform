@@ -1,3 +1,6 @@
+server:
+  port: 8081
+
 spring:
   application:
     name: auth-service
@@ -13,9 +16,3 @@ spring:
         initial-interval: 1000
         max-interval: 5000
         multiplier: 1.2
-
-security:
-  jwt:
-    keystore-path: ${SECURITY_JWT_KEYSTORE_PATH}
-    keystore-password: ${SECURITY_JWT_KEYSTORE_PASSWORD}
-    keystore-alias: ${SECURITY_JWT_KEYSTORE_ALIAS:jwt-signing}
