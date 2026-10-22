@@ -2,7 +2,7 @@
 
 ## Configuration ownership
 
-All environment configuration is bundled inside Config Service. The repository does not use a separate runtime `config-repo` checkout, and Docker is not a Spring environment profile.
+All application configuration is bundled inside Config Service. The repository does not use a separate runtime `config-repo` checkout, and Docker is not a Spring environment profile.
 
 Folder layout:
 
@@ -58,6 +58,85 @@ spring:
 
 Config Server does not require client credentials in this local/demo configuration. No `CONFIG_SERVER_USERNAME` or `CONFIG_SERVER_PASSWORD` variables are needed. Keep Config Server limited to a trusted network and never put secret values in committed YAML.
 
+## Runtime configuration contract
+
+The development Config Server configuration uses a consistent runtime contract across services. Local or container orchestration supplies the environment values; Config Server references them rather than storing secret values itself.
+
+For database-backed services, use:
+
+```text
+DATASOURCE_URL
+DATASOURCE_USERNAME
+DATASOURCE_PASSWORD
+```
+
+For JWT configuration, use:
+
+```text
+SECURITY_JWT_ISSUER
+SECURITY_JWT_AUDIENCE
+SECURITY_JWT_KEYSTORE_PATH
+SECURITY_JWT_KEYSTORE_PASSWORD
+SECURITY_JWT_KEYSTORE_ALIAS
+SECURITY_JWT_PUBLIC_KEY_PATH
+```
+
+Additional runtime values include service URLs, Kafka bootstrap servers, internal service credentials, OAuth2 demo client secrets, and demo credentials as required by the individual service configuration.
+
+The important rule is that **Config Server owns the configuration structure, while the runtime environment owns secret values**.
+
+## Local `.env` workflow
+
+For local development, `infrastructure/.env` is the recommended source for local secrets and environment-specific values. It is ignored by Git and should be created from `infrastructure/.env.example`.
+
+```text
+infrastructure/.env.example
+        |
+        v
+infrastructure/.env
+        |
+        v
+scripts/local-env.ps1 / scripts/local-env.cmd
+        |
+        v
+service process -> Config Server -> config/{dev}/<service>.yml
+```
+
+The local environment scripts also generate `.jwt/jwt-signing.p12` and `.jwt/jwt-public.pem` when required. The generated `.jwt/` directory is ignored by Git.
+
+PowerShell:
+
+```powershell
+. .\scripts\local-env.ps1 auth
+. .\gradlew.bat :auth-service:bootRun
+```
+
+CMD:
+
+```cmd
+call scripts\local-env.cmd auth
+gradlew.bat :auth-service:bootRun
+```
+
+The PowerShell script is intentionally dot-sourced and the CMD script intentionally uses `call`, because environment changes must remain in the caller's shell so Gradle and the Spring Boot process inherit them.
+
+## Docker Compose configuration
+
+Docker Compose also uses the `dev` Spring profile, but supplies container-specific runtime values. For example:
+
+```text
+CONFIG_SERVICE_URL=http://config-service:8888
+AUTH_SERVICE_URL=http://auth-service:8081
+CUSTOMER_SERVICE_URL=http://customer-service:8082
+ACCOUNT_SERVICE_URL=http://account-service:8083
+TRANSFER_SERVICE_URL=http://transfer-service:8084
+NOTIFICATION_SERVICE_URL=http://notification-service:8085
+AUDIT_SERVICE_URL=http://audit-service:8086
+SPRING_KAFKA_BOOTSTRAPSERVERS=kafka:9092
+```
+
+The JWT issuer used inside the Compose network must be reachable by services using container DNS. Do not use `localhost` for an inter-container issuer; inside a container, `localhost` refers to that same container.
+
 ## Global REST JSON naming
 
 Shared environment configuration sets:
@@ -76,14 +155,13 @@ Common runtime configuration includes:
 
 - Config Server URL (no client credentials in this demo)
 - Database URLs, usernames, and passwords
-- JWT issuer and signing-keystore path, password, and alias
-- JWT public-key path for resource services
+- JWT issuer, audience, signing-keystore path/password/alias, and public-key path
 - Internal service-to-service key
 - OAuth2 confidential demo client secret
 - Seed/demo user credentials
 - Service URLs and Kafka bootstrap servers
 
-Locally generated values belong in ignored `infrastructure/.env`; signing material belongs in ignored `infrastructure/secrets/`. Commit only placeholders and safe defaults, never actual credentials, signing keys, or passwords.
+Locally generated values belong in ignored `infrastructure/.env`; local signing material belongs in ignored `.jwt/` for host-based development and `infrastructure/secrets/` for the Docker initialization flow. Commit only placeholders and safe examples, never actual credentials, signing keys, or passwords.
 
 ## Environment promotion
 
