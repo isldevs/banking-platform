@@ -37,12 +37,11 @@ springBoot {
     buildInfo()
 }
 
-tasks.named('processResources') {
-    doLast {
-        def versionFile = file(
-                "$destinationDir/application-version.properties"
+tasks.named('bootJar') {
+    manifest {
+        attributes(
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version
         )
-
-        versionFile.text = "application.version=${project.version}\n"
     }
 }
