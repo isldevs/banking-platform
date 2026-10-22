@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: ${NOTIFICATION_DATASOURCE_URL}
-    username: ${NOTIFICATION_DATASOURCE_USERNAME}
-    password: ${NOTIFICATION_DATASOURCE_PASSWORD}
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USERNAME}
+    password: ${DATASOURCE_PASSWORD}
   flyway:
     enabled: true
   kafka:
