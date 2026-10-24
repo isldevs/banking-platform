@@ -24,12 +24,6 @@ import java.util.Map;
 @RestController
 public class GatewayController {
 
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
-    private static final Duration CONNECTION_REQUEST_TIMEOUT = Duration.ofSeconds(1);
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(8);
-    private static final int MAX_CONNECTIONS = 200;
-    private static final int MAX_CONNECTIONS_PER_ROUTE = 50;
-
     private final RestClient client;
     private final Map<String, String> targets;
 
@@ -38,7 +32,13 @@ public class GatewayController {
                       @Value("${services.account-url}") String account,
                       @Value("${services.transfer-url}") String transfer,
                       @Value("${services.notification-url}") String notification,
-                      @Value("${services.audit-url}") String audit) {
+                      @Value("${services.audit-url}") String audit,
+                      @Value("${gateway.http-client.connect-timeout}") Duration connectTimeout,
+                      @Value("${gateway.http-client.connection-request-timeout}") Duration connectionRequestTimeout,
+                      @Value("${gateway.http-client.read-timeout}") Duration readTimeout,
+                      @Value("${gateway.http-client.max-connections}") int maxConnections,
+                      @Value("${gateway.http-client.max-connections-per-route}") int maxConnectionsPerRoute,
+                      @Value("${gateway.http-client.idle-connection-eviction}") Duration idleConnectionEviction) {
         targets = Map.of(
                 "auth", auth,
                 "users", auth,
@@ -51,22 +51,22 @@ public class GatewayController {
 
         PoolingHttpClientConnectionManager connectionManager =
                 PoolingHttpClientConnectionManagerBuilder.create()
-                        .setMaxConnTotal(MAX_CONNECTIONS)
-                        .setMaxConnPerRoute(MAX_CONNECTIONS_PER_ROUTE)
+                        .setMaxConnTotal(maxConnections)
+                        .setMaxConnPerRoute(maxConnectionsPerRoute)
                         .build();
 
         CloseableHttpClient httpClient = HttpClients.custom()
                 .setConnectionManager(connectionManager)
                 .evictExpiredConnections()
-                .evictIdleConnections(Duration.ofSeconds(30))
+                .evictIdleConnections(idleConnectionEviction)
                 .disableAutomaticRetries()
                 .build();
 
         HttpComponentsClientHttpRequestFactory factory =
                 new HttpComponentsClientHttpRequestFactory(httpClient);
-        factory.setConnectTimeout(CONNECT_TIMEOUT);
-        factory.setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT);
-        factory.setReadTimeout(READ_TIMEOUT);
+        factory.setConnectTimeout(connectTimeout);
+        factory.setConnectionRequestTimeout(connectionRequestTimeout);
+        factory.setReadTimeout(readTimeout);
 
         client = RestClient.builder().requestFactory(factory).build();
     }
