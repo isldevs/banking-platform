@@ -38,7 +38,8 @@ public class GatewayController {
                       @Value("${gateway.http-client.read-timeout}") Duration readTimeout,
                       @Value("${gateway.http-client.max-connections}") int maxConnections,
                       @Value("${gateway.http-client.max-connections-per-route}") int maxConnectionsPerRoute,
-                      @Value("${gateway.http-client.idle-connection-eviction}") Duration idleConnectionEviction) {
+                      @Value("${gateway.http-client.idle-connection-eviction}") Duration idleConnectionEviction,
+                      RestClient.Builder restClientBuilder) {
         targets = Map.of(
                 "auth", auth,
                 "users", auth,
@@ -68,7 +69,7 @@ public class GatewayController {
         factory.setConnectionRequestTimeout(connectionRequestTimeout);
         factory.setReadTimeout(readTimeout);
 
-        client = RestClient.builder().requestFactory(factory).build();
+        client = restClientBuilder.requestFactory(factory).build();
     }
 
     @RequestMapping(value = "/api/**", method = {
