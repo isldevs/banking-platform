@@ -2,8 +2,6 @@ plugins {
     id 'base'
 }
 
-import java.nio.file.Files
-
 // One independent Gradle build per microservice. No shared JPA/domain modules.
 def services = [
         'config-service',
@@ -16,6 +14,7 @@ def services = [
         'gateway-service'
 ]
 
+def configClients = services.findAll { it != 'config-service' }
 def profiles = ['dev', 'qa', 'stage', 'prod']
 
 def serviceTasks = { String taskName ->
@@ -47,9 +46,12 @@ tasks.register('validateRuntimeContract') {
             requireText(buildFile, "io.micrometer:micrometer-tracing-bridge-otel")
             requireText(buildFile, "io.opentelemetry:opentelemetry-exporter-otlp")
             requireText(buildFile, "io.micrometer:micrometer-registry-prometheus")
-            requireText(bootstrapFile, 'configserver:${CONFIG_SERVICE_URL:http://localhost:8888}')
-            requireText(bootstrapFile, 'fail-fast: true')
             requireText(bootstrapFile, 'correlationId')
+
+            if (configClients.contains(service)) {
+                requireText(bootstrapFile, 'configserver:${CONFIG_SERVICE_URL:http://localhost:8888}')
+                requireText(bootstrapFile, 'fail-fast: true')
+            }
         }
 
         profiles.each { profile ->
