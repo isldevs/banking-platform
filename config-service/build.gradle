@@ -24,6 +24,8 @@ ext {
 dependencies {
     implementation 'org.springframework.cloud:spring-cloud-config-server'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+    runtimeOnly 'io.opentelemetry:opentelemetry-exporter-otlp'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 }
 
