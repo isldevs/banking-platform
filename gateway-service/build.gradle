@@ -17,6 +17,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.apache.httpcomponents.client5:httpclient5'
+    implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+    runtimeOnly 'io.opentelemetry:opentelemetry-exporter-otlp'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
