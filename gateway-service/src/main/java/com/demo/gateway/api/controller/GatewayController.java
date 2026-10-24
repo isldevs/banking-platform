@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -101,18 +102,17 @@ public class GatewayController {
 
             return call.exchange((req, res) -> {
                 HttpHeaders headers = new HttpHeaders();
-                if (res.getHeaders().getContentType() != null) {
-                    headers.setContentType(res.getHeaders().getContentType());
-                }
-                if (res.getHeaders().containsKey("X-Correlation-Id")) {
-                    headers.set("X-Correlation-Id", res.getHeaders().getFirst("X-Correlation-Id"));
-                }
+                copyResponseHeaders(res.getHeaders(), headers);
+                headers.set("X-Content-Type-Options", "nosniff");
+
                 return new ResponseEntity<>(res.getBody().readAllBytes(), headers, res.getStatusCode());
             });
         } catch (Exception e) {
             return ResponseEntity.status(502)
+                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                    .header("X-Content-Type-Options", "nosniff")
                     .body("{\"code\":\"DOWNSTREAM_UNAVAILABLE\"}"
-                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            .getBytes(StandardCharsets.UTF_8));
         }
     }
 
@@ -126,6 +126,21 @@ public class GatewayController {
             if (value != null) {
                 headers.set(name, value);
             }
+        }
+    }
+
+    private void copyResponseHeaders(HttpHeaders source, HttpHeaders target) {
+        for (String name : List.of(
+                HttpHeaders.CONTENT_TYPE,
+                HttpHeaders.CONTENT_DISPOSITION,
+                HttpHeaders.CACHE_CONTROL,
+                HttpHeaders.ETAG,
+                HttpHeaders.LAST_MODIFIED,
+                HttpHeaders.LOCATION,
+                HttpHeaders.RETRY_AFTER,
+                HttpHeaders.ALLOW,
+                "X-Correlation-Id")) {
+            source.get(name).forEach(value -> target.add(name, value));
         }
     }
 }
