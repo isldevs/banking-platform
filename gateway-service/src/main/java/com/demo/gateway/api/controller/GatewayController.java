@@ -1,10 +1,13 @@
 package com.demo.gateway.api.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.util.TimeValue;
+import org.apache.hc.core5.util.Timeout;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -57,18 +60,22 @@ public class GatewayController {
                         .setMaxConnPerRoute(maxConnectionsPerRoute)
                         .build();
 
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(Timeout.ofMilliseconds(connectTimeout.toMillis()))
+                .setConnectionRequestTimeout(Timeout.ofMilliseconds(connectionRequestTimeout.toMillis()))
+                .setResponseTimeout(Timeout.ofMilliseconds(readTimeout.toMillis()))
+                .build();
+
         CloseableHttpClient httpClient = HttpClients.custom()
                 .setConnectionManager(connectionManager)
+                .setDefaultRequestConfig(requestConfig)
                 .evictExpiredConnections()
-                .evictIdleConnections(idleConnectionEviction)
+                .evictIdleConnections(TimeValue.ofMilliseconds(idleConnectionEviction.toMillis()))
                 .disableAutomaticRetries()
                 .build();
 
         HttpComponentsClientHttpRequestFactory factory =
                 new HttpComponentsClientHttpRequestFactory(httpClient);
-        factory.setConnectTimeout(connectTimeout);
-        factory.setConnectionRequestTimeout(connectionRequestTimeout);
-        factory.setReadTimeout(readTimeout);
 
         client = restClientBuilder.requestFactory(factory).build();
     }
