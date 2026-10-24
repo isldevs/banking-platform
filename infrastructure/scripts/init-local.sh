@@ -2,18 +2,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 command -v openssl >/dev/null || { echo "OpenSSL is required" >&2; exit 1; }
+
 if [[ ! -f .env ]]; then
   umask 077
   {
-    echo 'JWT_ISSUER=http://localhost:8081'
-    # Existing resource servers expect audience "api"; the auth-service now
-    # issues legacy and authorization-server access tokens with this value.
-    echo 'JWT_AUDIENCE=api'
+    echo 'SECURITY_JWT_ISSUER=http://localhost:8081'
+    echo 'SECURITY_JWT_AUDIENCE=api'
     echo "APP_UID=$(id -u)"
     echo "APP_GID=$(id -g)"
     echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
     echo "INTERNAL_SERVICE_KEY=$(openssl rand -hex 32)"
-    echo "JWT_KEYSTORE_PASSWORD=$(openssl rand -hex 24)"
+    echo "SECURITY_JWT_KEYSTORE_PASSWORD=$(openssl rand -hex 24)"
     echo "OAUTH2_DEMO_CLIENT_SECRET=$(openssl rand -hex 32)"
     echo "DEMO_ADMIN_PASSWORD=$(openssl rand -hex 18)"
     echo "DEMO_USER_PASSWORD=$(openssl rand -hex 18)"
@@ -26,16 +25,37 @@ else
   echo "Using existing .env (not overwritten)."
 fi
 
-# Add required local settings without overwriting existing values.
-if ! grep -q '^JWT_AUDIENCE=' .env; then printf 'JWT_AUDIENCE=%s\n' 'api' >> .env; fi
-if ! grep -q '^JWT_KEYSTORE_PASSWORD=' .env; then printf 'JWT_KEYSTORE_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env; fi
-if ! grep -q '^OAUTH2_DEMO_CLIENT_SECRET=' .env; then printf 'OAUTH2_DEMO_CLIENT_SECRET=%s\n' "$(openssl rand -hex 32)" >> .env; fi
+# Keep existing local environments compatible with the normalized runtime contract.
+if ! grep -q '^SECURITY_JWT_ISSUER=' .env; then
+  if grep -q '^JWT_ISSUER=' .env; then
+    printf 'SECURITY_JWT_ISSUER=%s\n' "$(grep '^JWT_ISSUER=' .env | cut -d= -f2-)" >> .env
+  else
+    printf 'SECURITY_JWT_ISSUER=%s\n' 'http://localhost:8081' >> .env
+  fi
+fi
+if ! grep -q '^SECURITY_JWT_AUDIENCE=' .env; then
+  if grep -q '^JWT_AUDIENCE=' .env; then
+    printf 'SECURITY_JWT_AUDIENCE=%s\n' "$(grep '^JWT_AUDIENCE=' .env | cut -d= -f2-)" >> .env
+  else
+    printf 'SECURITY_JWT_AUDIENCE=%s\n' 'api' >> .env
+  fi
+fi
+if ! grep -q '^SECURITY_JWT_KEYSTORE_PASSWORD=' .env; then
+  if grep -q '^JWT_KEYSTORE_PASSWORD=' .env; then
+    printf 'SECURITY_JWT_KEYSTORE_PASSWORD=%s\n' "$(grep '^JWT_KEYSTORE_PASSWORD=' .env | cut -d= -f2-)" >> .env
+  else
+    printf 'SECURITY_JWT_KEYSTORE_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env
+  fi
+fi
+if ! grep -q '^OAUTH2_DEMO_CLIENT_SECRET=' .env; then
+  printf 'OAUTH2_DEMO_CLIENT_SECRET=%s\n' "$(openssl rand -hex 32)" >> .env
+fi
+
+KEYSTORE_PASSWORD="$(grep '^SECURITY_JWT_KEYSTORE_PASSWORD=' .env | cut -d= -f2-)"
+if [[ -z "$KEYSTORE_PASSWORD" ]]; then echo 'SECURITY_JWT_KEYSTORE_PASSWORD is empty' >&2; exit 1; fi
 
 mkdir -p secrets
-KEYSTORE_PASSWORD="$(grep '^JWT_KEYSTORE_PASSWORD=' .env | cut -d= -f2-)"
-if [[ -z "$KEYSTORE_PASSWORD" ]]; then echo 'JWT_KEYSTORE_PASSWORD is empty' >&2; exit 1; fi
-
-# Generate a local PKCS12 signing keystore. The private key is never committed and is not used directly by application config.
+# Generate a local PKCS12 signing keystore. The private key is never committed.
 if [[ ! -f secrets/jwt-signing.p12 || ! -f secrets/jwt-public.pem ]]; then
   temp_key="secrets/.jwt-signing.tmp.key.pem"
   temp_cert="secrets/.jwt-signing.tmp.crt.pem"
