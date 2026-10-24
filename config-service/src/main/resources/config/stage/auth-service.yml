@@ -1,12 +1,26 @@
 server:
   port: 8081
+  error:
+    include-message: never
 
 spring:
+  jackson:
+    property-naming-strategy: SNAKE_CASE
   datasource:
     url: ${DATASOURCE_URL}
     username: ${DATASOURCE_USERNAME:auth_user}
   flyway:
     enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 security:
   jwt:
