@@ -21,3 +21,11 @@ spring:
       validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT:1000}
       idle-timeout: ${DB_POOL_IDLE_TIMEOUT:600000}
       max-lifetime: ${DB_POOL_MAX_LIFETIME:1800000}
+
+management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  endpoint:
+    health:
+      show-details: never
