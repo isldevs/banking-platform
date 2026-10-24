@@ -2,6 +2,8 @@ plugins {
     id 'base'
 }
 
+import java.nio.file.Files
+
 // One independent Gradle build per microservice. No shared JPA/domain modules.
 def services = [
         'config-service',
@@ -14,14 +16,79 @@ def services = [
         'gateway-service'
 ]
 
-// Use Gradle's included-build task references rather than relying on shell loops.
+def profiles = ['dev', 'qa', 'stage', 'prod']
+
 def serviceTasks = { String taskName ->
     services.collect { service -> gradle.includedBuild(service).task(":${taskName}") }
+}
+
+def requireText = { File file, String expected ->
+    def content = file.getText('UTF-8')
+    if (!content.contains(expected)) {
+        throw new GradleException("Validation failed: ${file} does not contain '${expected}'")
+    }
+}
+
+tasks.register('validateRuntimeContract') {
+    group = 'verification'
+    description = 'Validate the cross-service build, configuration, and observability contract.'
+    doLast {
+        services.each { service ->
+            def buildFile = file("${service}/build.gradle")
+            def bootstrapFile = file("${service}/src/main/resources/application.yml")
+
+            if (!buildFile.isFile()) {
+                throw new GradleException("Validation failed: missing ${buildFile}")
+            }
+            if (!bootstrapFile.isFile()) {
+                throw new GradleException("Validation failed: missing ${bootstrapFile}")
+            }
+
+            requireText(buildFile, "io.micrometer:micrometer-tracing-bridge-otel")
+            requireText(buildFile, "io.opentelemetry:opentelemetry-exporter-otlp")
+            requireText(buildFile, "io.micrometer:micrometer-registry-prometheus")
+            requireText(bootstrapFile, 'configserver:${CONFIG_SERVICE_URL:http://localhost:8888}')
+            requireText(bootstrapFile, 'fail-fast: true')
+            requireText(bootstrapFile, 'correlationId')
+        }
+
+        profiles.each { profile ->
+            services.each { service ->
+                def configFile = file("config-service/src/main/resources/config/${profile}/${service}.yml")
+                if (!configFile.isFile()) {
+                    throw new GradleException("Validation failed: missing ${configFile}")
+                }
+            }
+        }
+
+        def forbiddenRuntimePatterns = [
+                'AUTH_DATASOURCE_URL',
+                'AUTH_DATASOURCE_USERNAME',
+                'AUTH_DATASOURCE_PASSWORD',
+                'JWT_KEYSTORE_PASSWORD',
+                'JWT_ISSUER',
+                'JWT_AUDIENCE'
+        ]
+
+        fileTree('config-service/src/main/resources/config') {
+            include '**/*.yml', '**/*.yaml', '**/*.properties'
+        }.files.each { configFile ->
+            def content = configFile.getText('UTF-8')
+            forbiddenRuntimePatterns.each { pattern ->
+                if (content.contains(pattern)) {
+                    throw new GradleException("Validation failed: legacy runtime variable '${pattern}' found in ${configFile}")
+                }
+            }
+        }
+
+        println "Runtime contract validation passed for ${services.size()} services and ${profiles.size()} profiles."
+    }
 }
 
 tasks.register('buildAll') {
     group = 'microservices'
     description = 'Build and test every independent Spring Boot service.'
+    dependsOn tasks.named('validateRuntimeContract')
     dependsOn serviceTasks('build')
 }
 
@@ -34,6 +101,7 @@ tasks.register('testAll') {
 tasks.register('checkAll') {
     group = 'microservices'
     description = 'Run verification checks in all service builds.'
+    dependsOn tasks.named('validateRuntimeContract')
     dependsOn serviceTasks('check')
 }
 
