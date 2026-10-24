@@ -26,6 +26,20 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+    export:
+      otlp:
+        enabled: ${TRACING_OTLP_ENABLED:false}
+  opentelemetry:
+    resource-attributes:
+      service.name: ${spring.application.name}
   endpoint:
     health:
       show-details: never
