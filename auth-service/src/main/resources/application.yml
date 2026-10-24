@@ -16,3 +16,11 @@ spring:
         initial-interval: 1000
         max-interval: 5000
         multiplier: 1.2
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:2000}
+      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT:1000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT:600000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME:1800000}
