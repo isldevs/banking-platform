@@ -62,7 +62,7 @@ public class AuthController {
 
     @GetMapping("/api/auth/me")
     public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
-        return Map.of("userId", jwt.getSubject(), "username", jwt.getClaimAsString("username"), "roles", jwt.getClaimAsStringList("roles"), "permissions", jwt.getClaimAsStringList("permissions"));
+        return Map.of("user_id", jwt.getSubject(), "username", jwt.getClaimAsString("username"), "roles", jwt.getClaimAsStringList("roles"), "permissions", jwt.getClaimAsStringList("permissions"));
     }
 
     @PostMapping("/api/users")
