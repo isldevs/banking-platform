@@ -25,9 +25,9 @@ if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
     throw 'Java 17 is required.'
 }
 
-# PowerShell treats stderr from native applications as an error record. java -version writes its
-# version to stderr, so capture the complete output without letting that stderr line abort setup.
-$javaVersionOutput = (& java -version 2>&1 | Out-String).Trim()
+# Windows PowerShell 5.1 promotes native stderr to NativeCommandError. java -version intentionally
+# writes its version to stderr, so invoke it through cmd.exe and capture the merged output as text.
+$javaVersionOutput = (& cmd.exe /c 'java -version 2>&1' | Out-String).Trim()
 if ($javaVersionOutput -notmatch 'version\s+"17\.') {
     throw "Java 17 is required. Detected:`n$javaVersionOutput"
 }
