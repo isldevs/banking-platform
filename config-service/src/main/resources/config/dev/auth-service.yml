@@ -25,9 +25,8 @@ management:
 
 security:
   jwt:
-    # Local Gradle runs normally use auth-service as the working directory.
-    # Docker supplies SECURITY_JWT_KEYSTORE_PATH explicitly.
-    keystore-path: ${SECURITY_JWT_KEYSTORE_PATH:${user.dir}/../.jwt/jwt-signing.p12}
+    # Local Gradle runs from auth-service; Docker overrides this with /app/secrets/jwt-signing.p12.
+    keystore-path: ${SECURITY_JWT_KEYSTORE_PATH:${user.dir}/../infrastructure/secrets/jwt-signing.p12}
     keystore-password: ${SECURITY_JWT_KEYSTORE_PASSWORD}
     keystore-alias: ${SECURITY_JWT_KEYSTORE_ALIAS:jwt-signing}
     issuer: ${SECURITY_JWT_ISSUER}
