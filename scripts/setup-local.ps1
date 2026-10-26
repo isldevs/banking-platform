@@ -36,13 +36,12 @@ if (-not (Test-Path $example)) {
 
 New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
 
-# Start from the committed template only when .env does not exist.
 if (-not (Test-Path $envFile)) {
     Copy-Item $example $envFile
     Write-Host 'Created infrastructure/.env from .env.example.'
 }
 
-# Read the existing file so real values are preserved. Only placeholders/missing values are replaced.
+# Read the existing environment. Existing real values are never overwritten.
 $values = @{}
 Get-Content $envFile | ForEach-Object {
     $line = $_.Trim()
@@ -52,6 +51,20 @@ Get-Content $envFile | ForEach-Object {
             $values[$parts[0].Trim()] = $parts[1].Trim().Trim('"').Trim("'")
         }
     }
+}
+
+# Migrate old local variable names before generating anything, so an existing JWT keystore remains usable.
+if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'SECURITY_JWT_ISSUER')) -and $values.ContainsKey('JWT_ISSUER')) {
+    $values['SECURITY_JWT_ISSUER'] = $values['JWT_ISSUER']
+}
+if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'SECURITY_JWT_AUDIENCE')) -and $values.ContainsKey('JWT_AUDIENCE')) {
+    $values['SECURITY_JWT_AUDIENCE'] = $values['JWT_AUDIENCE']
+}
+if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'SECURITY_JWT_KEYSTORE_PASSWORD')) -and $values.ContainsKey('JWT_KEYSTORE_PASSWORD')) {
+    $values['SECURITY_JWT_KEYSTORE_PASSWORD'] = $values['JWT_KEYSTORE_PASSWORD']
+}
+if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'INTERNAL_SERVICE_KEY')) -and $values.ContainsKey('SECURITY_INTERNALKEY')) {
+    $values['INTERNAL_SERVICE_KEY'] = $values['SECURITY_INTERNALKEY']
 }
 
 $generated = @{
@@ -86,23 +99,11 @@ $generated = @{
     'DOCKER_JWT_ISSUER' = 'http://auth-service:8081'
 }
 
-# Generate actual values for missing or template placeholder values.
 foreach ($name in $generated.Keys) {
     $current = Get-EnvValue $values $name
     if ([string]::IsNullOrWhiteSpace($current) -or $current -like 'replace-with-*') {
         $values[$name] = $generated[$name]
     }
-}
-
-# Keep older local environments compatible with the normalized variable names.
-if ((-not $values.ContainsKey('SECURITY_JWT_ISSUER')) -and $values.ContainsKey('JWT_ISSUER')) {
-    $values['SECURITY_JWT_ISSUER'] = $values['JWT_ISSUER']
-}
-if ((-not $values.ContainsKey('SECURITY_JWT_AUDIENCE')) -and $values.ContainsKey('JWT_AUDIENCE')) {
-    $values['SECURITY_JWT_AUDIENCE'] = $values['JWT_AUDIENCE']
-}
-if ((-not $values.ContainsKey('SECURITY_JWT_KEYSTORE_PASSWORD')) -and $values.ContainsKey('JWT_KEYSTORE_PASSWORD')) {
-    $values['SECURITY_JWT_KEYSTORE_PASSWORD'] = $values['JWT_KEYSTORE_PASSWORD']
 }
 
 $required = @(
@@ -118,7 +119,7 @@ foreach ($name in $required) {
     }
 }
 
-# Write the complete resolved local environment while preserving the template's organization/comments.
+# Resolve the complete .env from the committed template while keeping all existing actual values.
 $template = Get-Content $example
 $output = foreach ($line in $template) {
     if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=') {
@@ -133,7 +134,6 @@ $output = foreach ($line in $template) {
     }
 }
 
-# Add any required variables that were not present in the template.
 $present = @{}
 $output | ForEach-Object {
     if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=') { $present[$Matches[1]] = $true }
@@ -145,7 +145,6 @@ foreach ($name in $required) {
 }
 Set-Content -Path $envFile -Value $output -Encoding utf8
 
-# Make the resolved environment available to this process for key generation and optional Docker startup.
 foreach ($name in $values.Keys) {
     [Environment]::SetEnvironmentVariable($name, $values[$name], 'Process')
 }
@@ -171,7 +170,7 @@ Write-Host "Environment: $envFile"
 Write-Host "JWT signing: $keystore"
 Write-Host 'Demo admin:  infrastructure/.env -> DEMO_ADMIN_USERNAME / DEMO_ADMIN_PASSWORD'
 
-# Docker is optional. If it is unavailable, setup still succeeds and leaves the project ready for later startup.
+# Docker is optional. Setup succeeds even when Docker Desktop is unavailable.
 $docker = Get-Command docker -ErrorAction SilentlyContinue
 if (-not $docker) {
     Write-Host ''
