@@ -91,6 +91,24 @@ $generated = @{
     'DB_PASSWORD_TRANSFER' = New-RandomHex 24
     'DB_PASSWORD_NOTIFICATION' = New-RandomHex 24
     'DB_PASSWORD_AUDIT' = New-RandomHex 24
+    'DB_AUTH_URL' = 'jdbc:postgresql://localhost:5439/auth'
+    'DB_AUTH_USERNAME' = 'auth_user'
+    'DB_AUTH_PASSWORD' = New-RandomHex 24
+    'DB_CUSTOMER_URL' = 'jdbc:postgresql://localhost:5439/customer'
+    'DB_CUSTOMER_USERNAME' = 'customer_user'
+    'DB_CUSTOMER_PASSWORD' = New-RandomHex 24
+    'DB_ACCOUNT_URL' = 'jdbc:postgresql://localhost:5439/account'
+    'DB_ACCOUNT_USERNAME' = 'account_user'
+    'DB_ACCOUNT_PASSWORD' = New-RandomHex 24
+    'DB_TRANSFER_URL' = 'jdbc:postgresql://localhost:5439/transfer'
+    'DB_TRANSFER_USERNAME' = 'transfer_user'
+    'DB_TRANSFER_PASSWORD' = New-RandomHex 24
+    'DB_NOTIFICATION_URL' = 'jdbc:postgresql://localhost:5439/notification'
+    'DB_NOTIFICATION_USERNAME' = 'notification_user'
+    'DB_NOTIFICATION_PASSWORD' = New-RandomHex 24
+    'DB_AUDIT_URL' = 'jdbc:postgresql://localhost:5439/audit'
+    'DB_AUDIT_USERNAME' = 'audit_user'
+    'DB_AUDIT_PASSWORD' = New-RandomHex 24
     'APP_UID' = '1000'
     'APP_GID' = '1000'
     'DB_POOL_MAX_SIZE' = '10'
@@ -113,12 +131,36 @@ foreach ($name in $generated.Keys) {
     }
 }
 
+# Keep the service-specific local credentials aligned with the existing database password variables.
+# This preserves compatibility with existing local database initialization while allowing each
+# Spring service to resolve its own URL, username and password directly.
+$servicePasswordMap = @{
+    'DB_AUTH_PASSWORD' = 'DB_PASSWORD_AUTH'
+    'DB_CUSTOMER_PASSWORD' = 'DB_PASSWORD_CUSTOMER'
+    'DB_ACCOUNT_PASSWORD' = 'DB_PASSWORD_ACCOUNT'
+    'DB_TRANSFER_PASSWORD' = 'DB_PASSWORD_TRANSFER'
+    'DB_NOTIFICATION_PASSWORD' = 'DB_PASSWORD_NOTIFICATION'
+    'DB_AUDIT_PASSWORD' = 'DB_PASSWORD_AUDIT'
+}
+foreach ($target in $servicePasswordMap.Keys) {
+    $source = $servicePasswordMap[$target]
+    if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values $target)) -or (Get-EnvValue $values $target) -like 'replace-with-*') {
+        $values[$target] = $values[$source]
+    }
+}
+
 $required = @(
     'SECURITY_JWT_ISSUER', 'SECURITY_JWT_AUDIENCE', 'SECURITY_JWT_KEYSTORE_PASSWORD',
     'INTERNAL_SERVICE_KEY', 'OAUTH2_DEMO_CLIENT_SECRET',
     'DEMO_ADMIN_USERNAME', 'DEMO_ADMIN_PASSWORD', 'DEMO_USER_USERNAME', 'DEMO_USER_PASSWORD',
     'POSTGRES_PASSWORD', 'DB_PASSWORD_AUTH', 'DB_PASSWORD_CUSTOMER', 'DB_PASSWORD_ACCOUNT',
-    'DB_PASSWORD_TRANSFER', 'DB_PASSWORD_NOTIFICATION', 'DB_PASSWORD_AUDIT'
+    'DB_PASSWORD_TRANSFER', 'DB_PASSWORD_NOTIFICATION', 'DB_PASSWORD_AUDIT',
+    'DB_AUTH_URL', 'DB_AUTH_USERNAME', 'DB_AUTH_PASSWORD',
+    'DB_CUSTOMER_URL', 'DB_CUSTOMER_USERNAME', 'DB_CUSTOMER_PASSWORD',
+    'DB_ACCOUNT_URL', 'DB_ACCOUNT_USERNAME', 'DB_ACCOUNT_PASSWORD',
+    'DB_TRANSFER_URL', 'DB_TRANSFER_USERNAME', 'DB_TRANSFER_PASSWORD',
+    'DB_NOTIFICATION_URL', 'DB_NOTIFICATION_USERNAME', 'DB_NOTIFICATION_PASSWORD',
+    'DB_AUDIT_URL', 'DB_AUDIT_USERNAME', 'DB_AUDIT_PASSWORD'
 )
 foreach ($name in $required) {
     if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values $name))) {
