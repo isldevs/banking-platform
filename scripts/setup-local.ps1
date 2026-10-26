@@ -22,14 +22,14 @@ function Get-EnvValue([hashtable]$Values, [string]$Name) {
 }
 
 if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
-    throw 'Java 21 is required.'
+    throw 'Java 17 is required.'
 }
 
 # PowerShell treats stderr from native applications as an error record. java -version writes its
 # version to stderr, so capture the complete output without letting that stderr line abort setup.
 $javaVersionOutput = (& java -version 2>&1 | Out-String).Trim()
-if ($javaVersionOutput -notmatch 'version\s+"21\.') {
-    throw "Java 21 is required. Detected:`n$javaVersionOutput"
+if ($javaVersionOutput -notmatch 'version\s+"17\.') {
+    throw "Java 17 is required. Detected:`n$javaVersionOutput"
 }
 
 if (-not (Test-Path $example)) {
@@ -153,7 +153,7 @@ foreach ($name in $values.Keys) {
 
 $keytool = Get-Command keytool -ErrorAction SilentlyContinue
 if (-not $keytool) {
-    throw 'keytool was not found. Java 21 installation must include keytool.'
+    throw 'keytool was not found. Java 17 installation must include keytool.'
 }
 
 if (-not (Test-Path $keystore)) {
