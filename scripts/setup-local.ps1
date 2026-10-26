@@ -10,8 +10,13 @@ $publicKey = Join-Path $secretDir 'jwt-public.pem'
 
 function New-RandomHex([int]$Bytes = 32) {
     $data = New-Object byte[] $Bytes
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($data)
-    return ([Convert]::ToHexString($data)).ToLowerInvariant()
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $rng.GetBytes($data)
+    } finally {
+        $rng.Dispose()
+    }
+    return (($data | ForEach-Object { $_.ToString('x2') }) -join '')
 }
 
 function Get-EnvValue([hashtable]$Values, [string]$Name) {
