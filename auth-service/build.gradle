@@ -5,7 +5,7 @@ plugins {
 }
 group = 'com.demo'
 version = project.findProperty('appVersion') ?: '0.0.1'
-java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
 repositories { mavenCentral() }
 ext { set('springCloudVersion', '2023.0.3') }
 dependencies {
