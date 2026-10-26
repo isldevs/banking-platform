@@ -8,15 +8,43 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Creates local demo identities for the dev profile only.
- * Production environments must provision identities through the normal identity-management flow.
+ * Creates local demo identities and authorization data for the dev profile only.
+ * Production environments must provision identities and permissions through the normal identity-management flow.
  */
 @Configuration
 @Profile("dev")
 public class DemoDataInitializer {
+
+    private record Permission(String code, String description) {}
+
+    private static final List<Permission> ADMIN_PERMISSIONS = List.of(
+            new Permission("USER_MANAGE", "Manage users"),
+            new Permission("CUSTOMER_CREATE", "Create customers"),
+            new Permission("CUSTOMER_READ", "Read customers"),
+            new Permission("KYC_APPROVE", "Approve customer KYC"),
+            new Permission("ACCOUNT_OPEN", "Open accounts"),
+            new Permission("ACCOUNT_READ", "Read accounts"),
+            new Permission("ACCOUNT_FREEZE", "Freeze accounts"),
+            new Permission("ACCOUNT_FUND", "Fund accounts"),
+            new Permission("TRANSFER_CREATE", "Create transfers"),
+            new Permission("TRANSFER_READ", "Read transfers"),
+            new Permission("NOTIFICATION_READ", "Read notifications"),
+            new Permission("AUDIT_READ", "Read audit records")
+    );
+
+    private static final List<String> USER_PERMISSIONS = List.of(
+            "CUSTOMER_CREATE",
+            "CUSTOMER_READ",
+            "ACCOUNT_OPEN",
+            "ACCOUNT_READ",
+            "TRANSFER_CREATE",
+            "TRANSFER_READ",
+            "NOTIFICATION_READ"
+    );
 
     @Bean
     ApplicationRunner initializeDemoData(
@@ -30,27 +58,22 @@ public class DemoDataInitializer {
 
             UUID adminRoleId = ensureRole(jdbc, "ADMIN");
             UUID userRoleId = ensureRole(jdbc, "USER");
-            UUID userManagePermissionId = ensurePermission(jdbc, "USER_MANAGE", "Manage users");
 
-            jdbc.update("""
-                    INSERT INTO role_permissions(role_id, permission_id)
-                    VALUES (?, ?)
-                    ON CONFLICT DO NOTHING
-                    """, adminRoleId, userManagePermissionId);
+            for (Permission permission : ADMIN_PERMISSIONS) {
+                UUID permissionId = ensurePermission(jdbc, permission.code(), permission.description());
+                grantPermission(jdbc, adminRoleId, permissionId);
+            }
+
+            for (String permissionCode : USER_PERMISSIONS) {
+                UUID permissionId = ensurePermission(jdbc, permissionCode, permissionCode);
+                grantPermission(jdbc, userRoleId, permissionId);
+            }
 
             UUID adminId = ensureUser(jdbc, bcrypt, adminUsername, adminPassword, "admin@example.local");
             UUID userId = ensureUser(jdbc, bcrypt, userUsername, userPassword, "user@example.local");
 
-            jdbc.update("""
-                    INSERT INTO user_roles(user_id, role_id)
-                    VALUES (?, ?)
-                    ON CONFLICT DO NOTHING
-                    """, adminId, adminRoleId);
-            jdbc.update("""
-                    INSERT INTO user_roles(user_id, role_id)
-                    VALUES (?, ?)
-                    ON CONFLICT DO NOTHING
-                    """, userId, userRoleId);
+            grantRole(jdbc, adminId, adminRoleId);
+            grantRole(jdbc, userId, userRoleId);
         };
     }
 
@@ -82,6 +105,22 @@ public class DemoDataInitializer {
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO permissions(id, code, description) VALUES (?, ?, ?)", id, code, description);
         return id;
+    }
+
+    private void grantPermission(JdbcTemplate jdbc, UUID roleId, UUID permissionId) {
+        jdbc.update("""
+                INSERT INTO role_permissions(role_id, permission_id)
+                VALUES (?, ?)
+                ON CONFLICT DO NOTHING
+                """, roleId, permissionId);
+    }
+
+    private void grantRole(JdbcTemplate jdbc, UUID userId, UUID roleId) {
+        jdbc.update("""
+                INSERT INTO user_roles(user_id, role_id)
+                VALUES (?, ?)
+                ON CONFLICT DO NOTHING
+                """, userId, roleId);
     }
 
     private UUID ensureUser(
