@@ -8,6 +8,8 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -28,6 +30,7 @@ import java.util.Map;
 @RestController
 public class GatewayController {
 
+    private final static Logger log = LoggerFactory.getLogger(GatewayController.class);
     private final RestClient client;
     private final Map<String, String> targets;
 
@@ -119,6 +122,7 @@ public class GatewayController {
                 return new ResponseEntity<>(responseBody, headers, res.getStatusCode());
             });
         } catch (Exception e) {
+            log.error("Gateway downstream request failed: {}", dest, e);
             return ResponseEntity.status(502)
                     .header(HttpHeaders.CONTENT_TYPE, "application/json")
                     .header("X-Content-Type-Options", "nosniff")
