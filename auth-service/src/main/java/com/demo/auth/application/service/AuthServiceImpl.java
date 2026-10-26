@@ -64,10 +64,10 @@ public class AuthServiceImpl implements AuthService {
         String refresh = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         jdbc.update("INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,?)", UUID.randomUUID(), u.id(), Support.hash(refresh), java.sql.Timestamp.from(Instant.now().plus(Duration.ofDays(7))));
         return Map.of(
-                "accessToken", jwt.access(u.id(), u.username(), perms, roles),
-                "refreshToken", refresh,
-                "tokenType", "Bearer",
-                "expiresIn", accessTokenTtl.toSeconds());
+                "access_token", jwt.access(u.id(), u.username(), perms, roles),
+                "refresh_token", refresh,
+                "token_type", "Bearer",
+                "expires_in", accessTokenTtl.toSeconds());
     }
 
     @Override
@@ -113,6 +113,6 @@ public class AuthServiceImpl implements AuthService {
         jdbc.update("INSERT INTO users(id,username,email) VALUES(?,?,?)", id, req.username(), req.email());
         jdbc.update("INSERT INTO user_credentials(id,user_id,password_hash) VALUES(?,?,?)", UUID.randomUUID(), id, bcrypt.encode(req.password()));
         jdbc.update("INSERT INTO user_roles(user_id,role_id) SELECT ?,id FROM roles WHERE name='USER'", id);
-        return Map.of("userId", id.toString());
+        return Map.of("user_id", id.toString());
     }
 }
