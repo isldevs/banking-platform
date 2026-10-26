@@ -9,6 +9,7 @@ import com.demo.auth.application.port.in.AuthService;
 import com.demo.auth.application.port.out.TokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -30,11 +31,16 @@ public class AuthServiceImpl implements AuthService {
     private final SecureRandom secure = new SecureRandom();
     private final TokenService jwt;
     private final JdbcTemplate jdbc;
+    private final Duration accessTokenTtl;
 
     @Autowired
-    public AuthServiceImpl(TokenService jwt, JdbcTemplate jdbc) {
+    public AuthServiceImpl(
+            TokenService jwt,
+            JdbcTemplate jdbc,
+            @Value("${security.jwt.access-token-ttl:PT15M}") Duration accessTokenTtl) {
         this.jwt = jwt;
         this.jdbc = jdbc;
+        this.accessTokenTtl = accessTokenTtl;
     }
 
     @Override
@@ -57,7 +63,11 @@ public class AuthServiceImpl implements AuthService {
         secure.nextBytes(bytes);
         String refresh = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         jdbc.update("INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,?)", UUID.randomUUID(), u.id(), Support.hash(refresh), java.sql.Timestamp.from(Instant.now().plus(Duration.ofDays(7))));
-        return Map.of("accessToken", jwt.access(u.id(), u.username(), perms, roles), "refreshToken", refresh, "tokenType", "Bearer", "expiresIn", 900);
+        return Map.of(
+                "accessToken", jwt.access(u.id(), u.username(), perms, roles),
+                "refreshToken", refresh,
+                "tokenType", "Bearer",
+                "expiresIn", accessTokenTtl.toSeconds());
     }
 
     @Override
