@@ -25,9 +25,11 @@ if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
     throw 'Java 21 is required.'
 }
 
-$javaVersion = (& java -version 2>&1 | Select-String 'version').ToString()
-if ($javaVersion -notmatch '"21[.]') {
-    throw "Java 21 is required. Detected: $javaVersion"
+# PowerShell treats stderr from native applications as an error record. java -version writes its
+# version to stderr, so capture the complete output without letting that stderr line abort setup.
+$javaVersionOutput = (& java -version 2>&1 | Out-String).Trim()
+if ($javaVersionOutput -notmatch 'version\s+"21\.') {
+    throw "Java 21 is required. Detected:`n$javaVersionOutput"
 }
 
 if (-not (Test-Path $example)) {
