@@ -12,6 +12,8 @@ spring:
     password: ${DB_TRANSFER_PASSWORD}
   flyway:
     enabled: true
+    baseline-on-migrate: true
+
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAPSERVERS}
     producer:

@@ -214,31 +214,31 @@ Write-Host "JWT signing: $keystore"
 Write-Host 'Demo admin:  infrastructure/.env -> DEMO_ADMIN_USERNAME / DEMO_ADMIN_PASSWORD'
 
 # Docker is optional. Setup succeeds even when Docker Desktop is unavailable.
-$docker = Get-Command docker -ErrorAction SilentlyContinue
-if (-not $docker) {
-    Write-Host ''
-    Write-Host 'Docker is not available. Docker startup skipped.'
-    Write-Host 'Start Docker later and run this same script again to start the complete platform.'
-    exit 0
-}
+#$docker = Get-Command docker -ErrorAction SilentlyContinue
+#if (-not $docker) {
+#    Write-Host ''
+#    Write-Host 'Docker is not available. Docker startup skipped.'
+#    Write-Host 'Start Docker later and run this same script again to start the complete platform.'
+#    exit 0
+#}
+#
+#& docker info *> $null
+#if ($LASTEXITCODE -ne 0) {
+#    Write-Host ''
+#    Write-Host 'Docker is installed but not running. Docker startup skipped.'
+#    Write-Host 'Start Docker Desktop later and run this same script again to start the complete platform.'
+#    exit 0
+#}
 
-& docker info *> $null
-if ($LASTEXITCODE -ne 0) {
-    Write-Host ''
-    Write-Host 'Docker is installed but not running. Docker startup skipped.'
-    Write-Host 'Start Docker Desktop later and run this same script again to start the complete platform.'
-    exit 0
-}
-
-Push-Location $infra
-try {
-    Write-Host ''
-    Write-Host 'Starting the complete local platform with Docker Compose...'
-    & docker compose --env-file .env up --build -d
-    if ($LASTEXITCODE -ne 0) { throw 'Docker Compose failed to start the local platform.' }
-} finally {
-    Pop-Location
-}
+#Push-Location $infra
+#try {
+#    Write-Host ''
+#    Write-Host 'Starting the complete local platform with Docker Compose...'
+#    & docker compose --env-file .env up --build -d
+#    if ($LASTEXITCODE -ne 0) { throw 'Docker Compose failed to start the local platform.' }
+#} finally {
+#    Pop-Location
+#}
 
 Write-Host ''
 Write-Host 'Complete local platform started.'

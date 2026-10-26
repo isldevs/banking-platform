@@ -11,6 +11,7 @@ spring:
     username: ${DATASOURCE_USERNAME:auth_user}
   flyway:
     enabled: true
+    baseline-on-migrate: true
 
 management:
   endpoints:

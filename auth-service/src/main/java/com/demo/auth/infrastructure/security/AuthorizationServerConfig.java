@@ -204,7 +204,7 @@ public class AuthorizationServerConfig {
                     "SELECT id FROM users WHERE username = ? AND status = 'ACTIVE'",
                     (rs, rowNum) -> rs.getObject(1, UUID.class), username);
             if (userIds.isEmpty()) return;
-            UUID userId = userIds.getFirst();
+            UUID userId = userIds.get(0);
             List<String> permissions = jdbc.queryForList(
                     """
                     SELECT DISTINCT p.code FROM permissions p

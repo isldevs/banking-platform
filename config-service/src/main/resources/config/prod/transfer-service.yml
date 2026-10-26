@@ -11,6 +11,8 @@ spring:
     username: ${DATASOURCE_USERNAME:transfer_user}
   flyway:
     enabled: true
+    baseline-on-migrate: true
+
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAPSERVERS}
     producer:

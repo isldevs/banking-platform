@@ -12,6 +12,7 @@ spring:
     password: ${DB_ACCOUNT_PASSWORD}
   flyway:
     enabled: true
+    baseline-on-migrate: true
 
 management:
   endpoints:
