@@ -32,6 +32,7 @@ security:
     keystore-alias: ${SECURITY_JWT_KEYSTORE_ALIAS:jwt-signing}
     issuer: ${SECURITY_JWT_ISSUER}
     audience: ${SECURITY_JWT_AUDIENCE}
+    access-token-ttl: ${SECURITY_JWT_ACCESS_TOKEN_TTL:PT15M}
 
 demo:
   admin-username: ${DEMO_ADMIN_USERNAME:admin}
