@@ -20,6 +20,7 @@ import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +31,7 @@ public class TokenServiceImpl implements TokenService {
     private final JwtEncoder encoder;
     private final String issuer;
     private final String audience;
+    private final Duration accessTokenTtl;
 
     @Autowired
     public TokenServiceImpl(
@@ -37,9 +39,11 @@ public class TokenServiceImpl implements TokenService {
             @Value("${security.jwt.keystore-password}") String keystorePassword,
             @Value("${security.jwt.keystore-alias:jwt-signing}") String keyAlias,
             @Value("${security.jwt.issuer}") String issuer,
-            @Value("${security.jwt.audience}") String audience) {
+            @Value("${security.jwt.audience}") String audience,
+            @Value("${security.jwt.access-token-ttl:PT15M}") Duration accessTokenTtl) {
         this.issuer = issuer;
         this.audience = audience;
+        this.accessTokenTtl = accessTokenTtl;
         this.encoder = createEncoder(keystorePath, keystorePassword, keyAlias);
     }
 
@@ -80,7 +84,7 @@ public class TokenServiceImpl implements TokenService {
     public String access(UUID id, String username, List<String> permissions, List<String> roles) {
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder().issuer(issuer).audience(List.of(audience))
-                .subject(id.toString()).issuedAt(now).expiresAt(now.plusSeconds(900))
+                .subject(id.toString()).issuedAt(now).expiresAt(now.plus(accessTokenTtl))
                 .claim("username", username).claim("permissions", permissions).claim("roles", roles).build();
         try {
             return encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
