@@ -76,6 +76,7 @@ services:
       SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       DEMO_ADMIN_USERNAME: ${DEMO_ADMIN_USERNAME:?Set DEMO_ADMIN_USERNAME}
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD}
+      DEMO_USER_USERNAME: ${DEMO_USER_USERNAME:-user}
       DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD}
       OAUTH2_DEMO_CLIENT_SECRET: ${OAUTH2_DEMO_CLIENT_SECRET:?Set OAUTH2_DEMO_CLIENT_SECRET}
       DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth
@@ -217,13 +218,24 @@ services:
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_ISSUER: ${DOCKER_JWT_ISSUER:-http://auth-service:8081}
       SECURITY_JWT_AUDIENCE: ${SECURITY_JWT_AUDIENCE:?Set SECURITY_JWT_AUDIENCE}
+      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       <<: *service-endpoints
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
-      config-service:
-        condition: service_started
       auth-service:
+        condition: service_started
+      customer-service:
+        condition: service_started
+      account-service:
+        condition: service_started
+      transfer-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      audit-service:
         condition: service_started
 
 volumes:
