@@ -7,9 +7,9 @@ spring:
   jackson:
     property-naming-strategy: SNAKE_CASE
   datasource:
-    url: ${DATASOURCE_URL}
-    username: ${DATASOURCE_USERNAME}
-    password: ${DATASOURCE_PASSWORD}
+    url: ${DB_ACCOUNT_URL}
+    username: ${DB_ACCOUNT_USERNAME}
+    password: ${DB_ACCOUNT_PASSWORD}
   flyway:
     enabled: true
 
@@ -25,7 +25,7 @@ management:
 
 security:
   jwt:
-    public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH:${user.dir}/../.jwt/jwt-public.pem}
+    public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH:${user.dir}/infrastructure/secrets/jwt-public.pem}
 
 demo:
   funding-enabled: ${FUNDING_ENABLED:false}
