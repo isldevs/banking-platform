@@ -112,7 +112,11 @@ public class GatewayController {
                 copyResponseHeaders(res.getHeaders(), headers);
                 headers.set("X-Content-Type-Options", "nosniff");
 
-                return new ResponseEntity<>(res.getBody().readAllBytes(), headers, res.getStatusCode());
+                byte[] responseBody = res.getBody() == null
+                        ? new byte[0]
+                        : res.getBody().readAllBytes();
+
+                return new ResponseEntity<>(responseBody, headers, res.getStatusCode());
             });
         } catch (Exception e) {
             return ResponseEntity.status(502)
@@ -147,7 +151,10 @@ public class GatewayController {
                 HttpHeaders.RETRY_AFTER,
                 HttpHeaders.ALLOW,
                 "X-Correlation-Id")) {
-            source.get(name).forEach(value -> target.add(name, value));
+            List<String> values = source.get(name);
+            if (values != null) {
+                values.forEach(value -> target.add(name, value));
+            }
         }
     }
 }
