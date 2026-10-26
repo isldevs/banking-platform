@@ -18,9 +18,9 @@ import java.util.UUID;
 @Profile("dev")
 public class DemoDataInitializer {
 
-    private static final UUID ADMIN_ROLE_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-    private static final UUID USER_ROLE_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
-    private static final UUID USER_MANAGE_PERMISSION_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
+    private static final UUID ADMIN_ROLE_ID = UUID.randomUUID();
+    private static final UUID USER_ROLE_ID = UUID.randomUUID();
+    private static final UUID USER_MANAGE_PERMISSION_ID = UUID.randomUUID();
 
     @Bean
     ApplicationRunner initializeDemoData(
