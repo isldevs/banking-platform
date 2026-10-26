@@ -11,16 +11,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import java.util.UUID;
 
 /**
- * Creates deterministic local demo identities for the dev profile only.
+ * Creates local demo identities for the dev profile only.
  * Production environments must provision identities through the normal identity-management flow.
  */
 @Configuration
 @Profile("dev")
 public class DemoDataInitializer {
-
-    private static final UUID ADMIN_ROLE_ID = UUID.randomUUID();
-    private static final UUID USER_ROLE_ID = UUID.randomUUID();
-    private static final UUID USER_MANAGE_PERMISSION_ID = UUID.randomUUID();
 
     @Bean
     ApplicationRunner initializeDemoData(
@@ -32,13 +28,9 @@ public class DemoDataInitializer {
         return args -> {
             BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(12);
 
-            UUID adminRoleId = ensureRole(jdbc, ADMIN_ROLE_ID, "ADMIN");
-            UUID userRoleId = ensureRole(jdbc, USER_ROLE_ID, "USER");
-            UUID userManagePermissionId = ensurePermission(
-                    jdbc,
-                    USER_MANAGE_PERMISSION_ID,
-                    "USER_MANAGE",
-                    "Manage users");
+            UUID adminRoleId = ensureRole(jdbc, "ADMIN");
+            UUID userRoleId = ensureRole(jdbc, "USER");
+            UUID userManagePermissionId = ensurePermission(jdbc, "USER_MANAGE", "Manage users");
 
             jdbc.update("""
                     INSERT INTO role_permissions(role_id, permission_id)
@@ -62,34 +54,34 @@ public class DemoDataInitializer {
         };
     }
 
-    private UUID ensureRole(JdbcTemplate jdbc, UUID preferredId, String name) {
-        jdbc.update("""
-                INSERT INTO roles(id, name)
-                VALUES (?, ?)
-                ON CONFLICT (name) DO NOTHING
-                """, preferredId, name);
-
-        return jdbc.queryForObject(
+    private UUID ensureRole(JdbcTemplate jdbc, String name) {
+        UUID existingId = jdbc.query(
                 "SELECT id FROM roles WHERE name = ?",
-                UUID.class,
-                name);
+                (rs, rowNum) -> rs.getObject(1, UUID.class),
+                name).stream().findFirst().orElse(null);
+
+        if (existingId != null) {
+            return existingId;
+        }
+
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO roles(id, name) VALUES (?, ?)", id, name);
+        return id;
     }
 
-    private UUID ensurePermission(
-            JdbcTemplate jdbc,
-            UUID preferredId,
-            String code,
-            String description) {
-        jdbc.update("""
-                INSERT INTO permissions(id, code, description)
-                VALUES (?, ?, ?)
-                ON CONFLICT (code) DO NOTHING
-                """, preferredId, code, description);
-
-        return jdbc.queryForObject(
+    private UUID ensurePermission(JdbcTemplate jdbc, String code, String description) {
+        UUID existingId = jdbc.query(
                 "SELECT id FROM permissions WHERE code = ?",
-                UUID.class,
-                code);
+                (rs, rowNum) -> rs.getObject(1, UUID.class),
+                code).stream().findFirst().orElse(null);
+
+        if (existingId != null) {
+            return existingId;
+        }
+
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO permissions(id, code, description) VALUES (?, ?, ?)", id, code, description);
+        return id;
     }
 
     private UUID ensureUser(
@@ -107,8 +99,7 @@ public class DemoDataInitializer {
             UUID id = UUID.randomUUID();
             jdbc.update("INSERT INTO users(id, username, email, status) VALUES (?, ?, ?, 'ACTIVE')",
                     id, username, email);
-            jdbc.update("INSERT INTO user_credentials(id, user_id, password_hash) VALUES (?, ?, ?)",
-                    UUID.randomUUID(), id, bcrypt.encode(password));
+            upsertPassword(jdbc, bcrypt, id, password);
             return id;
         }
 
@@ -117,11 +108,27 @@ public class DemoDataInitializer {
                 SET status = 'ACTIVE', failed_login_count = 0, locked_until = NULL, updated_at = NOW()
                 WHERE id = ?
                 """, existingId);
-        jdbc.update("""
+        upsertPassword(jdbc, bcrypt, existingId, password);
+        return existingId;
+    }
+
+    private void upsertPassword(
+            JdbcTemplate jdbc,
+            BCryptPasswordEncoder bcrypt,
+            UUID userId,
+            String password) {
+        String passwordHash = bcrypt.encode(password);
+        int updated = jdbc.update("""
                 UPDATE user_credentials
                 SET password_hash = ?, password_changed_at = NOW(), updated_at = NOW()
                 WHERE user_id = ?
-                """, bcrypt.encode(password), existingId);
-        return existingId;
+                """, passwordHash, userId);
+
+        if (updated == 0) {
+            jdbc.update("""
+                    INSERT INTO user_credentials(id, user_id, password_hash)
+                    VALUES (?, ?, ?)
+                    """, UUID.randomUUID(), userId, passwordHash);
+        }
     }
 }
