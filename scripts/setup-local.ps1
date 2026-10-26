@@ -48,7 +48,6 @@ if (-not (Test-Path $envFile)) {
     Write-Host 'Created infrastructure/.env from .env.example.'
 }
 
-# Read the existing environment. Existing real values are never overwritten.
 $values = @{}
 Get-Content $envFile | ForEach-Object {
     $line = $_.Trim()
@@ -78,6 +77,9 @@ $generated = @{
     'SECURITY_JWT_ISSUER' = 'http://localhost:8081'
     'SECURITY_JWT_AUDIENCE' = 'api'
     'SECURITY_JWT_KEYSTORE_PASSWORD' = New-RandomHex 24
+    'SECURITY_JWT_KEYSTORE_PATH' = $keystore
+    'SECURITY_JWT_PUBLIC_KEY_PATH' = $publicKey
+    'SECURITY_JWT_KEYSTORE_ALIAS' = 'jwt-signing'
     'INTERNAL_SERVICE_KEY' = New-RandomHex 32
     'OAUTH2_DEMO_CLIENT_SECRET' = New-RandomHex 32
     'DEMO_ADMIN_USERNAME' = 'admin'
@@ -125,9 +127,7 @@ foreach ($name in $generated.Keys) {
     }
 }
 
-# Keep the service-specific local credentials aligned with the existing database password variables.
-# This preserves compatibility with existing local database initialization while allowing each
-# Spring service to resolve its own URL, username and password directly.
+# Keep service-specific local credentials aligned with the existing database password variables.
 $servicePasswordMap = @{
     'DB_AUTH_PASSWORD' = 'DB_PASSWORD_AUTH'
     'DB_CUSTOMER_PASSWORD' = 'DB_PASSWORD_CUSTOMER'
@@ -145,6 +145,7 @@ foreach ($target in $servicePasswordMap.Keys) {
 
 $required = @(
     'SECURITY_JWT_ISSUER', 'SECURITY_JWT_AUDIENCE', 'SECURITY_JWT_KEYSTORE_PASSWORD',
+    'SECURITY_JWT_KEYSTORE_PATH', 'SECURITY_JWT_PUBLIC_KEY_PATH', 'SECURITY_JWT_KEYSTORE_ALIAS',
     'INTERNAL_SERVICE_KEY', 'OAUTH2_DEMO_CLIENT_SECRET',
     'DEMO_ADMIN_USERNAME', 'DEMO_ADMIN_PASSWORD', 'DEMO_USER_USERNAME', 'DEMO_USER_PASSWORD',
     'POSTGRES_PASSWORD', 'DB_PASSWORD_AUTH', 'DB_PASSWORD_CUSTOMER', 'DB_PASSWORD_ACCOUNT',
@@ -162,7 +163,6 @@ foreach ($name in $required) {
     }
 }
 
-# Resolve the complete .env from the committed template while keeping all existing actual values.
 $template = Get-Content $example
 $output = foreach ($line in $template) {
     if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=') {
@@ -198,12 +198,12 @@ if (-not $keytool) {
 }
 
 if (-not (Test-Path $keystore)) {
-    & keytool -genkeypair -alias jwt-signing -keyalg RSA -keysize 3072 -validity 3650 -storetype PKCS12 -keystore $keystore -storepass $values['SECURITY_JWT_KEYSTORE_PASSWORD'] -keypass $values['SECURITY_JWT_KEYSTORE_PASSWORD'] -dname 'CN=demo-jwt-signing, OU=Security, O=Microservice Platform, C=KH'
+    & keytool -genkeypair -alias $values['SECURITY_JWT_KEYSTORE_ALIAS'] -keyalg RSA -keysize 3072 -validity 3650 -storetype PKCS12 -keystore $keystore -storepass $values['SECURITY_JWT_KEYSTORE_PASSWORD'] -keypass $values['SECURITY_JWT_KEYSTORE_PASSWORD'] -dname 'CN=demo-jwt-signing, OU=Security, O=Microservice Platform, C=KH'
     if ($LASTEXITCODE -ne 0) { throw 'Failed to generate JWT signing keystore.' }
 }
 
 if (-not (Test-Path $publicKey)) {
-    & keytool -exportcert -rfc -alias jwt-signing -keystore $keystore -storepass $values['SECURITY_JWT_KEYSTORE_PASSWORD'] -file $publicKey
+    & keytool -exportcert -rfc -alias $values['SECURITY_JWT_KEYSTORE_ALIAS'] -keystore $keystore -storepass $values['SECURITY_JWT_KEYSTORE_PASSWORD'] -file $publicKey
     if ($LASTEXITCODE -ne 0) { throw 'Failed to export JWT public certificate.' }
 }
 
