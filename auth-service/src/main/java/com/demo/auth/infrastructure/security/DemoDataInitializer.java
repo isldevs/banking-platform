@@ -32,26 +32,19 @@ public class DemoDataInitializer {
         return args -> {
             BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(12);
 
-            jdbc.update("""
-                    INSERT INTO roles(id, name)
-                    VALUES (?, 'ADMIN')
-                    ON CONFLICT (name) DO NOTHING
-                    """, ADMIN_ROLE_ID);
-            jdbc.update("""
-                    INSERT INTO roles(id, name)
-                    VALUES (?, 'USER')
-                    ON CONFLICT (name) DO NOTHING
-                    """, USER_ROLE_ID);
-            jdbc.update("""
-                    INSERT INTO permissions(id, code, description)
-                    VALUES (?, 'USER_MANAGE', 'Manage users')
-                    ON CONFLICT (code) DO NOTHING
-                    """, USER_MANAGE_PERMISSION_ID);
+            UUID adminRoleId = ensureRole(jdbc, ADMIN_ROLE_ID, "ADMIN");
+            UUID userRoleId = ensureRole(jdbc, USER_ROLE_ID, "USER");
+            UUID userManagePermissionId = ensurePermission(
+                    jdbc,
+                    USER_MANAGE_PERMISSION_ID,
+                    "USER_MANAGE",
+                    "Manage users");
+
             jdbc.update("""
                     INSERT INTO role_permissions(role_id, permission_id)
-                    SELECT ?, id FROM permissions WHERE code = 'USER_MANAGE'
+                    VALUES (?, ?)
                     ON CONFLICT DO NOTHING
-                    """, ADMIN_ROLE_ID);
+                    """, adminRoleId, userManagePermissionId);
 
             UUID adminId = ensureUser(jdbc, bcrypt, adminUsername, adminPassword, "admin@example.local");
             UUID userId = ensureUser(jdbc, bcrypt, userUsername, userPassword, "user@example.local");
@@ -60,13 +53,43 @@ public class DemoDataInitializer {
                     INSERT INTO user_roles(user_id, role_id)
                     VALUES (?, ?)
                     ON CONFLICT DO NOTHING
-                    """, adminId, ADMIN_ROLE_ID);
+                    """, adminId, adminRoleId);
             jdbc.update("""
                     INSERT INTO user_roles(user_id, role_id)
                     VALUES (?, ?)
                     ON CONFLICT DO NOTHING
-                    """, userId, USER_ROLE_ID);
+                    """, userId, userRoleId);
         };
+    }
+
+    private UUID ensureRole(JdbcTemplate jdbc, UUID preferredId, String name) {
+        jdbc.update("""
+                INSERT INTO roles(id, name)
+                VALUES (?, ?)
+                ON CONFLICT (name) DO NOTHING
+                """, preferredId, name);
+
+        return jdbc.queryForObject(
+                "SELECT id FROM roles WHERE name = ?",
+                UUID.class,
+                name);
+    }
+
+    private UUID ensurePermission(
+            JdbcTemplate jdbc,
+            UUID preferredId,
+            String code,
+            String description) {
+        jdbc.update("""
+                INSERT INTO permissions(id, code, description)
+                VALUES (?, ?, ?)
+                ON CONFLICT (code) DO NOTHING
+                """, preferredId, code, description);
+
+        return jdbc.queryForObject(
+                "SELECT id FROM permissions WHERE code = ?",
+                UUID.class,
+                code);
     }
 
     private UUID ensureUser(
