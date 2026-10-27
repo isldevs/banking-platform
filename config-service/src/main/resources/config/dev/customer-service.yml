@@ -10,6 +10,14 @@ spring:
     url: ${DB_CUSTOMER_URL}
     username: ${DB_CUSTOMER_USERNAME}
     password: ${DB_CUSTOMER_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
   flyway:
     enabled: true
     baseline-on-migrate: true

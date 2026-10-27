@@ -1,78 +1,144 @@
 package com.demo.customer.application.service;
 
-import com.demo.customer.common.Support;
 import com.demo.customer.api.dto.request.NewCustomer;
+import com.demo.customer.api.dto.response.CustomerResponse;
+import com.demo.customer.application.mapper.CustomerMapper;
 import com.demo.customer.application.port.in.CustomerService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.demo.customer.common.Support;
+import com.demo.customer.domain.model.Customer;
+import com.demo.customer.domain.model.CustomerKyc;
+import com.demo.customer.domain.model.CustomerStatus;
+import com.demo.customer.domain.model.CustomerStatusHistory;
+import com.demo.customer.domain.model.KycVerificationStatus;
+import com.demo.customer.infrastructure.persistence.CustomerKycRepository;
+import com.demo.customer.infrastructure.persistence.CustomerRepository;
+import com.demo.customer.infrastructure.persistence.CustomerStatusHistoryRepository;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashMap;
+import java.time.Instant;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class CustomerServiceImpl implements CustomerService {
 
-    private final JdbcTemplate db;
+    private final CustomerRepository customerRepository;
+    private final CustomerKycRepository customerKycRepository;
+    private final CustomerStatusHistoryRepository statusHistoryRepository;
+    private final CustomerMapper customerMapper;
     private final Support support;
 
-    @Autowired
-    public CustomerServiceImpl(JdbcTemplate db, Support support) {
-        this.db = db;
+    public CustomerServiceImpl(
+            CustomerRepository customerRepository,
+            CustomerKycRepository customerKycRepository,
+            CustomerStatusHistoryRepository statusHistoryRepository,
+            CustomerMapper customerMapper,
+            Support support) {
+        this.customerRepository = customerRepository;
+        this.customerKycRepository = customerKycRepository;
+        this.statusHistoryRepository = statusHistoryRepository;
+        this.customerMapper = customerMapper;
         this.support = support;
     }
 
     @Override
-    public Map<String, Object> create(NewCustomer request, Jwt jwt) {
+    @Transactional
+    public CustomerResponse create(NewCustomer request, Jwt jwt) {
+        UUID userId = subjectId(jwt);
         UUID id = UUID.randomUUID();
         String number = "CUS-" + id.toString().substring(0, 12).toUpperCase(Locale.ROOT);
-        db.update("INSERT INTO customers(id,customer_number,user_id,first_name,last_name,date_of_birth,phone,email) VALUES(?,?,?,?,?,?,?,?)", id, number, UUID.fromString(jwt.getSubject()), request.firstName(), request.lastName(), request.dateOfBirth(), request.phone(), request.email());
-        db.update("INSERT INTO customer_kyc(id,customer_id) VALUES(?,?)", UUID.randomUUID(), id);
-        db.update("INSERT INTO customer_status_history(id,customer_id,new_status,changed_by) VALUES(?,?,'PENDING_KYC',?)", UUID.randomUUID(), id, UUID.fromString(jwt.getSubject()));
-        return get(id);
+
+        Customer customer = customerMapper.toEntity(request);
+        customer.setId(id);
+        customer.setCustomerNumber(number);
+        customer.setUserId(userId);
+        customer.setStatus(CustomerStatus.PENDING_KYC);
+
+        Customer saved = customerRepository.save(customer);
+
+        CustomerKyc kyc = new CustomerKyc();
+        kyc.setId(UUID.randomUUID());
+        kyc.setCustomerId(saved.getId());
+        kyc.setKycLevel("BASIC");
+        kyc.setVerificationStatus(KycVerificationStatus.PENDING);
+        customerKycRepository.save(kyc);
+
+        CustomerStatusHistory history = new CustomerStatusHistory();
+        history.setId(UUID.randomUUID());
+        history.setCustomerId(saved.getId());
+        history.setNewStatus(CustomerStatus.PENDING_KYC);
+        history.setChangedBy(userId);
+        statusHistoryRepository.save(history);
+
+        return customerMapper.toResponse(saved);
     }
 
     @Override
-    public Map<String, Object> read(UUID id, Jwt jwt) {
-        Map<String, Object> c = get(id);
-        if (!jwt.getSubject().equals(c.get("userId")) && !jwt.getClaimAsStringList("roles").contains("ADMIN"))
+    @Transactional(readOnly = true)
+    public CustomerResponse read(UUID id, Jwt jwt) {
+        Customer customer = findCustomer(id);
+        boolean ownsCustomer = customer.getUserId().equals(subjectId(jwt));
+        boolean isAdmin = jwt.getClaimAsStringList("roles") != null
+                && jwt.getClaimAsStringList("roles").contains("ADMIN");
+        if (!ownsCustomer && !isAdmin) {
             throw Support.fail(HttpStatus.FORBIDDEN, "NOT_CUSTOMER_OWNER");
-        return c;
+        }
+        return customerMapper.toResponse(customer);
     }
 
     @Override
-    public Map<String, Object> approve(UUID id, Jwt jwt) {
-        Map<String, Object> c = get(id);
-        if (!"PENDING_KYC".equals(c.get("status")))
+    @Transactional
+    public CustomerResponse approve(UUID id, Jwt jwt) {
+        Customer customer = findCustomer(id);
+        if (customer.getStatus() != CustomerStatus.PENDING_KYC) {
             throw Support.fail(HttpStatus.CONFLICT, "INVALID_KYC_STATE");
-        db.update("UPDATE customers SET status='ACTIVE',updated_at=NOW() WHERE id=?", id);
-        db.update("UPDATE customer_kyc SET verification_status='APPROVED',verified_at=NOW(),verified_by=?,updated_at=NOW() WHERE customer_id=?", UUID.fromString(jwt.getSubject()), id);
-        db.update("INSERT INTO customer_status_history(id,customer_id,old_status,new_status,reason,changed_by) VALUES(?,?,'PENDING_KYC','ACTIVE','KYC_APPROVED',?)", UUID.randomUUID(), id, UUID.fromString(jwt.getSubject()));
-        return get(id);
+        }
+
+        CustomerKyc kyc = customerKycRepository.findByCustomerId(id)
+                .orElseThrow(() -> Support.fail(HttpStatus.CONFLICT, "CUSTOMER_KYC_NOT_FOUND"));
+
+        UUID reviewerId = subjectId(jwt);
+        Instant now = Instant.now();
+        customer.setStatus(CustomerStatus.ACTIVE);
+        kyc.setVerificationStatus(KycVerificationStatus.APPROVED);
+        kyc.setVerifiedAt(now);
+        kyc.setVerifiedBy(reviewerId);
+
+        // Both entities are managed in this transaction; dirty checking persists them atomically.
+        customerKycRepository.save(kyc);
+
+        CustomerStatusHistory history = new CustomerStatusHistory();
+        history.setId(UUID.randomUUID());
+        history.setCustomerId(id);
+        history.setOldStatus(CustomerStatus.PENDING_KYC);
+        history.setNewStatus(CustomerStatus.ACTIVE);
+        history.setReason("KYC_APPROVED");
+        history.setChangedBy(reviewerId);
+        statusHistoryRepository.save(history);
+
+        return customerMapper.toResponse(customer);
     }
 
     @Override
-    public Map<String, Object> internal(UUID id, String key) {
+    @Transactional(readOnly = true)
+    public CustomerResponse internal(UUID id, String key) {
         support.internal(key);
-        return get(id);
+        return customerMapper.toResponse(findCustomer(id));
     }
 
-    private Map<String, Object> get(UUID id) {
-        return db.query(
-                "SELECT id,customer_number,user_id,first_name,last_name,date_of_birth,status FROM customers WHERE id=?", (r, n) -> {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("id", r.getString(1));
-                    m.put("customerNumber", r.getString(2));
-                    m.put("userId", r.getString(3));
-                    m.put("firstName", r.getString(4));
-                    m.put("lastName", r.getString(5));
-                    m.put("dateOfBirth", r.getDate(6).toString());
-                    m.put("status", r.getString(7));
-                    return m;
-                }, id).stream().findFirst().orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "CUSTOMER_NOT_FOUND"));
+    private Customer findCustomer(UUID id) {
+        return customerRepository.findById(id)
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "CUSTOMER_NOT_FOUND"));
+    }
+
+    private UUID subjectId(Jwt jwt) {
+        try {
+            return UUID.fromString(jwt.getSubject());
+        } catch (RuntimeException ex) {
+            throw Support.fail(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN_SUBJECT");
+        }
     }
 }
