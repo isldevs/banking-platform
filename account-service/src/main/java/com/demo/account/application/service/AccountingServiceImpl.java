@@ -15,6 +15,7 @@ import com.demo.account.domain.model.AccountHolderEntity;
 import com.demo.account.domain.model.AccountOperationEntity;
 import com.demo.account.domain.model.AccountTransactionEntity;
 import com.demo.account.domain.model.LedgerEntryEntity;
+import com.demo.account.infrastructure.config.FundingProperties;
 import com.demo.account.infrastructure.persistence.AccountBalanceRepository;
 import com.demo.account.infrastructure.persistence.AccountHolderRepository;
 import com.demo.account.infrastructure.persistence.AccountOperationRepository;
@@ -51,7 +52,7 @@ public class AccountingServiceImpl implements AccountingService {
     private final Support support;
     private final RestClient remote;
     private final String customerUrl;
-    private final boolean fundingEnabled;
+    private final FundingProperties fundingProperties;
 
     public AccountingServiceImpl(AccountRepository accounts,
                                  AccountBalanceRepository balances,
@@ -61,8 +62,8 @@ public class AccountingServiceImpl implements AccountingService {
                                  LedgerEntryRepository ledgerEntries,
                                  AccountMapper mapper,
                                  Support support,
-                                 @Value("${services.customer-url}") String customerUrl,
-                                 @Value("${funding-enabled:false}") boolean fundingEnabled) {
+                                 FundingProperties fundingProperties,
+                                 @Value("${services.customer-url}") String customerUrl) {
         this.accounts = accounts;
         this.balances = balances;
         this.holders = holders;
@@ -71,8 +72,8 @@ public class AccountingServiceImpl implements AccountingService {
         this.ledgerEntries = ledgerEntries;
         this.mapper = mapper;
         this.support = support;
+        this.fundingProperties = fundingProperties;
         this.customerUrl = customerUrl;
-        this.fundingEnabled = fundingEnabled;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(2));
         factory.setReadTimeout(Duration.ofSeconds(4));
@@ -83,7 +84,7 @@ public class AccountingServiceImpl implements AccountingService {
     @Transactional(readOnly = true)
     public OperationResponse operation(UUID id) {
         return mapper.toResponse(operations.findById(id)
-                                         .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "OPERATION_NOT_FOUND")));
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "OPERATION_NOT_FOUND")));
     }
 
     @Override
@@ -158,16 +159,28 @@ public class AccountingServiceImpl implements AccountingService {
     }
 
     @Override
+    @Transactional
     public AccountResponse fund(UUID id, Funding request) {
-        if (!fundingEnabled)
+        if (!fundingProperties.enabled())
             throw Support.fail(HttpStatus.FORBIDDEN, "DEMO_FUNDING_DISABLED");
-        AccountResponse destination = read(id, nullSafeSystemJwt());
-        String currency = destination.currency();
-        UUID treasury = UUID.fromString("KHR".equals(currency)
-                                                ? "00000000-0000-0000-0000-000000000002"
-                                                : "00000000-0000-0000-0000-000000000001");
-        post(new TransferCommand(UUID.randomUUID(), treasury, id, request.amount(), currency, "SYSTEM"));
-        return readInternal(id);
+        if (request == null || request.amount() == null || request.amount().signum() <= 0)
+            throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_FUNDING_AMOUNT");
+
+        AccountEntity destination = findAccount(id);
+        if (!"CUSTOMER".equals(destination.getAccountType()))
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_DESTINATION_INVALID");
+        if (!"ACTIVE".equals(destination.getStatus()))
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "ACCOUNT_NOT_ACTIVE");
+
+        UUID treasury = treasuryAccountId(destination.getCurrency());
+        post(new TransferCommand(
+                UUID.randomUUID(),
+                treasury,
+                destination.getId(),
+                request.amount(),
+                destination.getCurrency(),
+                "SYSTEM"));
+        return readInternal(destination.getId());
     }
 
     @Override
@@ -196,6 +209,14 @@ public class AccountingServiceImpl implements AccountingService {
         return operation(id);
     }
 
+    private UUID treasuryAccountId(String currency) {
+        return switch (currency) {
+            case "USD" -> fundingProperties.usdTreasuryAccountId();
+            case "KHR" -> fundingProperties.khrTreasuryAccountId();
+            default -> throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_CURRENCY_UNSUPPORTED");
+        };
+    }
+
     private AccountResponse readInternal(UUID id) {
         AccountEntity account = findAccount(id);
         return response(account, findBalance(id));
@@ -222,10 +243,6 @@ public class AccountingServiceImpl implements AccountingService {
     private void assertOwner(AccountEntity account, Jwt jwt) {
         if (jwt == null || (!jwt.getSubject().equals(String.valueOf(account.getOwnerUserId())) && !isAdmin(jwt)))
             throw Support.fail(HttpStatus.FORBIDDEN, "NOT_ACCOUNT_OWNER");
-    }
-
-    private Jwt nullSafeSystemJwt() {
-        return Jwt.withTokenValue("internal").header("alg", "none").subject("SYSTEM").claim("roles", List.of("ADMIN")).build();
     }
 
     private BigDecimal money(BigDecimal value, String currency) {
