@@ -27,6 +27,8 @@ management:
 security:
   jwt:
     public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH:${user.dir}/infrastructure/secrets/jwt-public.pem}
+  legacy:
+    internal-key: ${INTERNAL_SERVICE_KEY}
 
 services:
   customer-url: ${CUSTOMER_SERVICE_URL:http://localhost:8082}
