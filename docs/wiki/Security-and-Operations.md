@@ -1,74 +1,74 @@
 # Security and Operations
 
-## Security baseline
+> This is a demo. Do not treat these controls as sufficient for a real banking deployment.
 
-This project is a demo and should not be deployed as a real banking system without substantial additional controls.
+## Authentication and authorization
 
-### Access tokens
-
-- Use Spring Authorization Server's Authorization Code + PKCE flow for interactive login.
+- New interactive clients use Authorization Code + PKCE through Spring Authorization Server.
 - Access tokens are RSA-signed JWTs with a 15-minute lifetime.
-- Resource servers validate the issuer, audience, signature, and expiration.
-- Keep bearer tokens out of application logs and error reports.
-- Use HTTPS in shared or deployed environments.
-- Do not trust client-supplied user IDs when the authenticated JWT subject is available.
+- Gateway and protected downstream services validate JWTs independently.
+- Downstream services enforce permissions and ownership; never rely only on Gateway authorization.
+- Do not trust client-supplied user identity when the authenticated JWT subject is available.
 
-### Refresh tokens and client credentials
+## Refresh tokens and secrets
 
-- The confidential demo client receives refresh tokens with a seven-day lifetime and token rotation.
-- Keep refresh tokens in a trusted server-side store or approved secure credential store.
-- Do not ship a confidential client secret with a browser or mobile application.
-- Replace the stored refresh token after every successful refresh; do not replay the consumed token.
-- OAuth2 and legacy custom refresh-token stores are separate.
-- Revoke OAuth2 tokens at `POST /oauth2/revoke`; use the deprecated logout endpoint only for legacy tokens.
+- Confidential demo-client refresh tokens have a seven-day lifetime and rotate on use.
+- Keep refresh tokens and confidential client secrets out of browser/mobile bundles and logs.
+- Never commit private signing keys, keystore passwords, database passwords, OAuth client secrets, or `X-Service-Key` values.
+- Treat any credential ever committed to Git as compromised and rotate it.
+- Use an approved secret manager and managed key boundary for shared/production environments.
 
-### Signing keys and secrets
+## Service-to-service security
 
-- Never commit private signing keys, keystore passwords, client secrets, database passwords, or internal service keys.
-- Locally generated signing material is stored under ignored `infrastructure/secrets/`.
-- `infrastructure/.env` is a local secrets file and must remain ignored.
-- Any signing key or credential that was committed to Git at any time should be treated as compromised and rotated.
-  Removing it from the current tree does not erase it from repository history.
-- Production deployments should use the organization's approved secret manager and a managed key-management boundary
-  where available.
+`X-Service-Key` is a demo mechanism for trusted internal calls. In a production design, replace or augment it with stronger workload identity, mTLS, or another approved service-authentication mechanism.
 
-### Internal endpoints
+Most `/internal/**` endpoints are service-only. The initial-funding settlement route is the exception to the path convention: `/api/accounts/funding/{instructionId}/post` uses the normal Gateway `/api` proxy but still requires `X-Service-Key` and `X-External-Reference` and must not be exposed as a user-facing operation.
 
-Endpoints under `/internal/**` are service-to-service APIs. They must not be exposed directly to browser/mobile clients.
-Requests must carry `X-Service-Key`; in deployed production, use stronger service identity controls such as mTLS or an
-approved workload identity mechanism.
+## Gateway rate limiting
+
+Redis-backed fixed-window rate limiting protects `/api/**` at the Gateway.
+
+| Rule | Default |
+|---|---:|
+| `POST /api/auth/login` | 5/minute |
+| `POST /api/auth/refresh` | 10/minute |
+| `POST /api/accounts...` | 10/minute |
+| `POST /api/transfers...` | 10/minute |
+| Other `/api/**` | 60/minute |
+
+Authenticated requests use JWT subject as the rate-limit identity. Anonymous requests use client IP. Responses expose `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`; blocked requests return `429` and `Retry-After`.
+
+Development is configured to fail open on Redis failure. Production-like environments should set this policy explicitly after deciding whether availability or strict abuse protection is the priority.
 
 ## Financial consistency
 
-- Account Service owns the account ledger and the account database.
-- Transfer Service owns transfer workflow and idempotency state.
-- Financial commands must be idempotent or protected with an explicit idempotency strategy.
-- Use durable event handling and reconcile account/transfer state; a successful HTTP response alone is not the only
-  audit record.
-- Audit data should remain append-oriented and traceable.
-- Do not allow downstream services to access each other's tables directly.
+- Account Service is the financial accounting boundary.
+- Ledger postings must balance debit and credit amounts.
+- Account mutations use explicit transaction boundaries and concurrency controls.
+- Opening with initial funding creates a funding instruction; money is credited only through settlement posting.
+- Settlement posting is idempotent by funding instruction/external reference.
+- Transfer commands require a retry/idempotency strategy.
+- Never delete a posted financial record to correct history; use a compensating/reversal workflow when one is implemented.
+- Audit records are traceability evidence and do not replace reconciliation.
 
 ## Observability
 
-Application configuration exposes health/info and selected metrics endpoints. Confirm the exact actuator endpoint
-exposure and authorization behavior in the active environment before exposing monitoring publicly.
+Services expose health/info/metrics endpoints according to environment configuration. Use `X-Correlation-Id` to connect logs and cross-service requests where supported.
 
-Use `X-Correlation-Id` where supported to link logs and service requests. Avoid logging authorization headers,
-passwords, token payloads, refresh tokens, and client secrets.
+Never log Authorization headers, passwords, refresh tokens, client secrets, private keys, or service credentials.
 
 ## Operational checklist
 
 Before using a shared environment:
 
-- [ ] Confirm correct environment profile (`dev`, `qa`, `stage`, or `prod`).
-- [ ] Confirm Config Server is reachable only from the intended trusted network; this demo does not require Config
-  Server credentials.
-- [ ] Confirm all database URLs and credentials are supplied securely.
-- [ ] Confirm JWT issuer, audience, signing key, and public key match.
-- [ ] Confirm internal service credentials are unique and supplied securely.
-- [ ] Confirm Postgres and Kafka health and persistence.
-- [ ] Confirm transfer retries, idempotency, and reconciliation behavior.
-- [ ] Confirm backups, retention/cleanup, alerts, and incident procedures.
-- [ ] Run automated tests and security checks; do not assume local build success proves production readiness.
+- [ ] Confirm the intended profile: `dev`, `qa`, `stage`, or `prod`.
+- [ ] Keep Config Service on a trusted network and out of the public internet.
+- [ ] Confirm database, Kafka, and Redis health where applicable.
+- [ ] Confirm JWT issuer, audience, signing key and public key alignment.
+- [ ] Confirm service credentials are unique and securely injected.
+- [ ] Confirm rate-limit behavior and Redis failure policy.
+- [ ] Verify financial idempotency, concurrency and reconciliation paths.
+- [ ] Verify backups, retention, alerts and incident procedures.
+- [ ] Run automated tests and security checks before merge/deployment.
 
 Related pages: [[Authentication-and-OAuth2]], [[Configuration]], [[Development-and-Delivery]].
