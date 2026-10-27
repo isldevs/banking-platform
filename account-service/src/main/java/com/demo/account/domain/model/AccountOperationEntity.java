@@ -3,6 +3,7 @@ package com.demo.account.domain.model;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
@@ -29,6 +30,9 @@ public class AccountOperationEntity {
     private String status;
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @PrePersist
+    void prePersist() { createdAt = Instant.now(); }
 
     public UUID getOperationId() { return operationId; }
     public void setOperationId(UUID operationId) { this.operationId = operationId; }
