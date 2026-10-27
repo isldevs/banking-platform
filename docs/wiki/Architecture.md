@@ -127,7 +127,7 @@ A typical service follows:
 ```text
 api/             HTTP adapters, DTOs, errors
 application/     use cases and ports
- domain/         business models and rules
+domain/          business models and rules
 infrastructure/  persistence, clients, messaging, security
 ```
 
