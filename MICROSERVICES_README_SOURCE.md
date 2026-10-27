@@ -1410,7 +1410,7 @@ Example:
   "code": "INSUFFICIENT_BALANCE",
   "message": "Available balance is insufficient",
   "path": "/api/transfers",
-  "correlationId": "abc-123"
+  "correlation_id": "abc-123"
 }
 ```
 
@@ -1980,8 +1980,8 @@ Every important log should contain:
 timestamp
 level
 service
-correlationId
-traceId
+correlation_id
+trace_id
 operation
 business reference
 result

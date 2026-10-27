@@ -46,7 +46,7 @@ tasks.register('validateRuntimeContract') {
             requireText(buildFile, "io.micrometer:micrometer-tracing-bridge-otel")
             requireText(buildFile, "io.opentelemetry:opentelemetry-exporter-otlp")
             requireText(buildFile, "io.micrometer:micrometer-registry-prometheus")
-            requireText(bootstrapFile, 'correlationId')
+            requireText(bootstrapFile, 'correlation_id')
 
             if (configClients.contains(service)) {
                 requireText(bootstrapFile, 'configserver:${CONFIG_SERVICE_URL:http://localhost:8888}')

@@ -3,8 +3,10 @@ package com.demo.customer.api.error;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -24,12 +26,12 @@ public class ApiErrors {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<Map<String, Object>> validation(Exception e, HttpServletRequest req) {
-        return build(400, "VALIDATION_ERROR", req);
+        return build(400, "VALIDATION_ERROR", "Invalid request", req);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<Map<String, Object>> conflict(Exception e, HttpServletRequest req) {
-        return build(409, "DATA_CONFLICT", req);
+        return build(409, "DATA_CONFLICT", "Data already exist.", req);
     }
 
     @ExceptionHandler(Exception.class)
@@ -43,12 +45,28 @@ public class ApiErrors {
         return build(400, "INVALID_JSON", req);
     }
 
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    ResponseEntity<Map<String, Object>> handleAuthorizationDenied(AuthorizationDeniedException ex, HttpServletRequest req) {
+        return build(HttpStatus.FORBIDDEN.value(), "ACCESS_DENIED", "You are not authorized", req);
+    }
+
     private ResponseEntity<Map<String, Object>> build(int status, String code, HttpServletRequest req) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("timestamp", Instant.now().toString());
         m.put("status", status);
         m.put("code", code);
         m.put("message", code.replace('_', ' '));
+        m.put("path", req.getRequestURI());
+        m.put("correlation_id", Optional.ofNullable(req.getHeader("X-Correlation-Id")).orElse(""));
+        return ResponseEntity.status(status).body(m);
+    }
+
+    private ResponseEntity<Map<String, Object>> build(int status, String code, String msg, HttpServletRequest req) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("timestamp", Instant.now().toString());
+        m.put("status", status);
+        m.put("code", code);
+        m.put("message", msg);
         m.put("path", req.getRequestURI());
         m.put("correlation_id", Optional.ofNullable(req.getHeader("X-Correlation-Id")).orElse(""));
         return ResponseEntity.status(status).body(m);

@@ -46,7 +46,7 @@ public class ApiErrors {
         m.put("code", code);
         m.put("message", code.replace('_', ' '));
         m.put("path", req.getRequestURI());
-        m.put("correlationId", Optional.ofNullable(req.getHeader("X-Correlation-Id")).orElse(""));
+        m.put("correlation_id", Optional.ofNullable(req.getHeader("X-Correlation-Id")).orElse(""));
         return ResponseEntity.status(status).body(m);
     }
 }

@@ -49,4 +49,4 @@ management:
 
 logging:
   pattern:
-    level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+    level: "%5p [${spring.application.name:},%X{correlation_d:-}]"

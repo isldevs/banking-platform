@@ -73,7 +73,7 @@ public class AccountingServiceImpl implements AccountingService {
             throw Support.fail(HttpStatus.FORBIDDEN, "NOT_CUSTOMER_OWNER");
         UUID id = UUID.randomUUID();
         String accountNo = "AC" + id.toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT);
-        db.update("INSERT INTO accounts(id,account_number,customer_id,owner_user_id,currency) VALUES(?,?,?,?,?)", id, accountNo, c.customerId(), UUID.fromString((String) customer.get("userId")), c.currency());
+        db.update("INSERT INTO accounts(id,account_number,customer_id,owner_user_id,currency) VALUES(?,?,?,?,?)", id, accountNo, c.customerId(), UUID.fromString((String) customer.get("user_id")), c.currency());
         db.update("INSERT INTO account_holders(account_id,customer_id) VALUES(?,?)", id, c.customerId());
         db.update("INSERT INTO account_balances(account_id) VALUES(?)", id);
         return view(id);
