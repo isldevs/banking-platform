@@ -16,6 +16,7 @@ import com.demo.account.domain.model.AccountOperationEntity;
 import com.demo.account.domain.model.AccountTransactionEntity;
 import com.demo.account.domain.model.LedgerEntryEntity;
 import com.demo.account.infrastructure.config.FundingProperties;
+import com.demo.account.infrastructure.config.InitialDepositProperties;
 import com.demo.account.infrastructure.persistence.AccountBalanceRepository;
 import com.demo.account.infrastructure.persistence.AccountHolderRepository;
 import com.demo.account.infrastructure.persistence.AccountOperationRepository;
@@ -53,6 +54,7 @@ public class AccountingServiceImpl implements AccountingService {
     private final RestClient remote;
     private final String customerUrl;
     private final FundingProperties fundingProperties;
+    private final InitialDepositProperties initialDepositProperties;
 
     public AccountingServiceImpl(AccountRepository accounts,
                                  AccountBalanceRepository balances,
@@ -63,6 +65,7 @@ public class AccountingServiceImpl implements AccountingService {
                                  AccountMapper mapper,
                                  Support support,
                                  FundingProperties fundingProperties,
+                                 InitialDepositProperties initialDepositProperties,
                                  @Value("${services.customer-url}") String customerUrl) {
         this.accounts = accounts;
         this.balances = balances;
@@ -72,8 +75,9 @@ public class AccountingServiceImpl implements AccountingService {
         this.ledgerEntries = ledgerEntries;
         this.mapper = mapper;
         this.support = support;
-        this.fundingProperties = fundingProperties;
         this.customerUrl = customerUrl;
+        this.fundingProperties = fundingProperties;
+        this.initialDepositProperties = initialDepositProperties;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(2));
         factory.setReadTimeout(Duration.ofSeconds(4));
@@ -92,6 +96,8 @@ public class AccountingServiceImpl implements AccountingService {
     public AccountResponse open(OpenAccount request, Jwt jwt) {
         if (request.currency() == null || !Set.of("USD", "KHR").contains(request.currency()))
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_CURRENCY");
+
+        BigDecimal initialDeposit = money(request.initialDeposit(), request.currency());
 
         Map<?, ?> customer;
         try {
@@ -128,6 +134,19 @@ public class AccountingServiceImpl implements AccountingService {
         AccountHolderEntity holder = new AccountHolderEntity();
         holder.setId(new AccountHolderEntity.Id(id, request.customerId()));
         holders.save(holder);
+
+        if (initialDeposit.signum() > 0) {
+            UUID sourceAccount = initialDepositSourceAccountId(request.currency());
+            post(new TransferCommand(
+                    UUID.randomUUID(),
+                    sourceAccount,
+                    id,
+                    initialDeposit,
+                    request.currency(),
+                    "SYSTEM"));
+            balance = findBalance(id);
+        }
+
         return response(account, balance);
     }
 
@@ -216,6 +235,13 @@ public class AccountingServiceImpl implements AccountingService {
         return sourceAccountId;
     }
 
+    private UUID initialDepositSourceAccountId(String currency) {
+        UUID sourceAccountId = initialDepositProperties.sourceAccountIds().get(currency);
+        if (sourceAccountId == null)
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INITIAL_DEPOSIT_CURRENCY_UNSUPPORTED");
+        return sourceAccountId;
+    }
+
     private AccountResponse readInternal(UUID id) {
         AccountEntity account = findAccount(id);
         return response(account, findBalance(id));
@@ -245,7 +271,7 @@ public class AccountingServiceImpl implements AccountingService {
     }
 
     private BigDecimal money(BigDecimal value, String currency) {
-        if (value == null || currency == null || !Set.of("USD", "KHR").contains(currency) || value.signum() <= 0)
+        if (value == null || currency == null || !Set.of("USD", "KHR").contains(currency) || value.signum() < 0)
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_AMOUNT_OR_CURRENCY");
         int scale = "KHR".equals(currency) ? 0 : 2;
         if (value.stripTrailingZeros().scale() > scale)
@@ -265,6 +291,8 @@ public class AccountingServiceImpl implements AccountingService {
             throw Support.fail(HttpStatus.BAD_REQUEST, "SAME_ACCOUNT");
 
         BigDecimal amount = money(command.amount(), command.currency());
+        if (amount.signum() <= 0)
+            throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_TRANSFER_AMOUNT");
         UUID first = command.sourceAccountId().compareTo(command.destinationAccountId()) < 0 ? command.sourceAccountId() : command.destinationAccountId();
         UUID second = first.equals(command.sourceAccountId()) ? command.destinationAccountId() : command.sourceAccountId();
         AccountEntity firstAccount = accounts.findByIdForUpdate(first)
