@@ -1,17 +1,31 @@
 # audit-service
 
-Independent Java 21 / Spring Boot Kafka consumer on port `8086`, owning the `audit` database.
+Java 21 / Spring Boot Kafka consumer on port `8086`. Audit Service owns the `audit` database and records transfer-related audit events for traceability.
+
+## Responsibilities
+
+- Consume relevant Kafka events.
+- Persist append-oriented audit records.
+- Track processed events for at-least-once delivery handling.
+- Provide transfer audit history to authorized callers.
+
+## API
+
+- `GET /api/audit/transfers/{id}` — requires `AUDIT_READ`.
+
+Audit data is evidence for traceability; it is not a replacement for financial reconciliation or the Account Service ledger.
 
 ## Configuration
 
-Uses a mandatory Spring Cloud Config Client import. Shared settings, Kafka and service URLs are in
-`config-repo/application.yml` and `config-repo/application-docker.yml`; service settings are in
-`config-repo/audit-service.yml` and `config-repo/audit-service-docker.yml`. Database password, JWT verification key
-path, and internal service key remain runtime-injected.
+Configuration is bundled in `config-service/src/main/resources/config/{dev,qa,stage,prod}/audit-service.yml`. Kafka settings, database credentials, JWT public-key path, and internal credentials are runtime values.
 
 ## Run
 
-From the repository root: `bash infrastructure/scripts/init-local.sh`, then
-`cd infrastructure && docker compose up --build -d`. For standalone `gradle bootRun`, start PostgreSQL, Kafka, and
-Config Server; source `infrastructure/.env`; set `CONFIG_SERVICE_URL=http://localhost:8888`, `DATASOURCE_PASSWORD`, and
-`SECURITY_JWT_PUBLIC_KEY_PATH`.
+```bash
+cp infrastructure/.env.example infrastructure/.env
+# edit infrastructure/.env
+cd infrastructure
+docker compose up --build -d
+```
+
+See [Architecture](../docs/wiki/Architecture.md), [Services](../docs/wiki/Services.md), and [Security and Operations](../docs/wiki/Security-and-Operations.md).
