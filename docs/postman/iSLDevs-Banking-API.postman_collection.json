@@ -1,0 +1,197 @@
+{
+  "info": {
+    "name": "iSLDevs Banking API",
+    "description": "Versioned API collection for the iSLDevs microservice banking platform. Covers authentication, customer lifecycle, account opening, settlement-confirmed initial funding, post-opening funding, transfers, and internal service APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "access_token", "value": "" },
+    { "key": "refresh_token", "value": "" },
+    { "key": "customer_id", "value": "" },
+    { "key": "account_id", "value": "" },
+    { "key": "instruction_id", "value": "" },
+    { "key": "operation_id", "value": "" },
+    { "key": "idempotency_key", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [{
+            "listen": "test",
+            "script": {"exec": [
+              "const json = pm.response.json();",
+              "if (json.access_token) pm.collectionVariables.set('access_token', json.access_token);",
+              "if (json.refresh_token) pm.collectionVariables.set('refresh_token', json.refresh_token);"
+            ], "type": "text/javascript"}
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"},
+            "url": "{{auth_url}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Current User",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{auth_url}}/api/auth/me"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"},
+            "url": "{{auth_url}}/api/auth/refresh"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Create Customer",
+          "event": [{"listen": "test", "script": {"exec": [
+            "const json = pm.response.json();",
+            "if (json.id) pm.collectionVariables.set('customer_id', json.id);"
+          ], "type": "text/javascript"}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {"mode": "raw", "raw": "{\n  \"firstName\": \"Demo\",\n  \"lastName\": \"Customer\",\n  \"dateOfBirth\": \"1995-01-15\",\n  \"phone\": \"+85512000000\",\n  \"email\": \"demo.customer@example.com\"\n}"},
+            "url": "{{customer_url}}/api/customers"
+          }
+        },
+        {
+          "name": "Get Customer",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{customer_url}}/api/customers/{{customer_id}}"
+          }
+        },
+        {
+          "name": "Approve Customer KYC",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{customer_url}}/api/customers/{{customer_id}}/kyc/approve"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "Open Account",
+          "event": [{"listen": "prerequest", "script": {"exec": ["pm.collectionVariables.set('idempotency_key', pm.variables.replaceIn('{{$guid}}'));"], "type": "text/javascript"}}, {"listen": "test", "script": {"exec": [
+            "const json = pm.response.json();",
+            "if (json.id) pm.collectionVariables.set('account_id', json.id);",
+            "pm.test('Account created', () => pm.expect(json.id).to.exist);"
+          ], "type": "text/javascript"}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"},
+              {"key": "Idempotency-Key", "value": "{{idempotency_key}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {"mode": "raw", "raw": "{\n  \"customerId\": \"{{customer_id}}\",\n  \"productCode\": \"{{product_code}}\",\n  \"currency\": \"{{currency}}\",\n  \"initialDeposit\": {{initial_deposit}},\n  \"fundingChannel\": \"{{funding_channel}}\"\n}"},
+            "url": "{{account_url}}/api/accounts"
+          }
+        },
+        {
+          "name": "Get Account",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{account_url}}/api/accounts/{{account_id}}"
+          }
+        },
+        {
+          "name": "List My Accounts",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{account_url}}/api/accounts"
+          }
+        },
+        {
+          "name": "Post Settled Initial Funding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "X-Service-Key", "value": "{{service_key}}"},
+              {"key": "X-External-Reference", "value": "{{external_reference}}"}
+            ],
+            "url": "{{account_url}}/internal/accounts/funding/{{instruction_id}}/post"
+          }
+        },
+        {
+          "name": "Fund Active Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {"mode": "raw", "raw": "{\n  \"amount\": 100.00\n}"},
+            "url": "{{account_url}}/api/accounts/{{account_id}}/fund"
+          }
+        },
+        {
+          "name": "Freeze Account",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{account_url}}/api/accounts/{{account_id}}/freeze"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal / Operations",
+      "item": [
+        {
+          "name": "Get Operation",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "X-Service-Key", "value": "{{service_key}}"}],
+            "url": "{{account_url}}/internal/accounts/operations/{{operation_id}}"
+          }
+        },
+        {
+          "name": "Get Ledger",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{account_url}}/api/accounts/ledger/{{operation_id}}"
+          }
+        },
+        {
+          "name": "Internal Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "X-Service-Key", "value": "{{service_key}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {"mode": "raw", "raw": "{\n  \"operationId\": \"{{$guid}}\",\n  \"sourceAccountId\": \"{{source_account_id}}\",\n  \"destinationAccountId\": \"{{account_id}}\",\n  \"amount\": 10.00,\n  \"currency\": \"{{currency}}\",\n  \"initiator\": \"SYSTEM\"\n}"},
+            "url": "{{account_url}}/internal/accounts/transfer"
+          }
+        }
+      ]
+    }
+  ]
+}
