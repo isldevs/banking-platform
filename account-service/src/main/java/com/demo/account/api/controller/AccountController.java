@@ -72,7 +72,7 @@ public class AccountController {
         return accountingService.internalTransfer(key, command);
     }
 
-    @PostMapping("/internal/accounts/funding/{instructionId}/post")
+    @PostMapping("/api/accounts/funding/{instructionId}/post")
     public AccountResponse postFunding(@RequestHeader("X-Service-Key") String key,
                                        @PathVariable UUID instructionId,
                                        @RequestHeader("X-External-Reference") String externalReference) {
