@@ -12,15 +12,22 @@ import com.demo.account.common.Support;
 import com.demo.account.domain.model.AccountBalanceEntity;
 import com.demo.account.domain.model.AccountEntity;
 import com.demo.account.domain.model.AccountHolderEntity;
+import com.demo.account.domain.model.AccountOpeningRequestEntity;
 import com.demo.account.domain.model.AccountOperationEntity;
+import com.demo.account.domain.model.AccountProductEntity;
 import com.demo.account.domain.model.AccountTransactionEntity;
+import com.demo.account.domain.model.FundingInstructionEntity;
 import com.demo.account.domain.model.LedgerEntryEntity;
 import com.demo.account.infrastructure.config.FundingProperties;
+import com.demo.account.infrastructure.config.SettlementAccountProperties;
 import com.demo.account.infrastructure.persistence.AccountBalanceRepository;
 import com.demo.account.infrastructure.persistence.AccountHolderRepository;
+import com.demo.account.infrastructure.persistence.AccountOpeningRequestRepository;
 import com.demo.account.infrastructure.persistence.AccountOperationRepository;
+import com.demo.account.infrastructure.persistence.AccountProductRepository;
 import com.demo.account.infrastructure.persistence.AccountRepository;
 import com.demo.account.infrastructure.persistence.AccountTransactionRepository;
+import com.demo.account.infrastructure.persistence.FundingInstructionRepository;
 import com.demo.account.infrastructure.persistence.LedgerEntryRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -42,37 +49,53 @@ import java.util.UUID;
 
 @Service
 public class AccountingServiceImpl implements AccountingService {
+    private static final Set<String> SUPPORTED_CURRENCIES = Set.of("USD", "KHR");
+    private static final Set<String> SUPPORTED_FUNDING_CHANNELS = Set.of(
+            "BANK_TRANSFER", "CASH", "CARD", "CHEQUE", "DIRECT_DEBIT");
+
     private final AccountRepository accounts;
     private final AccountBalanceRepository balances;
     private final AccountHolderRepository holders;
+    private final AccountOpeningRequestRepository openingRequests;
     private final AccountOperationRepository operations;
+    private final AccountProductRepository products;
     private final AccountTransactionRepository transactions;
+    private final FundingInstructionRepository fundingInstructions;
     private final LedgerEntryRepository ledgerEntries;
     private final AccountMapper mapper;
     private final Support support;
     private final RestClient remote;
     private final String customerUrl;
     private final FundingProperties fundingProperties;
+    private final SettlementAccountProperties settlementProperties;
 
     public AccountingServiceImpl(AccountRepository accounts,
                                  AccountBalanceRepository balances,
                                  AccountHolderRepository holders,
+                                 AccountOpeningRequestRepository openingRequests,
                                  AccountOperationRepository operations,
+                                 AccountProductRepository products,
                                  AccountTransactionRepository transactions,
+                                 FundingInstructionRepository fundingInstructions,
                                  LedgerEntryRepository ledgerEntries,
                                  AccountMapper mapper,
                                  Support support,
                                  FundingProperties fundingProperties,
+                                 SettlementAccountProperties settlementProperties,
                                  @Value("${services.customer-url}") String customerUrl) {
         this.accounts = accounts;
         this.balances = balances;
         this.holders = holders;
+        this.openingRequests = openingRequests;
         this.operations = operations;
+        this.products = products;
         this.transactions = transactions;
+        this.fundingInstructions = fundingInstructions;
         this.ledgerEntries = ledgerEntries;
         this.mapper = mapper;
         this.support = support;
         this.fundingProperties = fundingProperties;
+        this.settlementProperties = settlementProperties;
         this.customerUrl = customerUrl;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(2));
@@ -89,9 +112,37 @@ public class AccountingServiceImpl implements AccountingService {
 
     @Override
     @Transactional
-    public AccountResponse open(OpenAccount request, Jwt jwt) {
-        if (request.currency() == null || !Set.of("USD", "KHR").contains(request.currency()))
+    public AccountResponse open(OpenAccount request, Jwt jwt, String idempotencyKey) {
+        String key = normalizeIdempotencyKey(idempotencyKey);
+        AccountOpeningRequestEntity previous = openingRequests.findById(key).orElse(null);
+        if (previous != null) {
+            validateIdempotentRetry(previous, request);
+            return readInternal(previous.getAccountId());
+        }
+
+        String productCode = normalize(request.productCode());
+        String currency = normalize(request.currency());
+        if (!SUPPORTED_CURRENCIES.contains(currency))
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_CURRENCY");
+
+        AccountProductEntity product = products.findByProductCodeAndCurrencyAndStatus(productCode, currency, "ACTIVE")
+                .orElseThrow(() -> Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "ACCOUNT_PRODUCT_UNAVAILABLE"));
+        BigDecimal initialDeposit = money(request.initialDeposit(), currency, true);
+
+        if (initialDeposit.compareTo(product.getMinimumOpeningBalance()) < 0)
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INITIAL_DEPOSIT_BELOW_MINIMUM");
+        if (product.isInitialDepositRequired() && initialDeposit.compareTo(product.getInitialDepositAmount()) < 0)
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INITIAL_DEPOSIT_REQUIRED");
+        if (initialDeposit.signum() > 0 && request.fundingChannel() == null)
+            throw Support.fail(HttpStatus.BAD_REQUEST, "FUNDING_CHANNEL_REQUIRED");
+
+        String fundingChannel = request.fundingChannel() == null ? null : normalize(request.fundingChannel());
+        if (fundingChannel != null && !SUPPORTED_FUNDING_CHANNELS.contains(fundingChannel))
+            throw Support.fail(HttpStatus.BAD_REQUEST, "UNSUPPORTED_FUNDING_CHANNEL");
+        if (initialDeposit.signum() == 0 && fundingChannel != null)
+            throw Support.fail(HttpStatus.BAD_REQUEST, "FUNDING_CHANNEL_WITHOUT_AMOUNT");
+        if (initialDeposit.signum() > 0)
+            settlementAccountId(fundingChannel, currency);
 
         Map<?, ?> customer;
         try {
@@ -113,9 +164,9 @@ public class AccountingServiceImpl implements AccountingService {
         account.setAccountNumber("AC" + id.toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT));
         account.setCustomerId(request.customerId());
         account.setOwnerUserId(owner);
-        account.setCurrency(request.currency());
-        account.setStatus("ACTIVE");
-        account.setAccountType("CUSTOMER");
+        account.setCurrency(currency);
+        account.setStatus(initialDeposit.signum() > 0 ? "PENDING_FUNDING" : "ACTIVE");
+        account.setAccountType(product.getAccountType());
         accounts.save(account);
 
         AccountBalanceEntity balance = new AccountBalanceEntity();
@@ -128,6 +179,31 @@ public class AccountingServiceImpl implements AccountingService {
         AccountHolderEntity holder = new AccountHolderEntity();
         holder.setId(new AccountHolderEntity.Id(id, request.customerId()));
         holders.save(holder);
+
+        AccountOpeningRequestEntity opening = new AccountOpeningRequestEntity();
+        opening.setIdempotencyKey(key);
+        opening.setCustomerId(request.customerId());
+        opening.setAccountId(id);
+        opening.setProductCode(productCode);
+        opening.setCurrency(currency);
+        opening.setRequestedInitialDeposit(initialDeposit);
+        opening.setFundingChannel(fundingChannel);
+        opening.setCreatedAt(Instant.now());
+        openingRequests.save(opening);
+
+        if (initialDeposit.signum() > 0) {
+            FundingInstructionEntity instruction = new FundingInstructionEntity();
+            instruction.setId(UUID.randomUUID());
+            instruction.setAccountId(id);
+            instruction.setAmount(initialDeposit);
+            instruction.setCurrency(currency);
+            instruction.setChannel(fundingChannel);
+            instruction.setStatus("PENDING_SETTLEMENT");
+            instruction.setIdempotencyKey(key + ":INITIAL_DEPOSIT");
+            instruction.setCreatedAt(Instant.now());
+            fundingInstructions.save(instruction);
+        }
+
         return response(account, balance);
     }
 
@@ -162,7 +238,7 @@ public class AccountingServiceImpl implements AccountingService {
     @Transactional
     public AccountResponse fund(UUID id, Funding request) {
         if (!fundingProperties.enabled())
-            throw Support.fail(HttpStatus.FORBIDDEN, "DEMO_FUNDING_DISABLED");
+            throw Support.fail(HttpStatus.FORBIDDEN, "FUNDING_DISABLED");
         if (request == null || request.amount() == null || request.amount().signum() <= 0)
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_FUNDING_AMOUNT");
 
@@ -203,6 +279,44 @@ public class AccountingServiceImpl implements AccountingService {
     }
 
     @Override
+    @Transactional
+    public AccountResponse postFundingInstruction(String key, UUID instructionId, String externalReference) {
+        support.internal(key);
+        if (externalReference == null || externalReference.isBlank())
+            throw Support.fail(HttpStatus.BAD_REQUEST, "EXTERNAL_REFERENCE_REQUIRED");
+
+        FundingInstructionEntity instruction = fundingInstructions.findByIdForUpdate(instructionId)
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "FUNDING_INSTRUCTION_NOT_FOUND"));
+        if ("POSTED".equals(instruction.getStatus()))
+            return readInternal(instruction.getAccountId());
+        if (!"PENDING_SETTLEMENT".equals(instruction.getStatus()))
+            throw Support.fail(HttpStatus.CONFLICT, "FUNDING_INSTRUCTION_NOT_POSTABLE");
+
+        AccountEntity destination = findAccount(instruction.getAccountId());
+        UUID sourceAccount = settlementAccountId(instruction.getChannel(), instruction.getCurrency());
+        post(new TransferCommand(
+                instruction.getId(),
+                sourceAccount,
+                destination.getId(),
+                instruction.getAmount(),
+                instruction.getCurrency(),
+                "SYSTEM"));
+
+        instruction.setExternalReference(externalReference.trim());
+        instruction.setOperationId(instruction.getId());
+        instruction.setStatus("POSTED");
+        instruction.setPostedAt(Instant.now());
+        fundingInstructions.save(instruction);
+
+        if ("PENDING_FUNDING".equals(destination.getStatus())) {
+            destination.setStatus("ACTIVE");
+            destination.setVersion(destination.getVersion() + 1);
+            accounts.save(destination);
+        }
+        return readInternal(destination.getId());
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public OperationResponse operation(String key, UUID id) {
         support.internal(key);
@@ -214,6 +328,40 @@ public class AccountingServiceImpl implements AccountingService {
         if (sourceAccountId == null)
             throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_CURRENCY_UNSUPPORTED");
         return sourceAccountId;
+    }
+
+    private UUID settlementAccountId(String channel, String currency) {
+        Map<String, UUID> byCurrency = settlementProperties.sourceAccountIds().get(channel);
+        if (byCurrency == null)
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "SETTLEMENT_CHANNEL_UNSUPPORTED");
+        UUID accountId = byCurrency.get(currency);
+        if (accountId == null)
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "SETTLEMENT_CURRENCY_UNSUPPORTED");
+        return accountId;
+    }
+
+    private void validateIdempotentRetry(AccountOpeningRequestEntity previous, OpenAccount request) {
+        String productCode = normalize(request.productCode());
+        String currency = normalize(request.currency());
+        BigDecimal amount = request.initialDeposit() == null ? null : request.initialDeposit();
+        String channel = request.fundingChannel() == null ? null : normalize(request.fundingChannel());
+        if (!previous.getCustomerId().equals(request.customerId())
+                || !previous.getProductCode().equals(productCode)
+                || !previous.getCurrency().equals(currency)
+                || amount == null
+                || previous.getRequestedInitialDeposit().compareTo(amount) != 0
+                || !java.util.Objects.equals(previous.getFundingChannel(), channel))
+            throw Support.fail(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED");
+    }
+
+    private String normalizeIdempotencyKey(String key) {
+        if (key == null || key.isBlank() || key.length() > 120)
+            throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_IDEMPOTENCY_KEY");
+        return key.trim();
+    }
+
+    private String normalize(String value) {
+        return value == null ? null : value.trim().toUpperCase(Locale.ROOT);
     }
 
     private AccountResponse readInternal(UUID id) {
@@ -244,8 +392,9 @@ public class AccountingServiceImpl implements AccountingService {
             throw Support.fail(HttpStatus.FORBIDDEN, "NOT_ACCOUNT_OWNER");
     }
 
-    private BigDecimal money(BigDecimal value, String currency) {
-        if (value == null || currency == null || !Set.of("USD", "KHR").contains(currency) || value.signum() <= 0)
+    private BigDecimal money(BigDecimal value, String currency, boolean allowZero) {
+        if (value == null || currency == null || !SUPPORTED_CURRENCIES.contains(currency)
+                || (!allowZero && value.signum() <= 0) || (allowZero && value.signum() < 0))
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_AMOUNT_OR_CURRENCY");
         int scale = "KHR".equals(currency) ? 0 : 2;
         if (value.stripTrailingZeros().scale() > scale)
@@ -264,7 +413,7 @@ public class AccountingServiceImpl implements AccountingService {
         if (command.sourceAccountId().equals(command.destinationAccountId()))
             throw Support.fail(HttpStatus.BAD_REQUEST, "SAME_ACCOUNT");
 
-        BigDecimal amount = money(command.amount(), command.currency());
+        BigDecimal amount = money(command.amount(), command.currency(), false);
         UUID first = command.sourceAccountId().compareTo(command.destinationAccountId()) < 0 ? command.sourceAccountId() : command.destinationAccountId();
         UUID second = first.equals(command.sourceAccountId()) ? command.destinationAccountId() : command.sourceAccountId();
         AccountEntity firstAccount = accounts.findByIdForUpdate(first)
@@ -331,7 +480,7 @@ public class AccountingServiceImpl implements AccountingService {
         tx.setOperationId(c.transferId());
         tx.setAccountId("DEBIT".equals(type) ? c.sourceAccountId() : c.destinationAccountId());
         tx.setTransactionType(type);
-        tx.setAmount(money(c.amount(), c.currency()));
+        tx.setAmount(money(c.amount(), c.currency(), false));
         tx.setCurrency(c.currency());
         tx.setReferenceId(c.transferId());
         transactions.save(tx);
@@ -343,7 +492,7 @@ public class AccountingServiceImpl implements AccountingService {
         entry.setTransactionId(c.transferId());
         entry.setAccountId("DEBIT".equals(type) ? c.sourceAccountId() : c.destinationAccountId());
         entry.setEntryType(type);
-        entry.setAmount(money(c.amount(), c.currency()));
+        entry.setAmount(money(c.amount(), c.currency(), false));
         entry.setCurrency(c.currency());
         ledgerEntries.save(entry);
     }
