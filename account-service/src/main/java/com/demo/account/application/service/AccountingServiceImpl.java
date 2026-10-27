@@ -282,18 +282,36 @@ public class AccountingServiceImpl implements AccountingService {
     @Transactional
     public AccountResponse postFundingInstruction(String key, UUID instructionId, String externalReference) {
         support.internal(key);
-        if (externalReference == null || externalReference.isBlank())
-            throw Support.fail(HttpStatus.BAD_REQUEST, "EXTERNAL_REFERENCE_REQUIRED");
+        String normalizedExternalReference = normalizeExternalReference(externalReference);
 
         FundingInstructionEntity instruction = fundingInstructions.findByIdForUpdate(instructionId)
                 .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "FUNDING_INSTRUCTION_NOT_FOUND"));
-        if ("POSTED".equals(instruction.getStatus()))
+        if ("POSTED".equals(instruction.getStatus())) {
+            if (!normalizedExternalReference.equals(instruction.getExternalReference()))
+                throw Support.fail(HttpStatus.CONFLICT, "EXTERNAL_REFERENCE_MISMATCH");
             return readInternal(instruction.getAccountId());
+        }
         if (!"PENDING_SETTLEMENT".equals(instruction.getStatus()))
             throw Support.fail(HttpStatus.CONFLICT, "FUNDING_INSTRUCTION_NOT_POSTABLE");
 
-        AccountEntity destination = findAccount(instruction.getAccountId());
+        AccountEntity destination = accounts.findByIdForUpdate(instruction.getAccountId())
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+        if (!"CUSTOMER".equals(destination.getAccountType()))
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_DESTINATION_INVALID");
+        if (!"PENDING_FUNDING".equals(destination.getStatus()))
+            throw Support.fail(HttpStatus.CONFLICT, "ACCOUNT_NOT_PENDING_FUNDING");
+        if (!instruction.getCurrency().equals(destination.getCurrency()))
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "CURRENCY_MISMATCH");
+        if (instruction.getAmount() == null || instruction.getAmount().signum() <= 0)
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_FUNDING_AMOUNT");
+
         UUID sourceAccount = settlementAccountId(instruction.getChannel(), instruction.getCurrency());
+        if (sourceAccount.equals(destination.getId()))
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_SETTLEMENT_ACCOUNT");
+
+        // post() deliberately requires ACTIVE accounts. Transition the opening account
+        // inside this same transaction; if posting fails, the entire transaction rolls back.
+        destination.setStatus("ACTIVE");
         post(new TransferCommand(
                 instruction.getId(),
                 sourceAccount,
@@ -302,17 +320,12 @@ public class AccountingServiceImpl implements AccountingService {
                 instruction.getCurrency(),
                 "SYSTEM"));
 
-        instruction.setExternalReference(externalReference.trim());
+        instruction.setExternalReference(normalizedExternalReference);
         instruction.setOperationId(instruction.getId());
         instruction.setStatus("POSTED");
         instruction.setPostedAt(Instant.now());
         fundingInstructions.save(instruction);
 
-        if ("PENDING_FUNDING".equals(destination.getStatus())) {
-            destination.setStatus("ACTIVE");
-            destination.setVersion(destination.getVersion() + 1);
-            accounts.save(destination);
-        }
         return readInternal(destination.getId());
     }
 
@@ -358,6 +371,12 @@ public class AccountingServiceImpl implements AccountingService {
         if (key == null || key.isBlank() || key.length() > 120)
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_IDEMPOTENCY_KEY");
         return key.trim();
+    }
+
+    private String normalizeExternalReference(String externalReference) {
+        if (externalReference == null || externalReference.isBlank() || externalReference.trim().length() > 120)
+            throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_EXTERNAL_REFERENCE");
+        return externalReference.trim();
     }
 
     private String normalize(String value) {
