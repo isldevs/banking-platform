@@ -13,6 +13,8 @@ import java.util.UUID;
 public interface FundingInstructionRepository extends JpaRepository<FundingInstructionEntity, UUID> {
     Optional<FundingInstructionEntity> findByIdempotencyKey(String idempotencyKey);
 
+    Optional<FundingInstructionEntity> findTopByAccountIdOrderByCreatedAtDesc(UUID accountId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select f from FundingInstructionEntity f where f.id = :id")
     Optional<FundingInstructionEntity> findByIdForUpdate(@Param("id") UUID id);
