@@ -18,10 +18,15 @@ import java.util.HexFormat;
 @Component
 public class Support {
 
-    private final LegacySecurityProperties security;
+    /**
+     * Kept public for existing internal callers that forward the service key.
+     * New code should prefer dedicated security components.
+     */
+    public final String internalKey;
 
     public Support(LegacySecurityProperties security) {
-        this.security = security;
+        String key = security.getInternalKey();
+        this.internalKey = key == null ? "" : key;
     }
 
     public static String hash(String s) {
@@ -37,23 +42,13 @@ public class Support {
         return new ResponseStatusException(status, code);
     }
 
-    public String internalKey() {
-        String key = security.getInternalKey();
-        if (key == null || key.isBlank()) {
+    public void validateLegacyInternalKey(String providedKey) {
+        if (internalKey.isBlank()) {
             throw new IllegalStateException("Legacy internal security key is not configured");
         }
-        return key;
-    }
-
-    /**
-     * Validates the temporary legacy X-Service-Key credential.
-     * Modern APIs must use OAuth2/JWT instead.
-     */
-    public void validateLegacyInternalKey(String providedKey) {
-        String configuredKey = internalKey();
         if (providedKey == null || providedKey.isBlank()
                 || !MessageDigest.isEqual(
-                        configuredKey.getBytes(StandardCharsets.UTF_8),
+                        internalKey.getBytes(StandardCharsets.UTF_8),
                         providedKey.getBytes(StandardCharsets.UTF_8))) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "INVALID_SERVICE_CREDENTIAL");
         }
