@@ -22,6 +22,12 @@ spring:
       idle-timeout: ${DB_POOL_IDLE_TIMEOUT:600000}
       max-lifetime: ${DB_POOL_MAX_LIFETIME:1800000}
 
+account:
+  funding:
+    enabled: ${FUNDING_ENABLED:false}
+    usd-treasury-account-id: ${TREASURY_USD_ACCOUNT_ID}
+    khr-treasury-account-id: ${TREASURY_KHR_ACCOUNT_ID}
+
 management:
   metrics:
     tags:
