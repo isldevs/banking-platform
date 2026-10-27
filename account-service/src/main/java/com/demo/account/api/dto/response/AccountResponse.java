@@ -11,5 +11,6 @@ public record AccountResponse(UUID id,
                               String status,
                               String type,
                               BigDecimal availableBalance,
-                              BigDecimal ledgerBalance) {
+                              BigDecimal ledgerBalance,
+                              FundingResponse funding) {
 }
