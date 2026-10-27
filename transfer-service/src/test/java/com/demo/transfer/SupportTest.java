@@ -1,7 +1,6 @@
 package com.demo.transfer;
 
 import com.demo.transfer.common.Support;
-
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

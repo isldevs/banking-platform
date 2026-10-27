@@ -11,7 +11,7 @@ import java.util.HexFormat;
 
 /**
  * Shared application helpers.
- *
+ * <p>
  * The legacy X-Service-Key remains supported for compatibility, but its
  * configuration is type-safe and isolated under security.legacy.
  */
@@ -48,8 +48,8 @@ public class Support {
         }
         if (providedKey == null || providedKey.isBlank()
                 || !MessageDigest.isEqual(
-                        internalKey.getBytes(StandardCharsets.UTF_8),
-                        providedKey.getBytes(StandardCharsets.UTF_8))) {
+                internalKey.getBytes(StandardCharsets.UTF_8),
+                providedKey.getBytes(StandardCharsets.UTF_8))) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "INVALID_SERVICE_CREDENTIAL");
         }
     }

@@ -21,18 +21,19 @@ This page summarizes the bounded contexts, local ports, principal data ownership
 - Issues RSA-signed JWT access tokens with `sub`, `username`, `roles`, and `permissions`.
 - Retains deprecated `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` for compatibility only.
 
-Primary entry points: `/.well-known/openid-configuration`, `/oauth2/authorize`, `/oauth2/token`, `/oauth2/revoke`, `/oauth2/jwks`, `GET /api/auth/me`, `POST /api/users`.
+Primary entry points: `/.well-known/openid-configuration`, `/oauth2/authorize`, `/oauth2/token`, `/oauth2/revoke`,
+`/oauth2/jwks`, `GET /api/auth/me`, `POST /api/users`.
 
 ## Customer Service — port 8082
 
 **Role:** customer profile and KYC lifecycle.
 
-| Endpoint | Permission / security |
-|---|---|
-| `POST /api/customers` | `CUSTOMER_CREATE` |
-| `GET /api/customers/{id}` | `CUSTOMER_READ` |
-| `POST /api/customers/{id}/kyc/approve` | `KYC_APPROVE` |
-| `GET /internal/customers/{id}/status` | `X-Service-Key`; internal only |
+| Endpoint                               | Permission / security          |
+|----------------------------------------|--------------------------------|
+| `POST /api/customers`                  | `CUSTOMER_CREATE`              |
+| `GET /api/customers/{id}`              | `CUSTOMER_READ`                |
+| `POST /api/customers/{id}/kyc/approve` | `KYC_APPROVE`                  |
+| `GET /internal/customers/{id}/status`  | `X-Service-Key`; internal only |
 
 The customer database is owned by Customer Service. Other services should call its API rather than query its tables.
 
@@ -40,15 +41,15 @@ The customer database is owned by Customer Service. Other services should call i
 
 **Role:** account state, balances, funding and ledger operations.
 
-| Endpoint | Permission / security |
-|---|---|
-| `POST /api/accounts` | `ACCOUNT_OPEN` |
-| `GET /api/accounts/{id}` | `ACCOUNT_READ` |
-| `GET /api/accounts` | `ACCOUNT_READ` |
-| `POST /api/accounts/{id}/freeze` | `ACCOUNT_FREEZE` |
-| `POST /api/accounts/{id}/fund` | `ACCOUNT_FUND` |
-| `GET /api/accounts/ledger/{operationId}` | `ACCOUNT_FUND` |
-| `POST /internal/accounts/transfer` | `X-Service-Key`; internal only |
+| Endpoint                                 | Permission / security          |
+|------------------------------------------|--------------------------------|
+| `POST /api/accounts`                     | `ACCOUNT_OPEN`                 |
+| `GET /api/accounts/{id}`                 | `ACCOUNT_READ`                 |
+| `GET /api/accounts`                      | `ACCOUNT_READ`                 |
+| `POST /api/accounts/{id}/freeze`         | `ACCOUNT_FREEZE`               |
+| `POST /api/accounts/{id}/fund`           | `ACCOUNT_FUND`                 |
+| `GET /api/accounts/ledger/{operationId}` | `ACCOUNT_FUND`                 |
+| `POST /internal/accounts/transfer`       | `X-Service-Key`; internal only |
 | `GET /internal/accounts/operations/{id}` | `X-Service-Key`; internal only |
 
 The account database and ledger are owned by Account Service.
@@ -57,12 +58,13 @@ The account database and ledger are owned by Account Service.
 
 **Role:** transfer lifecycle, idempotency and recovery.
 
-| Endpoint | Permission / security |
-|---|---|
-| `POST /api/transfers` | `TRANSFER_CREATE`; optionally accepts `Idempotency-Key` |
-| `GET /api/transfers/{id}` | `TRANSFER_READ` |
+| Endpoint                  | Permission / security                                   |
+|---------------------------|---------------------------------------------------------|
+| `POST /api/transfers`     | `TRANSFER_CREATE`; optionally accepts `Idempotency-Key` |
+| `GET /api/transfers/{id}` | `TRANSFER_READ`                                         |
 
-The authenticated user is obtained from the JWT subject. Clients should not use request-body identity fields to impersonate another user. Transfer Service owns workflow state; Account Service owns the financial account ledger.
+The authenticated user is obtained from the JWT subject. Clients should not use request-body identity fields to
+impersonate another user. Transfer Service owns workflow state; Account Service owns the financial account ledger.
 
 ## Notification Service — port 8085
 
@@ -88,7 +90,8 @@ The authenticated user is obtained from the JWT subject. Clients should not use 
 - Configuration is bundled under `config-service/src/main/resources/config/{dev,qa,stage,prod}/`.
 - Each environment folder contains `application.yml` and per-service configuration files.
 - The server requires Config Client credentials.
-- The internal Config Server backend profile is `native`; application environment profiles remain `dev`, `qa`, `stage`, and `prod`.
+- The internal Config Server backend profile is `native`; application environment profiles remain `dev`, `qa`, `stage`,
+  and `prod`.
 
 ## Cross-service standards
 

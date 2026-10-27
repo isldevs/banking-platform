@@ -5,11 +5,13 @@ Spring Cloud Config Server for the platform. This service is stateless and has n
 ## Responsibilities
 
 - Serve shared and service-specific configuration bundled inside the Config Server.
-- Use Spring Cloud Config's native classpath backend; there is no separate `config-repo` service or Git clone at runtime.
+- Use Spring Cloud Config's native classpath backend; there is no separate `config-repo` service or Git clone at
+  runtime.
 - Keep configuration physically separated by environment: `dev`, `qa`, `stage`, and `prod`.
 - Resolve the requested Config Client profile directly to the matching environment directory.
 - Serve configuration without HTTP authentication in this local/demo setup.
-- Keep this service focused on the Config Server role: no custom `SecurityConfig`, no Spring Security starter, and no Config Server username/password properties.
+- Keep this service focused on the Config Server role: no custom `SecurityConfig`, no Spring Security starter, and no
+  Config Server username/password properties.
 - Expose health, info, metrics, and Prometheus actuator endpoints.
 - Start independently of auth-service so every client can bootstrap before authentication services start.
 
@@ -34,9 +36,12 @@ config-service/src/main/resources/config/
     └── same service files
 ```
 
-There is intentionally **no `base/` directory** and no `*-docker.yml` configuration. Docker is only a deployment mechanism; it does not define a Spring environment.
+There is intentionally **no `base/` directory** and no `*-docker.yml` configuration. Docker is only a deployment
+mechanism; it does not define a Spring environment.
 
-The native backend uses `classpath:/config/{profile}`. A request such as `/auth-service/dev` loads `config/dev/application.yml` and `config/dev/auth-service.yml`. `/auth-service/qa`, `/auth-service/stage`, and `/auth-service/prod` resolve the corresponding directories.
+The native backend uses `classpath:/config/{profile}`. A request such as `/auth-service/dev` loads
+`config/dev/application.yml` and `config/dev/auth-service.yml`. `/auth-service/qa`, `/auth-service/stage`, and
+`/auth-service/prod` resolve the corresponding directories.
 
 ## Environment profiles
 
@@ -53,9 +58,15 @@ Docker Compose sets `SPRING_PROFILES_ACTIVE=dev`; it does not introduce a Docker
 
 ## Authentication and network access
 
-The demo Config Server does not require a username or password. Config Clients connect to `http://localhost:8888` in local runs or `http://config-service:8888` inside Compose without setting `spring.cloud.config.username` or `spring.cloud.config.password`.
+The demo Config Server does not require a username or password. Config Clients connect to `http://localhost:8888` in
+local runs or `http://config-service:8888` inside Compose without setting `spring.cloud.config.username` or
+`spring.cloud.config.password`.
 
-This is appropriate only while the Config Server serves non-secret configuration on a private/trusted network. Do not put secrets in the bundled YAML files. Standalone runs bind to `127.0.0.1` by default; Compose sets the container bind address to `0.0.0.0` so peer containers can connect, while publishing host port `8888` only on `127.0.0.1`. Keep it private in other deployments as well. A shared or production environment must add an approved network access policy or authentication mechanism before the service is exposed beyond a trusted network.
+This is appropriate only while the Config Server serves non-secret configuration on a private/trusted network. Do not
+put secrets in the bundled YAML files. Standalone runs bind to `127.0.0.1` by default; Compose sets the container bind
+address to `0.0.0.0` so peer containers can connect, while publishing host port `8888` only on `127.0.0.1`. Keep it
+private in other deployments as well. A shared or production environment must add an approved network access policy or
+authentication mechanism before the service is exposed beyond a trusted network.
 
 ## Config Client endpoints
 
@@ -93,4 +104,6 @@ docker compose up --build -d
 bash infrastructure/scripts/run-config-service.sh
 ```
 
-Config Service no longer requires `infrastructure/.env` or any Config Server credential variables. The launch scripts use port 8888 unless `SERVER_PORT` is already set. Java 21 is required. Check health at `http://localhost:8888/actuator/health`.
+Config Service no longer requires `infrastructure/.env` or any Config Server credential variables. The launch scripts
+use port 8888 unless `SERVER_PORT` is already set. Java 21 is required. Check health at
+`http://localhost:8888/actuator/health`.

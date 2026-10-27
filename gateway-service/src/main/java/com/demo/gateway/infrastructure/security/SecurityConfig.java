@@ -65,7 +65,7 @@ public class SecurityConfig {
             return audiences != null && audiences.contains(audience)
                     ? OAuth2TokenValidatorResult.success()
                     : OAuth2TokenValidatorResult.failure(
-                            new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
+                    new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
         };
 
         decoder.setJwtValidator(

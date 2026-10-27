@@ -46,8 +46,8 @@ tasks.named('bootRun') {
 tasks.named('bootJar') {
     manifest {
         attributes(
-            'Implementation-Title': project.name,
-            'Implementation-Version': project.version
+                'Implementation-Title': project.name,
+                'Implementation-Version': project.version
         )
     }
 }

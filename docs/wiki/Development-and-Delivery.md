@@ -40,13 +40,18 @@ Run targeted Gradle tests inside the service directory when iterating on one ser
 ./gradlew test
 ```
 
-Use the Gradle wrapper where available so the project-selected Gradle distribution is used. If a dependency is missing, validate the wrapper, Java version, and approved network access rather than changing corporate network controls.
+Use the Gradle wrapper where available so the project-selected Gradle distribution is used. If a dependency is missing,
+validate the wrapper, Java version, and approved network access rather than changing corporate network controls.
 
 ## Continuous integration
 
-The repository uses GitHub Actions for build/test and CodeQL checks. A commit can be queued before a result is available; do not report a queued run as passed. Review the actual workflow conclusion and test logs before merging.
+The repository uses GitHub Actions for build/test and CodeQL checks. A commit can be queued before a result is
+available; do not report a queued run as passed. Review the actual workflow conclusion and test logs before merging.
 
-The helper script `infrastructure/scripts/sync-github-actions-config.sh` can sync required local settings to Actions Variables and Secrets through the GitHub CLI. It requires an authenticated `gh` session and a populated `infrastructure/.env`; review the script before syncing. Never print secrets into logs or paste secrets into issues or pull requests.
+The helper script `infrastructure/scripts/sync-github-actions-config.sh` can sync required local settings to Actions
+Variables and Secrets through the GitHub CLI. It requires an authenticated `gh` session and a populated
+`infrastructure/.env`; review the script before syncing. Never print secrets into logs or paste secrets into issues or
+pull requests.
 
 ## Suggested change workflow
 
@@ -57,7 +62,8 @@ The helper script `infrastructure/scripts/sync-github-actions-config.sh` can syn
 5. Keep secrets and signing material out of the diff.
 6. Run targeted tests and the root build.
 7. Review authorization, idempotency, error cases, observability, and migration behavior.
-8. Open a pull request with the behavioral change, test evidence, migration/rollback notes, and operational implications.
+8. Open a pull request with the behavioral change, test evidence, migration/rollback notes, and operational
+   implications.
 
 ## Architecture quality checks
 

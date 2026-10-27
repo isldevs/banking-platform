@@ -1,12 +1,12 @@
 package com.demo.auth.application.service;
 
-import com.demo.auth.common.Support;
 import com.demo.auth.api.dto.request.Login;
 import com.demo.auth.api.dto.request.NewUser;
 import com.demo.auth.api.dto.request.Refresh;
-import com.demo.auth.domain.model.User;
 import com.demo.auth.application.port.in.AuthService;
 import com.demo.auth.application.port.out.TokenService;
+import com.demo.auth.common.Support;
+import com.demo.auth.domain.model.User;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

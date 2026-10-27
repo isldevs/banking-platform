@@ -8,68 +8,84 @@ $secretDir = Join-Path $infra 'secrets'
 $keystore = Join-Path $secretDir 'jwt-signing.p12'
 $publicKey = Join-Path $secretDir 'jwt-public.pem'
 
-function New-RandomHex([int]$Bytes = 32) {
+function New-RandomHex([int]$Bytes = 32)
+{
     $data = New-Object byte[] $Bytes
     $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    try {
+    try
+    {
         $rng.GetBytes($data)
-    } finally {
+    }
+    finally
+    {
         $rng.Dispose()
     }
     return (($data | ForEach-Object { $_.ToString('x2') }) -join '')
 }
 
-function Get-EnvValue([hashtable]$Values, [string]$Name) {
-    if ($Values.ContainsKey($Name) -and -not [string]::IsNullOrWhiteSpace($Values[$Name])) {
+function Get-EnvValue([hashtable]$Values, [string]$Name)
+{
+    if ($Values.ContainsKey($Name) -and -not [string]::IsNullOrWhiteSpace($Values[$Name]))
+    {
         return $Values[$Name]
     }
     return $null
 }
 
-if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
+if (-not (Get-Command java -ErrorAction SilentlyContinue))
+{
     throw 'Java 17 is required.'
 }
 
 # Windows PowerShell 5.1 promotes native stderr to NativeCommandError. java -version intentionally
 # writes its version to stderr, so invoke it through cmd.exe and capture the merged output as text.
 $javaVersionOutput = (& cmd.exe /c 'java -version 2>&1' | Out-String).Trim()
-if ($javaVersionOutput -notmatch 'version\s+"17\.') {
+if ($javaVersionOutput -notmatch 'version\s+"17\.')
+{
     throw "Java 17 is required. Detected:`n$javaVersionOutput"
 }
 
-if (-not (Test-Path $example)) {
+if (-not (Test-Path $example))
+{
     throw "Missing $example"
 }
 
 New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
 
-if (-not (Test-Path $envFile)) {
+if (-not (Test-Path $envFile))
+{
     Copy-Item $example $envFile
     Write-Host 'Created infrastructure/.env from .env.example.'
 }
 
-$values = @{}
+$values = @{ }
 Get-Content $envFile | ForEach-Object {
     $line = $_.Trim()
-    if ($line -and -not $line.StartsWith('#')) {
+    if ($line -and -not $line.StartsWith('#'))
+    {
         $parts = $line -split '=', 2
-        if ($parts.Count -eq 2) {
+        if ($parts.Count -eq 2)
+        {
             $values[$parts[0].Trim()] = $parts[1].Trim().Trim('"').Trim("'")
         }
     }
 }
 
 # Migrate old local variable names before generating anything, so an existing JWT keystore remains usable.
-if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'SECURITY_JWT_ISSUER')) -and $values.ContainsKey('JWT_ISSUER')) {
+if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'SECURITY_JWT_ISSUER')) -and $values.ContainsKey('JWT_ISSUER'))
+{
     $values['SECURITY_JWT_ISSUER'] = $values['JWT_ISSUER']
 }
-if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'SECURITY_JWT_AUDIENCE')) -and $values.ContainsKey('JWT_AUDIENCE')) {
+if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'SECURITY_JWT_AUDIENCE')) -and $values.ContainsKey('JWT_AUDIENCE'))
+{
     $values['SECURITY_JWT_AUDIENCE'] = $values['JWT_AUDIENCE']
 }
-if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'SECURITY_JWT_KEYSTORE_PASSWORD')) -and $values.ContainsKey('JWT_KEYSTORE_PASSWORD')) {
+if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'SECURITY_JWT_KEYSTORE_PASSWORD')) -and $values.ContainsKey('JWT_KEYSTORE_PASSWORD'))
+{
     $values['SECURITY_JWT_KEYSTORE_PASSWORD'] = $values['JWT_KEYSTORE_PASSWORD']
 }
-if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'INTERNAL_SERVICE_KEY')) -and $values.ContainsKey('SECURITY_INTERNALKEY')) {
+if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values 'INTERNAL_SERVICE_KEY')) -and $values.ContainsKey('SECURITY_INTERNALKEY'))
+{
     $values['INTERNAL_SERVICE_KEY'] = $values['SECURITY_INTERNALKEY']
 }
 
@@ -120,9 +136,11 @@ $generated = @{
     'DOCKER_JWT_ISSUER' = 'http://auth-service:8081'
 }
 
-foreach ($name in $generated.Keys) {
+foreach ($name in $generated.Keys)
+{
     $current = Get-EnvValue $values $name
-    if ([string]::IsNullOrWhiteSpace($current) -or $current -like 'replace-with-*') {
+    if ([string]::IsNullOrWhiteSpace($current) -or $current -like 'replace-with-*')
+    {
         $values[$name] = $generated[$name]
     }
 }
@@ -136,9 +154,11 @@ $servicePasswordMap = @{
     'DB_NOTIFICATION_PASSWORD' = 'DB_PASSWORD_NOTIFICATION'
     'DB_AUDIT_PASSWORD' = 'DB_PASSWORD_AUDIT'
 }
-foreach ($target in $servicePasswordMap.Keys) {
+foreach ($target in $servicePasswordMap.Keys)
+{
     $source = $servicePasswordMap[$target]
-    if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values $target)) -or (Get-EnvValue $values $target) -like 'replace-with-*') {
+    if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values $target)) -or (Get-EnvValue $values $target) -like 'replace-with-*')
+    {
         $values[$target] = $values[$source]
     }
 }
@@ -157,54 +177,78 @@ $required = @(
     'DB_NOTIFICATION_URL', 'DB_NOTIFICATION_USERNAME', 'DB_NOTIFICATION_PASSWORD',
     'DB_AUDIT_URL', 'DB_AUDIT_USERNAME', 'DB_AUDIT_PASSWORD'
 )
-foreach ($name in $required) {
-    if ([string]::IsNullOrWhiteSpace((Get-EnvValue $values $name))) {
+foreach ($name in $required)
+{
+    if ( [string]::IsNullOrWhiteSpace((Get-EnvValue $values $name)))
+    {
         throw "Required configuration '$name' is missing."
     }
 }
 
 $template = Get-Content $example
-$output = foreach ($line in $template) {
-    if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=') {
+$output = foreach ($line in $template)
+{
+    if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=')
+    {
         $name = $Matches[1]
-        if ($values.ContainsKey($name)) {
-            "$name=$($values[$name])"
-        } else {
+        if ( $values.ContainsKey($name))
+        {
+            "$name=$( $values[$name] )"
+        }
+        else
+        {
             $line
         }
-    } else {
+    }
+    else
+    {
         $line
     }
 }
 
-$present = @{}
+$present = @{ }
 $output | ForEach-Object {
-    if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=') { $present[$Matches[1]] = $true }
+    if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=')
+    {
+        $present[$Matches[1]] = $true
+    }
 }
-foreach ($name in $required) {
-    if (-not $present.ContainsKey($name)) {
-        $output += "$name=$($values[$name])"
+foreach ($name in $required)
+{
+    if (-not $present.ContainsKey($name))
+    {
+        $output += "$name=$( $values[$name] )"
     }
 }
 Set-Content -Path $envFile -Value $output -Encoding utf8
 
-foreach ($name in $values.Keys) {
+foreach ($name in $values.Keys)
+{
     [Environment]::SetEnvironmentVariable($name, $values[$name], 'Process')
 }
 
 $keytool = Get-Command keytool -ErrorAction SilentlyContinue
-if (-not $keytool) {
+if (-not $keytool)
+{
     throw 'keytool was not found. Java 17 installation must include keytool.'
 }
 
-if (-not (Test-Path $keystore)) {
+if (-not (Test-Path $keystore))
+{
     & keytool -genkeypair -alias $values['SECURITY_JWT_KEYSTORE_ALIAS'] -keyalg RSA -keysize 3072 -validity 3650 -storetype PKCS12 -keystore $keystore -storepass $values['SECURITY_JWT_KEYSTORE_PASSWORD'] -keypass $values['SECURITY_JWT_KEYSTORE_PASSWORD'] -dname 'CN=demo-jwt-signing, OU=Security, O=Microservice Platform, C=KH'
-    if ($LASTEXITCODE -ne 0) { throw 'Failed to generate JWT signing keystore.' }
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw 'Failed to generate JWT signing keystore.'
+    }
 }
 
-if (-not (Test-Path $publicKey)) {
+if (-not (Test-Path $publicKey))
+{
     & keytool -exportcert -rfc -alias $values['SECURITY_JWT_KEYSTORE_ALIAS'] -keystore $keystore -storepass $values['SECURITY_JWT_KEYSTORE_PASSWORD'] -file $publicKey
-    if ($LASTEXITCODE -ne 0) { throw 'Failed to export JWT public certificate.' }
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw 'Failed to export JWT public certificate.'
+    }
 }
 
 Write-Host ''

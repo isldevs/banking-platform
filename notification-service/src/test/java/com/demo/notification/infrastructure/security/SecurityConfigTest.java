@@ -49,20 +49,6 @@ class SecurityConfigTest {
         registry.add("security.jwt.audience", () -> "test-audience");
     }
 
-    @BeforeEach
-    void setUp() {
-        mockMvc = webAppContextSetup(context).apply(springSecurity()).build();
-    }
-
-    @Test
-    void requiresCsrfTokenForUnsafeRequests() throws Exception {
-        mockMvc.perform(post("/api/notifications"))
-                .andExpect(status().isForbidden());
-
-        mockMvc.perform(post("/api/notifications").with(csrf()))
-                .andExpect(status().isUnauthorized());
-    }
-
     private static Path createPublicKeyFile() {
         try {
             KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
@@ -76,6 +62,20 @@ class SecurityConfigTest {
         } catch (Exception exception) {
             throw new ExceptionInInitializerError(exception);
         }
+    }
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = webAppContextSetup(context).apply(springSecurity()).build();
+    }
+
+    @Test
+    void requiresCsrfTokenForUnsafeRequests() throws Exception {
+        mockMvc.perform(post("/api/notifications"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/notifications").with(csrf()))
+                .andExpect(status().isUnauthorized());
     }
 
     @Configuration

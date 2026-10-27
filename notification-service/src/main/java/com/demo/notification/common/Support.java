@@ -10,7 +10,7 @@ import java.util.HexFormat;
 
 /**
  * Shared application helpers.
- *
+ * <p>
  * Authentication and internal-service credentials are handled by dedicated
  * security components, not by this utility class.
  */

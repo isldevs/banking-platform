@@ -27,34 +27,42 @@ This project is a demo and should not be deployed as a real banking system witho
 - Never commit private signing keys, keystore passwords, client secrets, database passwords, or internal service keys.
 - Locally generated signing material is stored under ignored `infrastructure/secrets/`.
 - `infrastructure/.env` is a local secrets file and must remain ignored.
-- Any signing key or credential that was committed to Git at any time should be treated as compromised and rotated. Removing it from the current tree does not erase it from repository history.
-- Production deployments should use the organization's approved secret manager and a managed key-management boundary where available.
+- Any signing key or credential that was committed to Git at any time should be treated as compromised and rotated.
+  Removing it from the current tree does not erase it from repository history.
+- Production deployments should use the organization's approved secret manager and a managed key-management boundary
+  where available.
 
 ### Internal endpoints
 
-Endpoints under `/internal/**` are service-to-service APIs. They must not be exposed directly to browser/mobile clients. Requests must carry `X-Service-Key`; in deployed production, use stronger service identity controls such as mTLS or an approved workload identity mechanism.
+Endpoints under `/internal/**` are service-to-service APIs. They must not be exposed directly to browser/mobile clients.
+Requests must carry `X-Service-Key`; in deployed production, use stronger service identity controls such as mTLS or an
+approved workload identity mechanism.
 
 ## Financial consistency
 
 - Account Service owns the account ledger and the account database.
 - Transfer Service owns transfer workflow and idempotency state.
 - Financial commands must be idempotent or protected with an explicit idempotency strategy.
-- Use durable event handling and reconcile account/transfer state; a successful HTTP response alone is not the only audit record.
+- Use durable event handling and reconcile account/transfer state; a successful HTTP response alone is not the only
+  audit record.
 - Audit data should remain append-oriented and traceable.
 - Do not allow downstream services to access each other's tables directly.
 
 ## Observability
 
-Application configuration exposes health/info and selected metrics endpoints. Confirm the exact actuator endpoint exposure and authorization behavior in the active environment before exposing monitoring publicly.
+Application configuration exposes health/info and selected metrics endpoints. Confirm the exact actuator endpoint
+exposure and authorization behavior in the active environment before exposing monitoring publicly.
 
-Use `X-Correlation-Id` where supported to link logs and service requests. Avoid logging authorization headers, passwords, token payloads, refresh tokens, and client secrets.
+Use `X-Correlation-Id` where supported to link logs and service requests. Avoid logging authorization headers,
+passwords, token payloads, refresh tokens, and client secrets.
 
 ## Operational checklist
 
 Before using a shared environment:
 
 - [ ] Confirm correct environment profile (`dev`, `qa`, `stage`, or `prod`).
-- [ ] Confirm Config Server is reachable only from the intended trusted network; this demo does not require Config Server credentials.
+- [ ] Confirm Config Server is reachable only from the intended trusted network; this demo does not require Config
+  Server credentials.
 - [ ] Confirm all database URLs and credentials are supplied securely.
 - [ ] Confirm JWT issuer, audience, signing key, and public key match.
 - [ ] Confirm internal service credentials are unique and supplied securely.

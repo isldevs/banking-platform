@@ -486,8 +486,13 @@ Recommended claims:
   "sub": "user-id",
   "aud": "api",
   "scope": "account.read transfer.create",
-  "roles": ["USER"],
-  "permissions": ["ACCOUNT_READ", "TRANSFER_CREATE"],
+  "roles": [
+    "USER"
+  ],
+  "permissions": [
+    "ACCOUNT_READ",
+    "TRANSFER_CREATE"
+  ],
   "iat": 1790000000,
   "exp": 1790000900
 }

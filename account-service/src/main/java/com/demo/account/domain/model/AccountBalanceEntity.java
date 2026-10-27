@@ -22,12 +22,35 @@ public class AccountBalanceEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public UUID getAccountId() { return accountId; }
-    public void setAccountId(UUID accountId) { this.accountId = accountId; }
-    public BigDecimal getLedgerBalance() { return ledgerBalance; }
-    public void setLedgerBalance(BigDecimal ledgerBalance) { this.ledgerBalance = ledgerBalance; }
-    public BigDecimal getAvailableBalance() { return availableBalance; }
-    public void setAvailableBalance(BigDecimal availableBalance) { this.availableBalance = availableBalance; }
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public UUID getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(UUID accountId) {
+        this.accountId = accountId;
+    }
+
+    public BigDecimal getLedgerBalance() {
+        return ledgerBalance;
+    }
+
+    public void setLedgerBalance(BigDecimal ledgerBalance) {
+        this.ledgerBalance = ledgerBalance;
+    }
+
+    public BigDecimal getAvailableBalance() {
+        return availableBalance;
+    }
+
+    public void setAvailableBalance(BigDecimal availableBalance) {
+        this.availableBalance = availableBalance;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 }

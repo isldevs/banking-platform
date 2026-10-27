@@ -5,15 +5,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpMethod;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -160,7 +159,7 @@ public class SecurityConfig {
             return audiences != null && audiences.contains(audience)
                     ? OAuth2TokenValidatorResult.success()
                     : OAuth2TokenValidatorResult.failure(
-                            new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
+                    new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
         };
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
         return decoder;

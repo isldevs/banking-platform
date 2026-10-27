@@ -35,6 +35,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -82,7 +83,7 @@ public class AccountingServiceImpl implements AccountingService {
     @Transactional(readOnly = true)
     public OperationResponse operation(UUID id) {
         return mapper.toResponse(operations.findById(id)
-                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "OPERATION_NOT_FOUND")));
+                                         .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "OPERATION_NOT_FOUND")));
     }
 
     @Override
@@ -91,17 +92,17 @@ public class AccountingServiceImpl implements AccountingService {
         if (request.currency() == null || !Set.of("USD", "KHR").contains(request.currency()))
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_CURRENCY");
 
-        java.util.Map<?, ?> customer;
+        Map<?, ?> customer;
         try {
             customer = remote.get().uri(customerUrl + "/internal/customers/" + request.customerId() + "/status")
                     .header("X-Service-Key", support.internalKey)
-                    .retrieve().body(java.util.Map.class);
+                    .retrieve().body(Map.class);
         } catch (Exception ex) {
             throw Support.fail(HttpStatus.BAD_GATEWAY, "CUSTOMER_VALIDATION_UNAVAILABLE");
         }
         if (customer == null || !"ACTIVE".equals(customer.get("status")))
             throw Support.fail(HttpStatus.CONFLICT, "CUSTOMER_NOT_ACTIVE");
-        UUID owner = UUID.fromString((String) customer.get("userId"));
+        UUID owner = UUID.fromString((String) customer.get("user_id"));
         if (!jwt.getSubject().equals(owner.toString()) && !isAdmin(jwt))
             throw Support.fail(HttpStatus.FORBIDDEN, "NOT_CUSTOMER_OWNER");
 
@@ -163,8 +164,8 @@ public class AccountingServiceImpl implements AccountingService {
         AccountResponse destination = read(id, nullSafeSystemJwt());
         String currency = destination.currency();
         UUID treasury = UUID.fromString("KHR".equals(currency)
-                ? "00000000-0000-0000-0000-000000000002"
-                : "00000000-0000-0000-0000-000000000001");
+                                                ? "00000000-0000-0000-0000-000000000002"
+                                                : "00000000-0000-0000-0000-000000000001");
         post(new TransferCommand(UUID.randomUUID(), treasury, id, request.amount(), currency, "SYSTEM"));
         return readInternal(id);
     }

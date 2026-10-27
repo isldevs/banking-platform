@@ -33,23 +33,75 @@ public class AccountTransactionEntity {
     private Instant createdAt;
 
     @PrePersist
-    void prePersist() { createdAt = Instant.now(); }
+    void prePersist() {
+        createdAt = Instant.now();
+    }
 
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-    public UUID getOperationId() { return operationId; }
-    public void setOperationId(UUID operationId) { this.operationId = operationId; }
-    public UUID getAccountId() { return accountId; }
-    public void setAccountId(UUID accountId) { this.accountId = accountId; }
-    public String getTransactionType() { return transactionType; }
-    public void setTransactionType(String transactionType) { this.transactionType = transactionType; }
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
-    public String getCurrency() { return currency; }
-    public void setCurrency(String currency) { this.currency = currency; }
-    public UUID getReferenceId() { return referenceId; }
-    public void setReferenceId(UUID referenceId) { this.referenceId = referenceId; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public Instant getCreatedAt() { return createdAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public UUID getOperationId() {
+        return operationId;
+    }
+
+    public void setOperationId(UUID operationId) {
+        this.operationId = operationId;
+    }
+
+    public UUID getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(UUID accountId) {
+        this.accountId = accountId;
+    }
+
+    public String getTransactionType() {
+        return transactionType;
+    }
+
+    public void setTransactionType(String transactionType) {
+        this.transactionType = transactionType;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public UUID getReferenceId() {
+        return referenceId;
+    }
+
+    public void setReferenceId(UUID referenceId) {
+        this.referenceId = referenceId;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

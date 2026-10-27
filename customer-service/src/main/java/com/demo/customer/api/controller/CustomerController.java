@@ -45,7 +45,7 @@ public class CustomerController {
 
     /**
      * Legacy/internal compatibility endpoint.
-     *
+     * <p>
      * Modern endpoints use OAuth2/JWT. This endpoint intentionally keeps
      * X-Service-Key authentication until all legacy callers are migrated.
      */

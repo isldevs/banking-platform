@@ -16,7 +16,7 @@ import java.util.List;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface AccountMapper {
-    @Mapping(target = "type", source = "accountType")
+    @Mapping(target = "type", source = "account.accountType")
     @Mapping(target = "availableBalance", source = "balance.availableBalance")
     @Mapping(target = "ledgerBalance", source = "balance.ledgerBalance")
     AccountResponse toResponse(AccountEntity account, AccountBalanceEntity balance);

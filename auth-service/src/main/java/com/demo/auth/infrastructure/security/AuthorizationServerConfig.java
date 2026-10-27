@@ -17,10 +17,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
-import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
-import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
@@ -168,11 +168,11 @@ public class AuthorizationServerConfig {
     UserDetailsService userDetailsService(JdbcTemplate jdbc) {
         return username -> jdbc.query(
                 """
-                SELECT u.username, u.status, u.locked_until, c.password_hash
-                FROM users u
-                JOIN user_credentials c ON c.user_id = u.id
-                WHERE u.username = ?
-                """,
+                        SELECT u.username, u.status, u.locked_until, c.password_hash
+                        FROM users u
+                        JOIN user_credentials c ON c.user_id = u.id
+                        WHERE u.username = ?
+                        """,
                 (rs, rowNum) -> {
                     Timestamp lockedUntil = rs.getTimestamp("locked_until");
                     boolean locked = lockedUntil != null && lockedUntil.toInstant().isAfter(Instant.now());
@@ -204,21 +204,22 @@ public class AuthorizationServerConfig {
             List<UUID> userIds = jdbc.query(
                     "SELECT id FROM users WHERE username = ? AND status = 'ACTIVE'",
                     (rs, rowNum) -> rs.getObject(1, UUID.class), username);
-            if (userIds.isEmpty()) return;
+            if (userIds.isEmpty())
+                return;
             UUID userId = userIds.get(0);
             List<String> permissions = jdbc.queryForList(
                     """
-                    SELECT DISTINCT p.code FROM permissions p
-                    JOIN role_permissions rp ON rp.permission_id = p.id
-                    JOIN user_roles ur ON ur.role_id = rp.role_id
-                    WHERE ur.user_id = ?
-                    """, String.class, userId);
+                            SELECT DISTINCT p.code FROM permissions p
+                            JOIN role_permissions rp ON rp.permission_id = p.id
+                            JOIN user_roles ur ON ur.role_id = rp.role_id
+                            WHERE ur.user_id = ?
+                            """, String.class, userId);
             List<String> roles = jdbc.queryForList(
                     """
-                    SELECT r.name FROM roles r
-                    JOIN user_roles ur ON ur.role_id = r.id
-                    WHERE ur.user_id = ?
-                    """, String.class, userId);
+                            SELECT r.name FROM roles r
+                            JOIN user_roles ur ON ur.role_id = r.id
+                            WHERE ur.user_id = ?
+                            """, String.class, userId);
             context.getClaims().subject(userId.toString()).claim("username", username)
                     .claim("permissions", permissions).claim("roles", roles);
         };

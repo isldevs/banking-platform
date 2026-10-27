@@ -1,23 +1,25 @@
 # Microservices Platform — Executable Demo Package
 
-A **learning/demo implementation** derived from `MICROSERVICES_README_SOURCE.md`. It is **not a production-ready banking platform**.
+A **learning/demo implementation** derived from `MICROSERVICES_README_SOURCE.md`. It is **not a production-ready banking
+platform**.
 
 ## Services
 
-| Service | Port | Database | Responsibility |
-|---|---:|---|---|
-| gateway-service | 8080 | None | Public routing, JWT verification, correlation ID |
-| auth-service | 8081 | auth | OAuth2/OIDC Authorization Server; legacy demo login/refresh deprecated |
-| customer-service | 8082 | customer | Customer profile, KYC approval |
-| account-service | 8083 | account | Account ownership, balance, atomic ledger |
-| transfer-service | 8084 | transfer | Idempotency, transfer workflow, recovery, Kafka outbox |
-| notification-service | 8085 | notification | Kafka consumer, in-app notices |
-| audit-service | 8086 | audit | Append-only Kafka audit events |
-| config-service | 8888 | None | Native Spring Cloud Config Server |
+| Service              | Port | Database     | Responsibility                                                         |
+|----------------------|-----:|--------------|------------------------------------------------------------------------|
+| gateway-service      | 8080 | None         | Public routing, JWT verification, correlation ID                       |
+| auth-service         | 8081 | auth         | OAuth2/OIDC Authorization Server; legacy demo login/refresh deprecated |
+| customer-service     | 8082 | customer     | Customer profile, KYC approval                                         |
+| account-service      | 8083 | account      | Account ownership, balance, atomic ledger                              |
+| transfer-service     | 8084 | transfer     | Idempotency, transfer workflow, recovery, Kafka outbox                 |
+| notification-service | 8085 | notification | Kafka consumer, in-app notices                                         |
+| audit-service        | 8086 | audit        | Append-only Kafka audit events                                         |
+| config-service       | 8888 | None         | Native Spring Cloud Config Server                                      |
 
 ## Configuration architecture
 
-Configuration is bundled directly inside `config-service`. There is **no separate `config-repo`** and no Git clone at Config Server runtime.
+Configuration is bundled directly inside `config-service`. There is **no separate `config-repo`** and no Git clone at
+Config Server runtime.
 
 ```text
 config-service/src/main/resources/config/
@@ -38,7 +40,8 @@ config-service/src/main/resources/config/
     └── same service files
 ```
 
-There is intentionally **no `base/` directory**, no `*-dev.yml`/`*-qa.yml` filename scheme, and no `docker` Spring profile.
+There is intentionally **no `base/` directory**, no `*-dev.yml`/`*-qa.yml` filename scheme, and no `docker` Spring
+profile.
 
 The only application environment profiles are:
 
@@ -49,7 +52,8 @@ stage
 prod
 ```
 
-Docker is a deployment mechanism only. Docker Compose runs the services with `SPRING_PROFILES_ACTIVE=dev` and supplies container endpoints through environment variables; it does not create a Docker profile.
+Docker is a deployment mechanism only. Docker Compose runs the services with `SPRING_PROFILES_ACTIVE=dev` and supplies
+container endpoints through environment variables; it does not create a Docker profile.
 
 The Config Server native backend maps the requested Config Client profile to the matching directory:
 
@@ -83,7 +87,9 @@ scripts/local-env.ps1 / scripts/local-env.cmd
 Gradle bootRun -> Spring Boot service -> Config Service
 ```
 
-`infrastructure/.env` is ignored by Git and is the local source for passwords, JWT settings, demo credentials, database values, and other runtime values. Config Server owns the configuration structure and references runtime environment variables instead of storing secrets in committed YAML.
+`infrastructure/.env` is ignored by Git and is the local source for passwords, JWT settings, demo credentials, database
+values, and other runtime values. Config Server owns the configuration structure and references runtime environment
+variables instead of storing secrets in committed YAML.
 
 Create the local environment from the safe template:
 
@@ -107,13 +113,16 @@ gradlew.bat :auth-service:bootRun
 
 For another service, replace `auth` with `customer`, `account`, `transfer`, `notification`, `audit`, or `gateway`.
 
-The local scripts generate JWT signing material under the ignored `.jwt/` directory when required. Docker's initialization flow keeps its generated signing material under ignored `infrastructure/secrets/`.
+The local scripts generate JWT signing material under the ignored `.jwt/` directory when required. Docker's
+initialization flow keeps its generated signing material under ignored `infrastructure/secrets/`.
 
-See `docs/wiki/Getting-Started.md` and `docs/wiki/Configuration.md` for the complete local environment and configuration contract.
+See `docs/wiki/Getting-Started.md` and `docs/wiki/Configuration.md` for the complete local environment and configuration
+contract.
 
 ## Gradle composite build
 
-The workspace includes root `settings.gradle`, `build.gradle`, and `gradle.properties`. It is a Gradle composite build, not a multi-module monorepo: each Spring Boot service keeps its own independent Gradle build.
+The workspace includes root `settings.gradle`, `build.gradle`, and `gradle.properties`. It is a Gradle composite build,
+not a multi-module monorepo: each Spring Boot service keeps its own independent Gradle build.
 
 ```bash
 gradle buildAll
@@ -137,10 +146,15 @@ docker compose ps
 python3 scripts/demo_flow.py
 ```
 
-Postgres is available on local port `5439`, gateway on `8080`, auth-service on `8081`, and Kafka's host listener on `29092`.
-Local demo secrets and generated signing material live only in `infrastructure/.env` and `infrastructure/secrets/`; both are git-ignored.
+Postgres is available on local port `5439`, gateway on `8080`, auth-service on `8081`, and Kafka's host listener on
+`29092`.
+Local demo secrets and generated signing material live only in `infrastructure/.env` and `infrastructure/secrets/`; both
+are git-ignored.
 
-The full project documentation source set is indexed in [Wiki Home](docs/wiki/Home.md), with the [API Reference](docs/wiki/API-Reference.md) covering endpoints and token flows. New clients should use Spring Authorization Server (`/oauth2/authorize` and `/oauth2/token`); the custom `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` endpoints are deprecated compatibility endpoints.
+The full project documentation source set is indexed in [Wiki Home](docs/wiki/Home.md), with
+the [API Reference](docs/wiki/API-Reference.md) covering endpoints and token flows. New clients should use Spring
+Authorization Server (`/oauth2/authorize` and `/oauth2/token`); the custom `/api/auth/login`, `/api/auth/refresh`, and
+`/api/auth/logout` endpoints are deprecated compatibility endpoints.
 
 ## GitHub Actions configuration
 
@@ -152,7 +166,9 @@ bash infrastructure/scripts/init-local.sh
 bash infrastructure/scripts/sync-github-actions-config.sh
 ```
 
-The sync script uploads non-sensitive settings such as `JWT_ISSUER`, `APP_UID`, `APP_GID`, and `DEMO_ADMIN_USERNAME` as Variables. Database passwords, `INTERNAL_SERVICE_KEY`, `OAUTH2_DEMO_CLIENT_SECRET`, and demo passwords are uploaded as Secrets. Config Service and its clients do not require Config Server credentials.
+The sync script uploads non-sensitive settings such as `JWT_ISSUER`, `APP_UID`, `APP_GID`, and `DEMO_ADMIN_USERNAME` as
+Variables. Database passwords, `INTERNAL_SERVICE_KEY`, `OAUTH2_DEMO_CLIENT_SECRET`, and demo passwords are uploaded as
+Secrets. Config Service and its clients do not require Config Server credentials.
 
 ## Security and data ownership
 
@@ -161,7 +177,8 @@ The sync script uploads non-sensitive settings such as `JWT_ISSUER`, `APP_UID`, 
 - `account-service` is the financial atomicity boundary for balance and ledger updates.
 - `transfer-service` owns transfer workflow state and client idempotency and uses a Kafka outbox.
 - Internal service credentials and JWT signing material are supplied at runtime and must never be committed.
-- This remains a demo: production deployment still requires real service identity/mTLS, key management, TLS, rate limiting/WAF, complete resilience policies, operational controls, and full integration coverage.
+- This remains a demo: production deployment still requires real service identity/mTLS, key management, TLS, rate
+  limiting/WAF, complete resilience policies, operational controls, and full integration coverage.
 
 ## Repo tree
 
@@ -188,4 +205,5 @@ microservices-platform/
 
 ## Architecture
 
-The service package conventions, bounded-context boundaries, and banking-specific design guardrails are documented in `docs/architecture/package-structure.md`.
+The service package conventions, bounded-context boundaries, and banking-specific design guardrails are documented in
+`docs/architecture/package-structure.md`.

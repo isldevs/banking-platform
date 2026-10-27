@@ -127,7 +127,7 @@ public class GatewayController {
                     .header(HttpHeaders.CONTENT_TYPE, "application/json")
                     .header("X-Content-Type-Options", "nosniff")
                     .body("{\"code\":\"DOWNSTREAM_UNAVAILABLE\"}"
-                            .getBytes(StandardCharsets.UTF_8));
+                                  .getBytes(StandardCharsets.UTF_8));
         }
     }
 

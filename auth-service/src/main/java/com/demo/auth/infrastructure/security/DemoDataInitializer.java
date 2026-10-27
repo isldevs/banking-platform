@@ -19,8 +19,6 @@ import java.util.UUID;
 @Profile("dev")
 public class DemoDataInitializer {
 
-    private record Permission(String code, String description) {}
-
     private static final List<Permission> ADMIN_PERMISSIONS = List.of(
             new Permission("USER_MANAGE", "Manage users"),
             new Permission("CUSTOMER_CREATE", "Create customers"),
@@ -35,7 +33,6 @@ public class DemoDataInitializer {
             new Permission("NOTIFICATION_READ", "Read notifications"),
             new Permission("AUDIT_READ", "Read audit records")
     );
-
     private static final List<String> USER_PERMISSIONS = List.of(
             "CUSTOMER_CREATE",
             "CUSTOMER_READ",
@@ -108,19 +105,21 @@ public class DemoDataInitializer {
     }
 
     private void grantPermission(JdbcTemplate jdbc, UUID roleId, UUID permissionId) {
-        jdbc.update("""
-                INSERT INTO role_permissions(role_id, permission_id)
-                VALUES (?, ?)
-                ON CONFLICT DO NOTHING
-                """, roleId, permissionId);
+        jdbc.update(
+                """
+                        INSERT INTO role_permissions(role_id, permission_id)
+                        VALUES (?, ?)
+                        ON CONFLICT DO NOTHING
+                        """, roleId, permissionId);
     }
 
     private void grantRole(JdbcTemplate jdbc, UUID userId, UUID roleId) {
-        jdbc.update("""
-                INSERT INTO user_roles(user_id, role_id)
-                VALUES (?, ?)
-                ON CONFLICT DO NOTHING
-                """, userId, roleId);
+        jdbc.update(
+                """
+                        INSERT INTO user_roles(user_id, role_id)
+                        VALUES (?, ?)
+                        ON CONFLICT DO NOTHING
+                        """, userId, roleId);
     }
 
     private UUID ensureUser(
@@ -136,17 +135,19 @@ public class DemoDataInitializer {
 
         if (existingId == null) {
             UUID id = UUID.randomUUID();
-            jdbc.update("INSERT INTO users(id, username, email, status) VALUES (?, ?, ?, 'ACTIVE')",
+            jdbc.update(
+                    "INSERT INTO users(id, username, email, status) VALUES (?, ?, ?, 'ACTIVE')",
                     id, username, email);
             upsertPassword(jdbc, bcrypt, id, password);
             return id;
         }
 
-        jdbc.update("""
-                UPDATE users
-                SET status = 'ACTIVE', failed_login_count = 0, locked_until = NULL, updated_at = NOW()
-                WHERE id = ?
-                """, existingId);
+        jdbc.update(
+                """
+                        UPDATE users
+                        SET status = 'ACTIVE', failed_login_count = 0, locked_until = NULL, updated_at = NOW()
+                        WHERE id = ?
+                        """, existingId);
         upsertPassword(jdbc, bcrypt, existingId, password);
         return existingId;
     }
@@ -157,17 +158,22 @@ public class DemoDataInitializer {
             UUID userId,
             String password) {
         String passwordHash = bcrypt.encode(password);
-        int updated = jdbc.update("""
-                UPDATE user_credentials
-                SET password_hash = ?, password_changed_at = NOW(), updated_at = NOW()
-                WHERE user_id = ?
-                """, passwordHash, userId);
+        int updated = jdbc.update(
+                """
+                        UPDATE user_credentials
+                        SET password_hash = ?, password_changed_at = NOW(), updated_at = NOW()
+                        WHERE user_id = ?
+                        """, passwordHash, userId);
 
         if (updated == 0) {
-            jdbc.update("""
-                    INSERT INTO user_credentials(id, user_id, password_hash)
-                    VALUES (?, ?, ?)
-                    """, UUID.randomUUID(), userId, passwordHash);
+            jdbc.update(
+                    """
+                            INSERT INTO user_credentials(id, user_id, password_hash)
+                            VALUES (?, ?, ?)
+                            """, UUID.randomUUID(), userId, passwordHash);
         }
+    }
+
+    private record Permission(String code, String description) {
     }
 }

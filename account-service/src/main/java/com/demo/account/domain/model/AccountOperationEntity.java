@@ -32,21 +32,67 @@ public class AccountOperationEntity {
     private Instant createdAt;
 
     @PrePersist
-    void prePersist() { createdAt = Instant.now(); }
+    void prePersist() {
+        createdAt = Instant.now();
+    }
 
-    public UUID getOperationId() { return operationId; }
-    public void setOperationId(UUID operationId) { this.operationId = operationId; }
-    public UUID getSourceAccountId() { return sourceAccountId; }
-    public void setSourceAccountId(UUID sourceAccountId) { this.sourceAccountId = sourceAccountId; }
-    public UUID getDestinationAccountId() { return destinationAccountId; }
-    public void setDestinationAccountId(UUID destinationAccountId) { this.destinationAccountId = destinationAccountId; }
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
-    public String getCurrency() { return currency; }
-    public void setCurrency(String currency) { this.currency = currency; }
-    public String getRequestedBy() { return requestedBy; }
-    public void setRequestedBy(String requestedBy) { this.requestedBy = requestedBy; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public Instant getCreatedAt() { return createdAt; }
+    public UUID getOperationId() {
+        return operationId;
+    }
+
+    public void setOperationId(UUID operationId) {
+        this.operationId = operationId;
+    }
+
+    public UUID getSourceAccountId() {
+        return sourceAccountId;
+    }
+
+    public void setSourceAccountId(UUID sourceAccountId) {
+        this.sourceAccountId = sourceAccountId;
+    }
+
+    public UUID getDestinationAccountId() {
+        return destinationAccountId;
+    }
+
+    public void setDestinationAccountId(UUID destinationAccountId) {
+        this.destinationAccountId = destinationAccountId;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public String getRequestedBy() {
+        return requestedBy;
+    }
+
+    public void setRequestedBy(String requestedBy) {
+        this.requestedBy = requestedBy;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

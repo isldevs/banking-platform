@@ -8,11 +8,13 @@
 - PostgreSQL and Kafka if running services locally without containers.
 - Docker Engine and Docker Compose only if your environment permits container use.
 
-Follow organizational device and container policies. If Docker is blocked by corporate policy, do not attempt to bypass the restriction; use an approved local service installation or approved development environment.
+Follow organizational device and container policies. If Docker is blocked by corporate policy, do not attempt to bypass
+the restriction; use an approved local service installation or approved development environment.
 
 ## Local environment configuration
 
-The recommended local development flow uses `infrastructure/.env` as the single source for local secrets and environment-specific values. The file is ignored by Git and should be created from the safe template:
+The recommended local development flow uses `infrastructure/.env` as the single source for local secrets and
+environment-specific values. The file is ignored by Git and should be created from the safe template:
 
 ```text
 infrastructure/.env.example  ->  infrastructure/.env
@@ -20,7 +22,8 @@ infrastructure/.env.example  ->  infrastructure/.env
 
 Do not commit `infrastructure/.env` or real credentials.
 
-The local environment scripts load this file, set the runtime variables required by Config Server and the selected service, and generate local JWT signing material under the ignored `.jwt/` directory when it does not already exist.
+The local environment scripts load this file, set the runtime variables required by Config Server and the selected
+service, and generate local JWT signing material under the ignored `.jwt/` directory when it does not already exist.
 
 ### Windows PowerShell
 
@@ -43,7 +46,8 @@ For another service:
 
 Supported services are `auth`, `customer`, `account`, `transfer`, `notification`, `audit`, and `gateway`.
 
-The PowerShell script must be **dot-sourced** (`. .\scripts\local-env.ps1 ...`) so that environment variables remain available in the current shell and are inherited by Gradle/Spring Boot.
+The PowerShell script must be **dot-sourced** (`. .\scripts\local-env.ps1 ...`) so that environment variables remain
+available in the current shell and are inherited by Gradle/Spring Boot.
 
 ### Windows CMD
 
@@ -84,7 +88,8 @@ Config Service :8888
 config/{dev}/<service>.yml
 ```
 
-Config Server remains the source of application configuration structure. The local `.env` supplies runtime values referenced by the Config Server files; secrets are not committed into Config Server YAML.
+Config Server remains the source of application configuration structure. The local `.env` supplies runtime values
+referenced by the Config Server files; secrets are not committed into Config Server YAML.
 
 ### Local JWT material
 
@@ -96,7 +101,9 @@ The local scripts create:
 └── jwt-public.pem
 ```
 
-The private signing keystore is used by Auth Service. Resource services use the public key where required. These files are generated locally and are ignored by Git. Production deployments must use an approved managed key/secret-management solution instead.
+The private signing keystore is used by Auth Service. Resource services use the public key where required. These files
+are generated locally and are ignored by Git. Production deployments must use an approved managed key/secret-management
+solution instead.
 
 ## Quick start with Docker Compose
 
@@ -110,25 +117,32 @@ docker compose ps
 python3 scripts/demo_flow.py
 ```
 
-The initialization script creates local secrets in `infrastructure/.env` and generated Docker signing material in `infrastructure/secrets/`. These paths are ignored by Git.
+The initialization script creates local secrets in `infrastructure/.env` and generated Docker signing material in
+`infrastructure/secrets/`. These paths are ignored by Git.
 
-Compose exposes the gateway at `http://localhost:8080`, Auth Service at `http://localhost:8081`, PostgreSQL on host port `5439`, and Kafka's host listener on `29092`.
+Compose exposes the gateway at `http://localhost:8080`, Auth Service at `http://localhost:8081`, PostgreSQL on host port
+`5439`, and Kafka's host listener on `29092`.
 
-Docker Compose uses the `dev` Spring profile. Docker is a deployment mechanism, not a separate Spring environment profile. Inside the Compose network, services use container DNS names such as `config-service:8888`, `auth-service:8081`, and `kafka:9092`.
+Docker Compose uses the `dev` Spring profile. Docker is a deployment mechanism, not a separate Spring environment
+profile. Inside the Compose network, services use container DNS names such as `config-service:8888`,
+`auth-service:8081`, and `kafka:9092`.
 
 ## Run services locally without Docker
 
 When working under an environment where containers are unavailable:
 
 1. Create and configure `infrastructure/.env` from `.env.example`.
-2. Use an approved PostgreSQL installation or database host and create the service databases/roles required by the project.
+2. Use an approved PostgreSQL installation or database host and create the service databases/roles required by the
+   project.
 3. Use an approved Kafka service if testing asynchronous workflows.
 4. Start Config Service first on port 8888.
-5. Dot-source `scripts/local-env.ps1 <service>` or call `scripts/local-env.cmd <service>` to load the runtime environment.
+5. Dot-source `scripts/local-env.ps1 <service>` or call `scripts/local-env.cmd <service>` to load the runtime
+   environment.
 6. Start Auth Service, then the remaining services, following their dependencies.
 7. Run the root Gradle build and tests before testing end-to-end workflows.
 
-The Docker Compose host port `5439` does not automatically apply to a direct local PostgreSQL installation; use the port configured for that approved installation.
+The Docker Compose host port `5439` does not automatically apply to a direct local PostgreSQL installation; use the port
+configured for that approved installation.
 
 For local services, the scripts provide service-specific values as:
 
@@ -147,7 +161,8 @@ curl http://localhost:8081/actuator/health
 curl http://localhost:8888/actuator/health
 ```
 
-If a service fails to start, check the Config Server first, verify the active profile and runtime environment, then check PostgreSQL/Kafka availability and service logs.
+If a service fails to start, check the Config Server first, verify the active profile and runtime environment, then
+check PostgreSQL/Kafka availability and service logs.
 
 ## Next steps
 
