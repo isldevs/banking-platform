@@ -5,7 +5,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 public class RateLimitInterceptor implements HandlerInterceptor {
@@ -37,23 +38,19 @@ public class RateLimitInterceptor implements HandlerInterceptor {
                 return true;
             }
 
-            response.setStatus(HttpServletResponse.SC_TOO_MANY_REQUESTS);
             response.setHeader("Retry-After", String.valueOf(decision.resetSeconds()));
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.getWriter().write(
-                    "{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"}");
-            return false;
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMIT_EXCEEDED");
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (Exception e) {
             if (properties.failOpen()) {
                 log.warn("Rate-limit store unavailable; allowing request", e);
                 return true;
             }
             log.error("Rate-limit store unavailable; rejecting request", e);
-            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.getWriter().write(
-                    "{\"code\":\"RATE_LIMIT_UNAVAILABLE\",\"message\":\"Request protection is temporarily unavailable\"}");
-            return false;
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "RATE_LIMIT_UNAVAILABLE", e);
         }
     }
 }
