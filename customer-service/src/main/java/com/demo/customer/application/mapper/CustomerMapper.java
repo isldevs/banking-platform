@@ -19,10 +19,6 @@ public interface CustomerMapper {
     @Mapping(target = "updatedAt", ignore = true)
     Customer toEntity(NewCustomer request);
 
-    @Mapping(target = "status", source = "status")
+    @Mapping(target = "status", expression = "java(customer.getStatus() == null ? null : customer.getStatus().name())")
     CustomerResponse toResponse(Customer customer);
-
-    default String map(CustomerStatus status) {
-        return status == null ? null : status.name();
-    }
 }
