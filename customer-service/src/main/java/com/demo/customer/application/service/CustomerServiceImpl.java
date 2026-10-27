@@ -101,14 +101,13 @@ public class CustomerServiceImpl implements CustomerService {
                 .orElseThrow(() -> Support.fail(HttpStatus.CONFLICT, "CUSTOMER_KYC_NOT_FOUND"));
 
         UUID reviewerId = subjectId(jwt);
+        Instant now = Instant.now();
         customer.setStatus(CustomerStatus.ACTIVE);
-        customer.setUpdatedAt(Instant.now());
         kyc.setVerificationStatus(KycVerificationStatus.APPROVED);
-        kyc.setVerifiedAt(Instant.now());
+        kyc.setVerifiedAt(now);
         kyc.setVerifiedBy(reviewerId);
-        kyc.setUpdatedAt(Instant.now());
 
-        Customer saved = customerRepository.save(customer);
+        // Both entities are managed in this transaction; dirty checking persists them atomically.
         customerKycRepository.save(kyc);
 
         CustomerStatusHistory history = new CustomerStatusHistory();
@@ -120,7 +119,7 @@ public class CustomerServiceImpl implements CustomerService {
         history.setChangedBy(reviewerId);
         statusHistoryRepository.save(history);
 
-        return customerMapper.toResponse(saved);
+        return customerMapper.toResponse(customer);
     }
 
     @Override
