@@ -122,10 +122,14 @@ public class CustomerServiceImpl implements CustomerService {
         return customerMapper.toResponse(customer);
     }
 
+    /**
+     * Legacy/internal endpoint path. The X-Service-Key credential is retained
+     * for compatibility with legacy callers; modern APIs use OAuth2/JWT instead.
+     */
     @Override
     @Transactional(readOnly = true)
     public CustomerResponse internal(UUID id, String key) {
-        support.internal(key);
+        support.validateLegacyInternalKey(key);
         return customerMapper.toResponse(findCustomer(id));
     }
 
