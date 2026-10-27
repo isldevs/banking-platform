@@ -11,6 +11,12 @@ import java.util.HexFormat;
 
 @Component
 public class Support {
+    /**
+     * Legacy/internal-service credential.
+     *
+     * This is intentionally separate from OAuth2/JWT authentication used by the
+     * modern API. Keep it while legacy callers still depend on X-Service-Key.
+     */
     @Value("${security.internal-key:}")
     String internalKey;
 
@@ -27,9 +33,15 @@ public class Support {
         return new ResponseStatusException(status, code);
     }
 
-    public void internal(String key) {
+    /**
+     * Validates the legacy X-Service-Key credential.
+     *
+     * Do not use this as the authentication mechanism for modern OAuth2/JWT APIs.
+     */
+    public void validateLegacyInternalKey(String key) {
         if (internalKey == null || internalKey.length() < 24 || key == null ||
-                !MessageDigest.isEqual(internalKey.getBytes(StandardCharsets.UTF_8), key.getBytes(StandardCharsets.UTF_8)))
+                !MessageDigest.isEqual(internalKey.getBytes(StandardCharsets.UTF_8), key.getBytes(StandardCharsets.UTF_8))) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "INVALID_SERVICE_CREDENTIAL");
+        }
     }
 }
