@@ -40,3 +40,6 @@ management:
 security:
   jwt:
     public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH}
+  internal-key: ${INTERNAL_SERVICE_KEY}
+  legacy:
+    internal-key: ${INTERNAL_SERVICE_KEY}

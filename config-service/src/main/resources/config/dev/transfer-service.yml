@@ -45,3 +45,6 @@ management:
 security:
   jwt:
     public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH:${user.dir}/infrastructure/secrets/jwt-public.pem}
+  internal-key: ${INTERNAL_SERVICE_KEY}
+  legacy:
+    internal-key: ${INTERNAL_SERVICE_KEY}

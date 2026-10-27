@@ -43,6 +43,12 @@ public class CustomerController {
         return customerService.approve(id, jwt);
     }
 
+    /**
+     * Legacy/internal compatibility endpoint.
+     *
+     * Modern endpoints use OAuth2/JWT. This endpoint intentionally keeps
+     * X-Service-Key authentication until all legacy callers are migrated.
+     */
     @GetMapping("/internal/customers/{id}/status")
     public CustomerResponse internal(@PathVariable UUID id, @RequestHeader("X-Service-Key") String key) {
         return customerService.internal(id, key);
