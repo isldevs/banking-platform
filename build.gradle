@@ -107,6 +107,18 @@ tasks.register('checkAll') {
     dependsOn serviceTasks('check')
 }
 
+tasks.register('spotlessApplyAll') {
+    group = 'formatting'
+    description = 'Apply Spotless formatting to all independent service builds.'
+    dependsOn serviceTasks('spotlessApply')
+}
+
+tasks.register('spotlessCheckAll') {
+    group = 'verification'
+    description = 'Check Spotless formatting in all independent service builds.'
+    dependsOn serviceTasks('spotlessCheck')
+}
+
 tasks.register('bootJarAll') {
     group = 'microservices'
     description = 'Package executable Spring Boot JARs for all services.'
