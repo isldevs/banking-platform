@@ -1,5 +1,6 @@
 package com.demo.account.common;
 
+import com.demo.account.infrastructure.security.LegacySecurityProperties;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -11,11 +12,17 @@ import java.util.HexFormat;
 /**
  * Shared application helpers.
  *
- * Authentication and internal-service credentials are handled by dedicated
- * security components, not by this utility class.
+ * The legacy X-Service-Key remains supported for compatibility, but its
+ * configuration is type-safe and isolated under security.legacy.
  */
 @Component
 public class Support {
+
+    private final LegacySecurityProperties security;
+
+    public Support(LegacySecurityProperties security) {
+        this.security = security;
+    }
 
     public static String hash(String s) {
         try {
@@ -28,5 +35,34 @@ public class Support {
 
     public static ResponseStatusException fail(HttpStatus status, String code) {
         return new ResponseStatusException(status, code);
+    }
+
+    public String internalKey() {
+        String key = security.getInternalKey();
+        if (key == null || key.isBlank()) {
+            throw new IllegalStateException("Legacy internal security key is not configured");
+        }
+        return key;
+    }
+
+    /**
+     * Validates the temporary legacy X-Service-Key credential.
+     * Modern APIs must use OAuth2/JWT instead.
+     */
+    public void validateLegacyInternalKey(String providedKey) {
+        String configuredKey = internalKey();
+        if (providedKey == null || providedKey.isBlank()
+                || !MessageDigest.isEqual(
+                        configuredKey.getBytes(StandardCharsets.UTF_8),
+                        providedKey.getBytes(StandardCharsets.UTF_8))) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "INVALID_SERVICE_CREDENTIAL");
+        }
+    }
+
+    /**
+     * Backward-compatible name for existing internal endpoints.
+     */
+    public void internal(String key) {
+        validateLegacyInternalKey(key);
     }
 }
