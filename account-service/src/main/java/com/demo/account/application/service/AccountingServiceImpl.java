@@ -172,10 +172,10 @@ public class AccountingServiceImpl implements AccountingService {
         if (!"ACTIVE".equals(destination.getStatus()))
             throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "ACCOUNT_NOT_ACTIVE");
 
-        UUID treasury = treasuryAccountId(destination.getCurrency());
+        UUID sourceAccount = fundingSourceAccountId(destination.getCurrency());
         post(new TransferCommand(
                 UUID.randomUUID(),
-                treasury,
+                sourceAccount,
                 destination.getId(),
                 request.amount(),
                 destination.getCurrency(),
@@ -209,12 +209,11 @@ public class AccountingServiceImpl implements AccountingService {
         return operation(id);
     }
 
-    private UUID treasuryAccountId(String currency) {
-        return switch (currency) {
-            case "USD" -> fundingProperties.usdTreasuryAccountId();
-            case "KHR" -> fundingProperties.khrTreasuryAccountId();
-            default -> throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_CURRENCY_UNSUPPORTED");
-        };
+    private UUID fundingSourceAccountId(String currency) {
+        UUID sourceAccountId = fundingProperties.sourceAccountIds().get(currency);
+        if (sourceAccountId == null)
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_CURRENCY_UNSUPPORTED");
+        return sourceAccountId;
     }
 
     private AccountResponse readInternal(UUID id) {
