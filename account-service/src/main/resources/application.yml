@@ -23,6 +23,11 @@ spring:
       max-lifetime: ${DB_POOL_MAX_LIFETIME:1800000}
 
 account:
+  opening:
+    initial-deposit:
+      source-account-ids:
+        USD: ${INITIAL_DEPOSIT_SOURCE_ACCOUNT_USD_ID}
+        KHR: ${INITIAL_DEPOSIT_SOURCE_ACCOUNT_KHR_ID}
   funding:
     enabled: ${FUNDING_ENABLED:false}
     source-account-ids:
