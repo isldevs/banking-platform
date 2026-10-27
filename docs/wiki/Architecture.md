@@ -2,133 +2,135 @@
 
 ## Design goals
 
-The repository demonstrates independently built Spring Boot services organized around business capabilities, using
-Domain-Driven Design (DDD) and Hexagonal Architecture (Ports and Adapters). It is a practical architecture example, not
-a claim that all banks use one universal package standard.
+The project demonstrates independently built Java 21 / Spring Boot services organized around business capabilities, with DDD and Hexagonal Architecture principles. It is a learning/demo architecture, not a claim that every bank uses the same topology.
 
-## Logical system view
+## System view
 
 ```text
-                          Web / Mobile / API clients
-                                    |
-                                    v
-                          Gateway Service :8080
-                           JWT resource-server
-                                    |
-              +---------------------+---------------------+
-              |                     |                     |
-              v                     v                     v
-       Customer Service       Account Service       Transfer Service
-            :8082                  :8083                  :8084
-              |                     |                     |
-              v                     v                     v
-       customer database      account database      transfer database
-                                    ^
-                                    |
-                             internal transfer API
+                         Client / Postman / UI
+                                  |
+                                  v
+                         Gateway :8080
+                   JWT + routing + rate limit
+                                  |
+        +-------------------------+-------------------------+
+        |                         |                         |
+        v                         v                         v
+   Auth :8081               Customer :8082             Account :8083
+    auth DB                 customer DB             account DB / ledger
+        ^                         ^                         ^
+        |                         |                         |
+        +---- OAuth2/JWT ---------+-------------------------+
+                                  |
+                                  v
+                           Transfer :8084
+                            transfer DB
+                                  |
+                                  v
+                               Kafka
+                              /     \
+                             v       v
+                    Notification   Audit
+                       :8085         :8086
+                       notif DB      audit DB
 
-                    Auth / Authorization Server :8081
-                     OAuth2 / OIDC + signed JWTs
-                              |          |
-                              |          +---- JWKS / discovery
-                              |
-                         auth database
+                       Config :8888
+                  native classpath config
 
-       Transfer and business events ------> Kafka
-                                             |
-                                +------------+------------+
-                                |                         |
-                                v                         v
-                        Notification Service        Audit Service
-                              :8085                      :8086
-                                |                         |
-                                v                         v
-                       notification database        audit database
-
-                  Config Service :8888
-             centralized environment configuration
+                         Redis :6379
+                   Gateway rate-limit state
 ```
 
-The diagram is a logical view of service roles and known dependencies; it is not a deployment topology guarantee for
-every environment.
+Each business service owns its database. Cross-service access is through explicit APIs or events; no service queries another service's tables.
 
 ## Service boundaries
 
-| Bounded context     | Owns                                                                          |
-|---------------------|-------------------------------------------------------------------------------|
-| Identity and access | User credentials, client registrations, authorization records, token issuance |
-| Customer            | Customer profile, status, and KYC lifecycle                                   |
-| Account             | Account state, balances, ledger entries, account operations                   |
-| Transfer            | Transfer workflow, transfer idempotency, and recovery state                   |
-| Notification        | Notification records and processed delivery state                             |
-| Audit               | Transfer audit history and audit-event consumption                            |
-| Gateway             | Edge security and request entry concerns                                      |
-| Configuration       | Application configuration and Config Server access control                    |
+| Context | Owns |
+|---|---|
+| Identity | users, credentials, OAuth2/OIDC authorization data and token issuance |
+| Customer | customer profile and KYC lifecycle |
+| Account | accounts, balances, funding instructions, operations and ledger |
+| Transfer | transfer workflow, idempotency and outbox state |
+| Notification | notification records and processed-event state |
+| Audit | audit records and processed-event state |
+| Gateway | edge routing, JWT validation, correlation and rate limiting |
+| Configuration | Spring Cloud Config classpath configuration |
 
-Services should not read or write another service's database tables. Cross-context interactions should use APIs or
-events with explicit contracts.
+## Financial flow boundaries
 
-## Request and event patterns
-
-- **Synchronous API calls** are used for user-facing queries and commands, and for internal operations that require a
-  response.
-- **JWT bearer authentication** carries the authenticated user's identity and permissions across service boundaries.
-- **Kafka events** support asynchronous downstream work such as notifications and audit history.
-- **Idempotency** is important for financial commands because clients and infrastructure may retry requests.
-- **Account ledger changes** belong to Account Service; Transfer Service coordinates the transfer lifecycle without
-  becoming the ledger's data owner.
-
-Internal HTTP endpoints such as `/internal/accounts/transfer` and `/internal/customers/{id}/status` require
-service-to-service credentials and must not be exposed as public browser/mobile APIs.
-
-## DDD and Hexagonal package convention
-
-A typical service package uses these layers:
+### Account opening
 
 ```text
-com.demo.<service>/
-├── api/
-│   ├── controller/
-│   ├── dto/request/
-│   ├── dto/response/
-│   ├── mapper/
-│   └── error/
-├── application/
-│   ├── port/in/
-│   ├── port/out/
-│   └── service/
-├── domain/
-│   ├── model/
-│   ├── repository/
-│   └── service/
-├── infrastructure/
-│   ├── persistence/
-│   ├── client/
-│   ├── messaging/
-│   ├── security/
-│   └── observability/
-└── common/
+Client
+  -> Gateway
+  -> Account Service
+       validate customer/product/currency
+       validate Idempotency-Key
+       create account
+       if initial deposit > 0:
+           create funding instruction
+           account = PENDING_FUNDING
+       else:
+           account = ACTIVE
 ```
 
-- **API adapters** translate HTTP requests and responses.
-- **Application services** orchestrate use cases.
-- **Inbound ports** define use cases called by controllers or messaging adapters.
-- **Outbound ports** define capabilities the application needs from storage, remote services, or messaging.
-- **Domain objects and rules** should not depend on HTTP, SQL, or Kafka.
-- **Infrastructure adapters** implement persistence, external clients, messaging, and technical security.
+An initial deposit is a funding instruction, not a direct balance mutation.
 
-Some current services still combine SQL and orchestration. Refactor incrementally behind ports with characterization
-tests rather than moving code without verifying behavior.
+### Settlement posting
 
-## Data and consistency
+```text
+Settlement caller
+  -> Gateway / normal /api proxy
+  -> POST /api/accounts/funding/{instructionId}/post
+       X-Service-Key
+       X-External-Reference
+       |
+       +--> lock funding instruction/account
+       +--> validate settlement source/currency/amount
+       +--> create financial operation
+       +--> create debit + credit ledger entries
+       +--> update balances
+       +--> mark funding instruction POSTED
+       +--> activate PENDING_FUNDING account
+       |
+       COMMIT
+```
 
-Each service has a separate logical PostgreSQL database. Transfer-to-account interactions must be idempotent and
-recoverable; an HTTP success response alone is not sufficient evidence that a financial workflow has been reconciled.
-The project uses an outbox-oriented transfer design and Kafka for asynchronous event delivery.
+The posting operation is idempotent by funding instruction and external reference. A repeated settlement with the same reference returns the existing result; a conflicting reference is rejected.
 
-## Related pages
+### Transfer
 
-- [[Services]]
-- [[Configuration]]
-- [[Security-and-Operations]]
-- [[API-Reference]]
+Transfer Service owns the workflow and idempotency record. Account Service owns the actual financial operation, balance mutation, and ledger. Kafka outbox events are emitted from the Transfer Service for asynchronous consumers.
+
+## Security boundaries
+
+The Gateway validates JWTs at the edge, but it is not the only security boundary. Protected downstream services validate JWTs again and enforce permissions/ownership. `X-Service-Key` is reserved for trusted service-to-service calls.
+
+The settlement-posting route is under `/api/accounts/...` so it can use the existing Gateway proxy, but it is not a public user API because it requires `X-Service-Key`.
+
+## Gateway rate limiting
+
+Redis-backed fixed-window rate limiting runs at the Gateway before requests reach business services. Authenticated requests use JWT subject as identity; anonymous requests use client IP. Limits are configurable by environment.
+
+## Consistency and events
+
+- Financial account mutations use explicit database transactions and row/version concurrency controls.
+- Ledger postings must remain balanced: total debit equals total credit.
+- Financial commands must be idempotent where retries can duplicate money movement.
+- Kafka consumers must tolerate at-least-once delivery.
+- Audit history is traceability evidence, not the financial source of truth.
+
+## Package convention
+
+A typical service follows:
+
+```text
+api/             HTTP adapters, DTOs, errors
+application/     use cases and ports
+ domain/         business models and rules
+infrastructure/  persistence, clients, messaging, security
+```
+
+Some services are still being refactored toward stricter port/adapter separation; documentation describes the intended boundary without claiming every package is already identical.
+
+Related pages: [[Services]], [[Configuration]], [[Security-and-Operations]], [[API-Reference]].
