@@ -15,7 +15,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -132,52 +131,11 @@ public class GatewayController {
         }
     }
 
-    @RequestMapping(value = "/internal/accounts/funding/{instructionId}/post", method = RequestMethod.POST)
-    public ResponseEntity<byte[]> proxyFundingSettlement(
-            @PathVariable String instructionId,
-            HttpServletRequest request) {
-        String dest = targets.get("accounts") + "/internal/accounts/funding/" + instructionId + "/post";
-
-        try {
-            return client.post()
-                    .uri(URI.create(dest))
-                    .headers(headers -> copyFundingSettlementHeaders(request, headers))
-                    .exchange((req, res) -> {
-                        HttpHeaders headers = new HttpHeaders();
-                        copyResponseHeaders(res.getHeaders(), headers);
-                        headers.set("X-Content-Type-Options", "nosniff");
-
-                        byte[] responseBody = res.getBody() == null
-                                ? new byte[0]
-                                : res.getBody().readAllBytes();
-
-                        return new ResponseEntity<>(responseBody, headers, res.getStatusCode());
-                    });
-        } catch (Exception e) {
-            log.error("Gateway funding settlement request failed: {}", dest, e);
-            return ResponseEntity.status(502)
-                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
-                    .header("X-Content-Type-Options", "nosniff")
-                    .body("{\"code\":\"DOWNSTREAM_UNAVAILABLE\"}"
-                                  .getBytes(StandardCharsets.UTF_8));
-        }
-    }
-
     private void copyForwardedHeaders(HttpServletRequest request, HttpHeaders headers) {
         for (String name : List.of(
                 HttpHeaders.AUTHORIZATION,
                 HttpHeaders.CONTENT_TYPE,
                 "Idempotency-Key",
-                "X-Correlation-Id")) {
-            String value = request.getHeader(name);
-            if (value != null) {
-                headers.set(name, value);
-            }
-        }
-    }
-
-    private void copyFundingSettlementHeaders(HttpServletRequest request, HttpHeaders headers) {
-        for (String name : List.of(
                 "X-Service-Key",
                 "X-External-Reference",
                 "X-Correlation-Id")) {
