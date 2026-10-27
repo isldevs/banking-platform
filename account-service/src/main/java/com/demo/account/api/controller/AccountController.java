@@ -31,8 +31,10 @@ public class AccountController {
 
     @PostMapping("/api/accounts")
     @PreAuthorize("hasAuthority('ACCOUNT_OPEN')")
-    public AccountResponse open(@Valid @RequestBody OpenAccount request, @AuthenticationPrincipal Jwt jwt) {
-        return accountingService.open(request, jwt);
+    public AccountResponse open(@Valid @RequestBody OpenAccount request,
+                                @RequestHeader("Idempotency-Key") String idempotencyKey,
+                                @AuthenticationPrincipal Jwt jwt) {
+        return accountingService.open(request, jwt, idempotencyKey);
     }
 
     @GetMapping("/api/accounts/{id}")
@@ -68,6 +70,13 @@ public class AccountController {
     @PostMapping("/internal/accounts/transfer")
     public AccountResponse internalTransfer(@RequestHeader("X-Service-Key") String key, @RequestBody TransferCommand command) {
         return accountingService.internalTransfer(key, command);
+    }
+
+    @PostMapping("/internal/accounts/funding/{instructionId}/post")
+    public AccountResponse postFunding(@RequestHeader("X-Service-Key") String key,
+                                       @PathVariable UUID instructionId,
+                                       @RequestHeader("X-External-Reference") String externalReference) {
+        return accountingService.postFundingInstruction(key, instructionId, externalReference);
     }
 
     @GetMapping("/internal/accounts/operations/{id}")
