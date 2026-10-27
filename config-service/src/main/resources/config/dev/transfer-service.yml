@@ -48,3 +48,6 @@ security:
   internal-key: ${INTERNAL_SERVICE_KEY}
   legacy:
     internal-key: ${INTERNAL_SERVICE_KEY}
+
+services:
+  account-url: ${ACCOUNT_SERVICE_URL:http://localhost:8083}

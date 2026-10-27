@@ -19,9 +19,13 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyFactory;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
@@ -57,12 +61,34 @@ public class SecurityConfig {
     JwtDecoder jwtDecoder(@Value("${security.jwt.public-key-path}") String path,
                           @Value("${security.jwt.issuer}") String issuer,
                           @Value("${security.jwt.audience}") String audience) throws Exception {
-        String pem = Files.readString(Path.of(path)).replaceAll("-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s", "");
-        RSAPublicKey key = (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(pem)));
-        NimbusJwtDecoder d = NimbusJwtDecoder.withPublicKey(key).build();
-        OAuth2TokenValidator<Jwt> base = JwtValidators.createDefaultWithIssuer(issuer);
-        OAuth2TokenValidator<Jwt> aud = t -> t.getAudience().contains(audience) ? OAuth2TokenValidatorResult.success() : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_audience"));
-        d.setJwtValidator(new DelegatingOAuth2TokenValidator<>(base, aud));
-        return d;
+        String pem = Files.readString(Path.of(path), StandardCharsets.UTF_8).trim();
+        RSAPublicKey key = loadRsaPublicKey(pem);
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(key).build();
+        OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
+        OAuth2TokenValidator<Jwt> audienceValidator = token -> {
+            List<String> audiences = token.getAudience();
+            return audiences != null && audiences.contains(audience)
+                    ? OAuth2TokenValidatorResult.success()
+                    : OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
+        };
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
+        return decoder;
+    }
+
+    private RSAPublicKey loadRsaPublicKey(String pem) throws Exception {
+        if (pem.contains("-----BEGIN CERTIFICATE-----")) {
+            byte[] certificateBytes = pem.getBytes(StandardCharsets.UTF_8);
+            X509Certificate certificate = (X509Certificate) CertificateFactory.getInstance("X.509")
+                    .generateCertificate(new ByteArrayInputStream(certificateBytes));
+            return (RSAPublicKey) certificate.getPublicKey();
+        }
+
+        String publicKey = pem
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s", "");
+        return (RSAPublicKey) KeyFactory.getInstance("RSA")
+                .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(publicKey)));
     }
 }
