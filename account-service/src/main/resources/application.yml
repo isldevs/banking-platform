@@ -25,8 +25,9 @@ spring:
 account:
   funding:
     enabled: ${FUNDING_ENABLED:false}
-    usd-treasury-account-id: ${TREASURY_USD_ACCOUNT_ID}
-    khr-treasury-account-id: ${TREASURY_KHR_ACCOUNT_ID}
+    source-account-ids:
+      USD: ${FUNDING_SOURCE_ACCOUNT_USD_ID}
+      KHR: ${FUNDING_SOURCE_ACCOUNT_KHR_ID}
 
 management:
   metrics:
