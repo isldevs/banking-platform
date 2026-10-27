@@ -43,8 +43,8 @@ public class Support {
     }
 
     public void validateLegacyInternalKey(String providedKey) {
-        if (internalKey.isBlank()) {
-            throw new IllegalStateException("Legacy internal security key is not configured");
+        if (internalKey.length() < 24) {
+            throw new IllegalStateException("Legacy internal security key is not configured or too short");
         }
         if (providedKey == null || providedKey.isBlank()
                 || !MessageDigest.isEqual(
