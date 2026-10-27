@@ -6,6 +6,9 @@ server:
 spring:
   jackson:
     property-naming-strategy: SNAKE_CASE
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
 
 management:
   endpoints:
@@ -23,6 +26,32 @@ security:
     audience: ${SECURITY_JWT_AUDIENCE:api}
 
 gateway:
+  rate-limit:
+    enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
+    fail-open: ${GATEWAY_RATE_LIMIT_FAIL_OPEN:true}
+    default-limit: ${GATEWAY_RATE_LIMIT_DEFAULT_LIMIT:60}
+    default-window: ${GATEWAY_RATE_LIMIT_DEFAULT_WINDOW:1m}
+    rules:
+      - name: auth-login
+        method: POST
+        path-prefix: /api/auth/login
+        limit: 5
+        window: 1m
+      - name: auth-refresh
+        method: POST
+        path-prefix: /api/auth/refresh
+        limit: 10
+        window: 1m
+      - name: account-opening
+        method: POST
+        path-prefix: /api/accounts
+        limit: 10
+        window: 1m
+      - name: transfers
+        method: POST
+        path-prefix: /api/transfers
+        limit: 10
+        window: 1m
   http-client:
     connect-timeout: ${GATEWAY_HTTP_CONNECT_TIMEOUT:2s}
     connection-request-timeout: ${GATEWAY_HTTP_CONNECTION_REQUEST_TIMEOUT:1s}
