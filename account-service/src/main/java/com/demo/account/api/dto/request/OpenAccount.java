@@ -13,6 +13,5 @@ public record OpenAccount(
         @NotBlank String productCode,
         @NotBlank String currency,
         @NotNull @DecimalMin("0.00") @Digits(integer = 18, fraction = 2) BigDecimal initialDeposit,
-        @Digits(integer = 18, fraction = 2) BigDecimal openingFundingAmount,
         String fundingChannel) {
 }
