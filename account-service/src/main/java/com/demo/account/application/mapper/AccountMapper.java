@@ -6,6 +6,7 @@ import com.demo.account.api.dto.response.OperationResponse;
 import com.demo.account.domain.model.AccountBalanceEntity;
 import com.demo.account.domain.model.AccountEntity;
 import com.demo.account.domain.model.AccountOperationEntity;
+import com.demo.account.domain.model.FundingInstructionEntity;
 import com.demo.account.domain.model.LedgerEntryEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -19,7 +20,10 @@ public interface AccountMapper {
     @Mapping(target = "type", source = "account.accountType")
     @Mapping(target = "availableBalance", source = "balance.availableBalance")
     @Mapping(target = "ledgerBalance", source = "balance.ledgerBalance")
-    AccountResponse toResponse(AccountEntity account, AccountBalanceEntity balance);
+    @Mapping(target = "funding", source = "funding")
+    AccountResponse toResponse(AccountEntity account,
+                               AccountBalanceEntity balance,
+                               FundingInstructionEntity funding);
 
     @Mapping(target = "transferId", source = "operationId")
     OperationResponse toResponse(AccountOperationEntity operation);
