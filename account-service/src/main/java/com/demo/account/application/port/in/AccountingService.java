@@ -7,6 +7,7 @@ import com.demo.account.api.dto.response.AccountResponse;
 import com.demo.account.api.dto.response.LedgerResponse;
 import com.demo.account.api.dto.response.OperationResponse;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,10 +23,12 @@ public interface AccountingService {
 
     AccountResponse freeze(UUID id);
 
+    @Transactional
     AccountResponse fund(UUID id, Funding request);
 
     LedgerResponse ledger(UUID operationId);
 
+    @Transactional
     AccountResponse internalTransfer(String key, TransferCommand command);
 
     OperationResponse operation(String key, UUID id);
