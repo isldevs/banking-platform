@@ -39,20 +39,58 @@ public class CustomerStatusHistory {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected CustomerStatusHistory() {
+    public CustomerStatusHistory() {
     }
 
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-    public UUID getCustomerId() { return customerId; }
-    public void setCustomerId(UUID customerId) { this.customerId = customerId; }
-    public CustomerStatus getOldStatus() { return oldStatus; }
-    public void setOldStatus(CustomerStatus oldStatus) { this.oldStatus = oldStatus; }
-    public CustomerStatus getNewStatus() { return newStatus; }
-    public void setNewStatus(CustomerStatus newStatus) { this.newStatus = newStatus; }
-    public String getReason() { return reason; }
-    public void setReason(String reason) { this.reason = reason; }
-    public UUID getChangedBy() { return changedBy; }
-    public void setChangedBy(UUID changedBy) { this.changedBy = changedBy; }
-    public Instant getCreatedAt() { return createdAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public UUID getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(UUID customerId) {
+        this.customerId = customerId;
+    }
+
+    public CustomerStatus getOldStatus() {
+        return oldStatus;
+    }
+
+    public void setOldStatus(CustomerStatus oldStatus) {
+        this.oldStatus = oldStatus;
+    }
+
+    public CustomerStatus getNewStatus() {
+        return newStatus;
+    }
+
+    public void setNewStatus(CustomerStatus newStatus) {
+        this.newStatus = newStatus;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+
+    public UUID getChangedBy() {
+        return changedBy;
+    }
+
+    public void setChangedBy(UUID changedBy) {
+        this.changedBy = changedBy;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

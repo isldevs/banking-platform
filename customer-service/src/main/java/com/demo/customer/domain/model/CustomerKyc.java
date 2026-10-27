@@ -43,21 +43,62 @@ public class CustomerKyc {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected CustomerKyc() {
+    public CustomerKyc() {
     }
 
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-    public UUID getCustomerId() { return customerId; }
-    public void setCustomerId(UUID customerId) { this.customerId = customerId; }
-    public String getKycLevel() { return kycLevel; }
-    public void setKycLevel(String kycLevel) { this.kycLevel = kycLevel; }
-    public KycVerificationStatus getVerificationStatus() { return verificationStatus; }
-    public void setVerificationStatus(KycVerificationStatus verificationStatus) { this.verificationStatus = verificationStatus; }
-    public Instant getVerifiedAt() { return verifiedAt; }
-    public void setVerifiedAt(Instant verifiedAt) { this.verifiedAt = verifiedAt; }
-    public UUID getVerifiedBy() { return verifiedBy; }
-    public void setVerifiedBy(UUID verifiedBy) { this.verifiedBy = verifiedBy; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public UUID getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(UUID customerId) {
+        this.customerId = customerId;
+    }
+
+    public String getKycLevel() {
+        return kycLevel;
+    }
+
+    public void setKycLevel(String kycLevel) {
+        this.kycLevel = kycLevel;
+    }
+
+    public KycVerificationStatus getVerificationStatus() {
+        return verificationStatus;
+    }
+
+    public void setVerificationStatus(KycVerificationStatus verificationStatus) {
+        this.verificationStatus = verificationStatus;
+    }
+
+    public Instant getVerifiedAt() {
+        return verifiedAt;
+    }
+
+    public void setVerifiedAt(Instant verifiedAt) {
+        this.verifiedAt = verifiedAt;
+    }
+
+    public UUID getVerifiedBy() {
+        return verifiedBy;
+    }
+
+    public void setVerifiedBy(UUID verifiedBy) {
+        this.verifiedBy = verifiedBy;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 }

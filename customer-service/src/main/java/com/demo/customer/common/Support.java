@@ -11,6 +11,7 @@ import java.util.HexFormat;
 
 @Component
 public class Support {
+
     @Value("${security.internal-key:}")
     String internalKey;
 
