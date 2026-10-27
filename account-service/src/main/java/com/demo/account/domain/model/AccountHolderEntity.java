@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.Embeddable;
 
 import java.io.Serializable;
 import java.util.UUID;
@@ -21,6 +22,22 @@ public class AccountHolderEntity {
     public String getHolderType() { return holderType; }
     public void setHolderType(String holderType) { this.holderType = holderType; }
 
-    public record Id(@Column(name = "account_id") UUID accountId,
-                     @Column(name = "customer_id") UUID customerId) implements Serializable {}
+    @Embeddable
+    public static class Id implements Serializable {
+        @Column(name = "account_id")
+        private UUID accountId;
+        @Column(name = "customer_id")
+        private UUID customerId;
+
+        protected Id() {}
+        public Id(UUID accountId, UUID customerId) { this.accountId = accountId; this.customerId = customerId; }
+        public UUID getAccountId() { return accountId; }
+        public UUID getCustomerId() { return customerId; }
+        @Override public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Id other)) return false;
+            return java.util.Objects.equals(accountId, other.accountId) && java.util.Objects.equals(customerId, other.customerId);
+        }
+        @Override public int hashCode() { return java.util.Objects.hash(accountId, customerId); }
+    }
 }
