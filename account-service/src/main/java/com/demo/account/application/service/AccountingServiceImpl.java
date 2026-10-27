@@ -1,16 +1,29 @@
 package com.demo.account.application.service;
 
-import com.demo.account.common.Support;
-import com.demo.account.domain.model.Account;
 import com.demo.account.api.dto.request.Funding;
 import com.demo.account.api.dto.request.OpenAccount;
 import com.demo.account.api.dto.request.TransferCommand;
+import com.demo.account.api.dto.response.AccountResponse;
+import com.demo.account.api.dto.response.LedgerResponse;
+import com.demo.account.api.dto.response.OperationResponse;
+import com.demo.account.application.mapper.AccountMapper;
 import com.demo.account.application.port.in.AccountingService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.demo.account.common.Support;
+import com.demo.account.domain.model.AccountBalanceEntity;
+import com.demo.account.domain.model.AccountEntity;
+import com.demo.account.domain.model.AccountHolderEntity;
+import com.demo.account.domain.model.AccountOperationEntity;
+import com.demo.account.domain.model.AccountTransactionEntity;
+import com.demo.account.domain.model.LedgerEntryEntity;
+import com.demo.account.infrastructure.persistence.AccountBalanceRepository;
+import com.demo.account.infrastructure.persistence.AccountHolderRepository;
+import com.demo.account.infrastructure.persistence.AccountOperationRepository;
+import com.demo.account.infrastructure.persistence.AccountRepository;
+import com.demo.account.infrastructure.persistence.AccountTransactionRepository;
+import com.demo.account.infrastructure.persistence.LedgerEntryRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,154 +32,206 @@ import org.springframework.web.client.RestClient;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class AccountingServiceImpl implements AccountingService {
-
-    private final JdbcTemplate db;
+    private final AccountRepository accounts;
+    private final AccountBalanceRepository balances;
+    private final AccountHolderRepository holders;
+    private final AccountOperationRepository operations;
+    private final AccountTransactionRepository transactions;
+    private final LedgerEntryRepository ledgerEntries;
+    private final AccountMapper mapper;
     private final Support support;
     private final RestClient remote;
     private final String customerUrl;
     private final boolean fundingEnabled;
 
-    @Autowired
-    AccountingServiceImpl(JdbcTemplate db,
-                          Support support,
-                          @Value("${services.customer-url}") String customerUrl,
-                          @Value("${funding-enabled:false}") boolean fundingEnabled) {
-        this.db = db;
+    public AccountingServiceImpl(AccountRepository accounts,
+                                 AccountBalanceRepository balances,
+                                 AccountHolderRepository holders,
+                                 AccountOperationRepository operations,
+                                 AccountTransactionRepository transactions,
+                                 LedgerEntryRepository ledgerEntries,
+                                 AccountMapper mapper,
+                                 Support support,
+                                 @Value("${services.customer-url}") String customerUrl,
+                                 @Value("${funding-enabled:false}") boolean fundingEnabled) {
+        this.accounts = accounts;
+        this.balances = balances;
+        this.holders = holders;
+        this.operations = operations;
+        this.transactions = transactions;
+        this.ledgerEntries = ledgerEntries;
+        this.mapper = mapper;
         this.support = support;
         this.customerUrl = customerUrl;
         this.fundingEnabled = fundingEnabled;
-        SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
-        f.setConnectTimeout(Duration.ofSeconds(2));
-        f.setReadTimeout(Duration.ofSeconds(4));
-        this.remote = RestClient.builder().requestFactory(f).build();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(2));
+        factory.setReadTimeout(Duration.ofSeconds(4));
+        this.remote = RestClient.builder().requestFactory(factory).build();
     }
 
     @Override
-    public Map<String, Object> operation(UUID id) {
-        return db.query("SELECT operation_id,status FROM account_operations WHERE operation_id=?", (r, n) -> Map.<String, Object>of("transferId", r.getString(1), "status", r.getString(2)), id).stream().findFirst().orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "OPERATION_NOT_FOUND"));
+    @Transactional(readOnly = true)
+    public OperationResponse operation(UUID id) {
+        return mapper.toResponse(operations.findById(id)
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "OPERATION_NOT_FOUND")));
     }
 
     @Override
-    public Map<String, Object> open(OpenAccount c, Jwt jwt) {
-        if (c.currency() == null || !Set.of("USD", "KHR").contains(c.currency()))
+    @Transactional
+    public AccountResponse open(OpenAccount request, Jwt jwt) {
+        if (request.currency() == null || !Set.of("USD", "KHR").contains(request.currency()))
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_CURRENCY");
-        Map<?, ?> customer;
+
+        java.util.Map<?, ?> customer;
         try {
-            customer = remote.get().uri(customerUrl + "/internal/customers/" + c.customerId() + "/status")
-                    .header("X-Service-Key", support.internalKey).retrieve().body(Map.class);
+            customer = remote.get().uri(customerUrl + "/internal/customers/" + request.customerId() + "/status")
+                    .header("X-Service-Key", support.internalKey)
+                    .retrieve().body(java.util.Map.class);
         } catch (Exception ex) {
             throw Support.fail(HttpStatus.BAD_GATEWAY, "CUSTOMER_VALIDATION_UNAVAILABLE");
         }
         if (customer == null || !"ACTIVE".equals(customer.get("status")))
             throw Support.fail(HttpStatus.CONFLICT, "CUSTOMER_NOT_ACTIVE");
-        if (!jwt.getSubject().equals(customer.get("userId")) && !isAdmin(jwt))
+        UUID owner = UUID.fromString((String) customer.get("userId"));
+        if (!jwt.getSubject().equals(owner.toString()) && !isAdmin(jwt))
             throw Support.fail(HttpStatus.FORBIDDEN, "NOT_CUSTOMER_OWNER");
+
         UUID id = UUID.randomUUID();
-        String accountNo = "AC" + id.toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT);
-        db.update("INSERT INTO accounts(id,account_number,customer_id,owner_user_id,currency) VALUES(?,?,?,?,?)", id, accountNo, c.customerId(), UUID.fromString((String) customer.get("user_id")), c.currency());
-        db.update("INSERT INTO account_holders(account_id,customer_id) VALUES(?,?)", id, c.customerId());
-        db.update("INSERT INTO account_balances(account_id) VALUES(?)", id);
-        return view(id);
+        AccountEntity account = new AccountEntity();
+        account.setId(id);
+        account.setAccountNumber("AC" + id.toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT));
+        account.setCustomerId(request.customerId());
+        account.setOwnerUserId(owner);
+        account.setCurrency(request.currency());
+        account.setStatus("ACTIVE");
+        account.setAccountType("CUSTOMER");
+        accounts.save(account);
+
+        AccountBalanceEntity balance = new AccountBalanceEntity();
+        balance.setAccountId(id);
+        balance.setLedgerBalance(BigDecimal.ZERO);
+        balance.setAvailableBalance(BigDecimal.ZERO);
+        balance.setUpdatedAt(Instant.now());
+        balances.save(balance);
+
+        AccountHolderEntity holder = new AccountHolderEntity();
+        holder.setId(new AccountHolderEntity.Id(id, request.customerId()));
+        holders.save(holder);
+        return response(account, balance);
     }
 
     @Override
-    public Map<String, Object> read(UUID id, Jwt jwt) {
-        var m = view(id);
-        assertOwner(m, jwt);
-        return m;
+    @Transactional(readOnly = true)
+    public AccountResponse read(UUID id, Jwt jwt) {
+        AccountEntity account = findAccount(id);
+        assertOwner(account, jwt);
+        return response(account, findBalance(id));
     }
 
     @Override
-    public List<Map<String, Object>> list(Jwt jwt) {
-        return db.queryForList("SELECT id FROM accounts WHERE owner_user_id=? ORDER BY created_at DESC LIMIT 100", UUID.fromString(jwt.getSubject())).stream().map(m -> view((UUID) m.get("id"))).toList();
+    @Transactional(readOnly = true)
+    public List<AccountResponse> list(Jwt jwt) {
+        return accounts.findTop100ByOwnerUserIdOrderByCreatedAtDesc(UUID.fromString(jwt.getSubject())).stream()
+                .map(a -> response(a, findBalance(a.getId()))).toList();
     }
 
     @Override
-    public Map<String, Object> freeze(UUID id) {
-        int n = db.update("UPDATE accounts SET status='FROZEN',version=version+1,updated_at=NOW() WHERE id=? AND account_type='CUSTOMER' AND status='ACTIVE'", id);
-        if (n != 1)
+    @Transactional
+    public AccountResponse freeze(UUID id) {
+        AccountEntity account = findAccount(id);
+        if (!"CUSTOMER".equals(account.getAccountType()) || !"ACTIVE".equals(account.getStatus()))
             throw Support.fail(HttpStatus.CONFLICT, "ACCOUNT_FREEZE_INVALID");
-        return view(id);
+        account.setStatus("FROZEN");
+        account.setVersion(account.getVersion() + 1);
+        accounts.save(account);
+        return response(account, findBalance(id));
     }
 
     @Override
-    public Map<String, Object> fund(UUID id, Funding c) {
+    public AccountResponse fund(UUID id, Funding request) {
         if (!fundingEnabled)
             throw Support.fail(HttpStatus.FORBIDDEN, "DEMO_FUNDING_DISABLED");
-        Map<String, Object> dest = view(id);
-        String currency = (String) dest.get("currency");
-        UUID treasury = UUID.fromString("KHR".equals(currency) ? "00000000-0000-0000-0000-000000000002" : "00000000-0000-0000-0000-000000000001");
-        return post(new TransferCommand(UUID.randomUUID(), treasury, id, c.amount(), currency, "SYSTEM"));
+        AccountResponse destination = read(id, nullSafeSystemJwt());
+        String currency = destination.currency();
+        UUID treasury = UUID.fromString("KHR".equals(currency)
+                ? "00000000-0000-0000-0000-000000000002"
+                : "00000000-0000-0000-0000-000000000001");
+        post(new TransferCommand(UUID.randomUUID(), treasury, id, request.amount(), currency, "SYSTEM"));
+        return readInternal(id);
     }
 
     @Override
-    public Map<String, Object> ledger(UUID operationId) {
-        List<Map<String, Object>> entries = db.queryForList("SELECT account_id,entry_type,amount,currency FROM ledger_entries WHERE transaction_id=? ORDER BY entry_type", operationId);
+    @Transactional(readOnly = true)
+    public LedgerResponse ledger(UUID operationId) {
+        AccountOperationEntity operation = operations.findById(operationId)
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "LEDGER_NOT_FOUND"));
+        List<LedgerEntryEntity> entries = ledgerEntries.findByTransactionIdOrderByEntryType(operationId);
         if (entries.isEmpty())
             throw Support.fail(HttpStatus.NOT_FOUND, "LEDGER_NOT_FOUND");
-        BigDecimal debit = BigDecimal.ZERO, credit = BigDecimal.ZERO;
-        for (Map<String, Object> e : entries) {
-            if ("DEBIT".equals(e.get("entry_type")))
-                debit = debit.add((BigDecimal) e.get("amount"));
-            else
-                credit = credit.add((BigDecimal) e.get("amount"));
-        }
-        return Map.of("operationId", operationId, "entries", entries, "totalDebit", debit, "totalCredit", credit, "balanced", debit.compareTo(credit) == 0);
+        return mapper.toLedger(operation, entries);
     }
 
     @Override
-    public Map<String, Object> internalTransfer(String key, TransferCommand c) {
+    @Transactional
+    public AccountResponse internalTransfer(String key, TransferCommand command) {
         support.internal(key);
-        return post(c);
+        post(command);
+        return readInternal(command.destinationAccountId());
     }
 
     @Override
-    public Map<String, Object> operation(String key, UUID id) {
+    @Transactional(readOnly = true)
+    public OperationResponse operation(String key, UUID id) {
         support.internal(key);
         return operation(id);
     }
 
-    private Map<String, Object> view(UUID id) {
-        return db.query(
-                "SELECT a.id,a.account_number,a.customer_id,a.owner_user_id,a.currency,a.status,a.account_type,b.available_balance,b.ledger_balance FROM accounts a JOIN account_balances b ON b.account_id=a.id WHERE a.id=?", (r, n) -> {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("id", r.getString(1));
-                    m.put("accountNumber", r.getString(2));
-                    m.put("customerId", r.getString(3));
-                    m.put("ownerUserId", r.getString(4));
-                    m.put("currency", r.getString(5));
-                    m.put("status", r.getString(6));
-                    m.put("type", r.getString(7));
-                    m.put("availableBalance", r.getBigDecimal(8));
-                    m.put("ledgerBalance", r.getBigDecimal(9));
-                    return m;
-                }, id).stream().findFirst().orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+    private AccountResponse readInternal(UUID id) {
+        AccountEntity account = findAccount(id);
+        return response(account, findBalance(id));
+    }
+
+    private AccountResponse response(AccountEntity account, AccountBalanceEntity balance) {
+        return mapper.toResponse(account, balance);
+    }
+
+    private AccountEntity findAccount(UUID id) {
+        return accounts.findById(id)
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+    }
+
+    private AccountBalanceEntity findBalance(UUID id) {
+        return balances.findById(id)
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_BALANCE_NOT_FOUND"));
     }
 
     private boolean isAdmin(Jwt jwt) {
-        return jwt.getClaimAsStringList("roles").contains("ADMIN");
+        return jwt != null && jwt.getClaimAsStringList("roles") != null && jwt.getClaimAsStringList("roles").contains("ADMIN");
     }
 
-    private void assertOwner(Map<String, Object> m, Jwt jwt) {
-        if (!jwt.getSubject().equals(m.get("ownerUserId")) && !isAdmin(jwt))
+    private void assertOwner(AccountEntity account, Jwt jwt) {
+        if (jwt == null || (!jwt.getSubject().equals(String.valueOf(account.getOwnerUserId())) && !isAdmin(jwt)))
             throw Support.fail(HttpStatus.FORBIDDEN, "NOT_ACCOUNT_OWNER");
     }
 
-    public static BigDecimal money(BigDecimal value, String currency) {
+    private Jwt nullSafeSystemJwt() {
+        return Jwt.withTokenValue("internal").header("alg", "none").subject("SYSTEM").claim("roles", List.of("ADMIN")).build();
+    }
+
+    private BigDecimal money(BigDecimal value, String currency) {
         if (value == null || currency == null || !Set.of("USD", "KHR").contains(currency) || value.signum() <= 0)
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_AMOUNT_OR_CURRENCY");
         int scale = "KHR".equals(currency) ? 0 : 2;
-        if (value.scale() > scale && value.stripTrailingZeros().scale() > scale)
+        if (value.stripTrailingZeros().scale() > scale)
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_MONEY_SCALE");
         try {
             return value.setScale(2, RoundingMode.UNNECESSARY);
@@ -175,60 +240,94 @@ public class AccountingServiceImpl implements AccountingService {
         }
     }
 
-    public Account locked(UUID id) {
-        return db.query("SELECT a.id,a.currency,a.status,a.account_type,a.owner_user_id,b.available_balance FROM accounts a JOIN account_balances b ON b.account_id=a.id WHERE a.id=? FOR UPDATE OF a,b", (r, n) -> new Account(r.getObject(1, UUID.class), r.getString(2), r.getString(3), r.getString(4), r.getObject(5, UUID.class), r.getBigDecimal(6)), id).stream().findFirst().orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+    @Transactional
+    public void post(TransferCommand command) {
+        if (command.transferId() == null || command.sourceAccountId() == null || command.destinationAccountId() == null || command.requestedBy() == null)
+            throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_TRANSFER_FIELDS");
+        if (command.sourceAccountId().equals(command.destinationAccountId()))
+            throw Support.fail(HttpStatus.BAD_REQUEST, "SAME_ACCOUNT");
+
+        BigDecimal amount = money(command.amount(), command.currency());
+        UUID first = command.sourceAccountId().compareTo(command.destinationAccountId()) < 0 ? command.sourceAccountId() : command.destinationAccountId();
+        UUID second = first.equals(command.sourceAccountId()) ? command.destinationAccountId() : command.sourceAccountId();
+        AccountEntity firstAccount = accounts.findByIdForUpdate(first)
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+        AccountEntity secondAccount = accounts.findByIdForUpdate(second)
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+        AccountEntity source = firstAccount.getId().equals(command.sourceAccountId()) ? firstAccount : secondAccount;
+        AccountEntity destination = firstAccount.getId().equals(command.destinationAccountId()) ? firstAccount : secondAccount;
+        AccountBalanceEntity sourceBalance = findBalance(source.getId());
+        AccountBalanceEntity destinationBalance = findBalance(destination.getId());
+
+        var existing = operations.findById(command.transferId());
+        if (existing.isPresent()) {
+            AccountOperationEntity prior = existing.get();
+            if (!prior.getSourceAccountId().equals(command.sourceAccountId()) || !prior.getDestinationAccountId().equals(command.destinationAccountId())
+                    || prior.getAmount().compareTo(amount) != 0 || !prior.getCurrency().equals(command.currency()) || !prior.getRequestedBy().equals(command.requestedBy()))
+                throw Support.fail(HttpStatus.CONFLICT, "OPERATION_ID_REUSED");
+            return;
+        }
+
+        if (!"ACTIVE".equals(source.getStatus()) || !"ACTIVE".equals(destination.getStatus()))
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "ACCOUNT_NOT_ACTIVE");
+        if (!command.currency().equals(source.getCurrency()) || !command.currency().equals(destination.getCurrency()))
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "CURRENCY_MISMATCH");
+        if (!"SYSTEM".equals(source.getAccountType()) && !command.requestedBy().equals(String.valueOf(source.getOwnerUserId())))
+            throw Support.fail(HttpStatus.FORBIDDEN, "NOT_ACCOUNT_OWNER");
+        if (!"SYSTEM".equals(source.getAccountType()) && sourceBalance.getAvailableBalance().compareTo(amount) < 0)
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INSUFFICIENT_BALANCE");
+        if ("SYSTEM".equals(source.getAccountType()) && !"SYSTEM".equals(command.requestedBy()))
+            throw Support.fail(HttpStatus.FORBIDDEN, "RESERVED_ACCOUNT");
+
+        AccountOperationEntity operation = new AccountOperationEntity();
+        operation.setOperationId(command.transferId());
+        operation.setSourceAccountId(command.sourceAccountId());
+        operation.setDestinationAccountId(command.destinationAccountId());
+        operation.setAmount(amount);
+        operation.setCurrency(command.currency());
+        operation.setRequestedBy(command.requestedBy());
+        operation.setStatus("COMMITTED");
+        operations.save(operation);
+
+        sourceBalance.setLedgerBalance(sourceBalance.getLedgerBalance().subtract(amount));
+        sourceBalance.setAvailableBalance(sourceBalance.getAvailableBalance().subtract(amount));
+        sourceBalance.setUpdatedAt(Instant.now());
+        destinationBalance.setLedgerBalance(destinationBalance.getLedgerBalance().add(amount));
+        destinationBalance.setAvailableBalance(destinationBalance.getAvailableBalance().add(amount));
+        destinationBalance.setUpdatedAt(Instant.now());
+        balances.save(sourceBalance);
+        balances.save(destinationBalance);
+
+        saveTransaction(command, "DEBIT");
+        saveTransaction(command, "CREDIT");
+        saveLedger(command, "DEBIT");
+        saveLedger(command, "CREDIT");
+        source.setVersion(source.getVersion() + 1);
+        destination.setVersion(destination.getVersion() + 1);
+        accounts.save(source);
+        accounts.save(destination);
     }
 
-    @Transactional
-    public Map<String, Object> post(TransferCommand c) {
-        if (c.transferId() == null || c.sourceAccountId() == null || c.destinationAccountId() == null || c.requestedBy() == null)
-            throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_TRANSFER_FIELDS");
-        if (c.sourceAccountId().equals(c.destinationAccountId()))
-            throw Support.fail(HttpStatus.BAD_REQUEST, "SAME_ACCOUNT");
-        BigDecimal amount = money(c.amount(), c.currency());
-        // Lock in deterministic order to prevent deadlocks under concurrent opposing transfers.
-        UUID first = c.sourceAccountId().compareTo(c.destinationAccountId()) < 0 ? c.sourceAccountId() : c.destinationAccountId();
-        UUID second = first.equals(c.sourceAccountId()) ? c.destinationAccountId() : c.sourceAccountId();
-        Account a = locked(first);
-        Account b = locked(second);
-        Account source = a.id().equals(c.sourceAccountId()) ? a : b;
-        Account destination = a.id().equals(c.destinationAccountId()) ? a : b;
-        List<Map<String, Object>> prev = db.query(
-                "SELECT source_account_id,destination_account_id,amount,currency,requested_by FROM account_operations WHERE operation_id=?", (r, n) -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("source", r.getObject(1, UUID.class));
-                    m.put("destination", r.getObject(2, UUID.class));
-                    m.put("amount", r.getBigDecimal(3));
-                    m.put("currency", r.getString(4));
-                    m.put("requestedBy", r.getString(5));
-                    return m;
-                }, c.transferId());
-        if (!prev.isEmpty()) {
-            Map<String, Object> p = prev.get(0);
-            if (!p.get("source").equals(c.sourceAccountId()) || !p.get("destination").equals(c.destinationAccountId()) ||
-                    ((BigDecimal) p.get("amount")).compareTo(amount) != 0 || !p.get("currency").equals(c.currency()) || !p.get("requestedBy").equals(c.requestedBy()))
-                throw Support.fail(HttpStatus.CONFLICT, "OPERATION_ID_REUSED");
-            return Map.of("transferId", c.transferId().toString(), "status", "COMMITTED", "duplicate", true);
-        }
-        if (!"ACTIVE".equals(source.status()) || !"ACTIVE".equals(destination.status()))
-            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "ACCOUNT_NOT_ACTIVE");
-        if (!c.currency().equals(source.currency()) || !c.currency().equals(destination.currency()))
-            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "CURRENCY_MISMATCH");
-        if (!"SYSTEM".equals(source.type()) && !c.requestedBy().equals(String.valueOf(source.owner())))
-            throw Support.fail(HttpStatus.FORBIDDEN, "NOT_ACCOUNT_OWNER");
-        if (!"SYSTEM".equals(source.type()) && source.balance().compareTo(amount) < 0)
-            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INSUFFICIENT_BALANCE");
-        // The only account allowed to go negative is the demo treasury clearing account.
-        if ("SYSTEM".equals(source.type()) && !"SYSTEM".equals(c.requestedBy()))
-            throw Support.fail(HttpStatus.FORBIDDEN, "RESERVED_ACCOUNT");
-        db.update("INSERT INTO account_operations(operation_id,source_account_id,destination_account_id,amount,currency,requested_by,status) VALUES(?,?,?,?,?,?,'COMMITTED')", c.transferId(), c.sourceAccountId(), c.destinationAccountId(), amount, c.currency(), c.requestedBy());
-        db.update("UPDATE account_balances SET ledger_balance=ledger_balance-?,available_balance=available_balance-?,updated_at=NOW() WHERE account_id=?", amount, amount, c.sourceAccountId());
-        db.update("UPDATE account_balances SET ledger_balance=ledger_balance+?,available_balance=available_balance+?,updated_at=NOW() WHERE account_id=?", amount, amount, c.destinationAccountId());
-        for (var entry : List.of(Map.entry(c.sourceAccountId(), "DEBIT"), Map.entry(c.destinationAccountId(), "CREDIT"))) {
-            db.update("INSERT INTO account_transactions(id,operation_id,account_id,transaction_type,amount,currency,reference_id) VALUES(?,?,?,?,?,?,?)", UUID.randomUUID(), c.transferId(), entry.getKey(), entry.getValue(), amount, c.currency(), c.transferId());
-            db.update("INSERT INTO ledger_entries(id,transaction_id,account_id,entry_type,amount,currency) VALUES(?,?,?,?,?,?)", UUID.randomUUID(), c.transferId(), entry.getKey(), entry.getValue(), amount, c.currency());
-        }
-        db.update("UPDATE accounts SET version=version+1,updated_at=NOW() WHERE id IN (?,?)", c.sourceAccountId(), c.destinationAccountId());
-        return Map.of("transferId", c.transferId().toString(), "status", "COMMITTED", "duplicate", false);
+    private void saveTransaction(TransferCommand c, String type) {
+        AccountTransactionEntity tx = new AccountTransactionEntity();
+        tx.setId(UUID.randomUUID());
+        tx.setOperationId(c.transferId());
+        tx.setAccountId("DEBIT".equals(type) ? c.sourceAccountId() : c.destinationAccountId());
+        tx.setTransactionType(type);
+        tx.setAmount(money(c.amount(), c.currency()));
+        tx.setCurrency(c.currency());
+        tx.setReferenceId(c.transferId());
+        transactions.save(tx);
+    }
+
+    private void saveLedger(TransferCommand c, String type) {
+        LedgerEntryEntity entry = new LedgerEntryEntity();
+        entry.setId(UUID.randomUUID());
+        entry.setTransactionId(c.transferId());
+        entry.setAccountId("DEBIT".equals(type) ? c.sourceAccountId() : c.destinationAccountId());
+        entry.setEntryType(type);
+        entry.setAmount(money(c.amount(), c.currency()));
+        entry.setCurrency(c.currency());
+        ledgerEntries.save(entry);
     }
 }
