@@ -3,7 +3,6 @@ package com.demo.customer.application.mapper;
 import com.demo.customer.api.dto.request.NewCustomer;
 import com.demo.customer.api.dto.response.CustomerResponse;
 import com.demo.customer.domain.model.Customer;
-import com.demo.customer.domain.model.CustomerStatus;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
