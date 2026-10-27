@@ -15,7 +15,7 @@ import java.util.UUID;
 public interface AccountingService {
     OperationResponse operation(UUID id);
 
-    AccountResponse open(OpenAccount request, Jwt jwt);
+    AccountResponse open(OpenAccount request, Jwt jwt, String idempotencyKey);
 
     AccountResponse read(UUID id, Jwt jwt);
 
@@ -30,6 +30,9 @@ public interface AccountingService {
 
     @Transactional
     AccountResponse internalTransfer(String key, TransferCommand command);
+
+    @Transactional
+    AccountResponse postFundingInstruction(String key, UUID instructionId, String externalReference);
 
     OperationResponse operation(String key, UUID id);
 }
