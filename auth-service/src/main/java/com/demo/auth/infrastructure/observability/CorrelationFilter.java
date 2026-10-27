@@ -13,17 +13,21 @@ import java.util.UUID;
 
 @Component
 public class CorrelationFilter extends OncePerRequestFilter {
+
+    public static final String HEADER_NAME = "X-Correlation-Id";
+    private static final String MDC_KEY = "correlation_id";
+
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
-        String value = req.getHeader("X-Correlation-Id");
+        String value = req.getHeader(HEADER_NAME);
         if (value == null || !value.matches("[a-zA-Z0-9._-]{1,128}"))
             value = UUID.randomUUID().toString();
-        res.setHeader("X-Correlation-Id", value);
+        res.setHeader(HEADER_NAME, value);
         try {
-            MDC.put("correlationId", value);
+            MDC.put(MDC_KEY, value);
             chain.doFilter(req, res);
         } finally {
-            MDC.remove("correlationId");
+            MDC.remove(MDC_KEY);
         }
     }
 }

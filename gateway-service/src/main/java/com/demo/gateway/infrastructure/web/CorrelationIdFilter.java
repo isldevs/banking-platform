@@ -15,7 +15,7 @@ import java.util.UUID;
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
     public static final String HEADER_NAME = "X-Correlation-Id";
-    private static final String MDC_KEY = "correlationId";
+    private static final String MDC_KEY = "correlation_id";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
