@@ -120,8 +120,12 @@ class AccountPostingInvariantsTest {
         ArgumentCaptor.forClass(LedgerEntryEntity.class);
     verify(ledgerEntries, times(2)).save(ledger.capture());
     List<LedgerEntryEntity> entries = ledger.getAllValues();
-    assertEquals(List.of("DEBIT", "CREDIT"), entries.stream().map(LedgerEntryEntity::getEntryType).toList());
-    assertEquals(List.of(SOURCE_ID, DESTINATION_ID), entries.stream().map(LedgerEntryEntity::getAccountId).toList());
+    assertEquals(
+        List.of("DEBIT", "CREDIT"),
+        entries.stream().map(LedgerEntryEntity::getEntryType).toList());
+    assertEquals(
+        List.of(SOURCE_ID, DESTINATION_ID),
+        entries.stream().map(LedgerEntryEntity::getAccountId).toList());
     assertEquals(new BigDecimal("40.00"), entries.get(0).getAmount());
     assertEquals(entries.get(0).getAmount(), entries.get(1).getAmount());
     assertEquals(OPERATION_ID, entries.get(0).getTransactionId());
@@ -130,7 +134,9 @@ class AccountPostingInvariantsTest {
     ArgumentCaptor<AccountTransactionEntity> posting =
         ArgumentCaptor.forClass(AccountTransactionEntity.class);
     verify(transactions, times(2)).save(posting.capture());
-    assertEquals(List.of("DEBIT", "CREDIT"), posting.getAllValues().stream().map(AccountTransactionEntity::getTransactionType).toList());
+    assertEquals(
+        List.of("DEBIT", "CREDIT"),
+        posting.getAllValues().stream().map(AccountTransactionEntity::getTransactionType).toList());
 
     InOrder locking = inOrder(accounts);
     locking.verify(accounts).findByIdForUpdate(SOURCE_ID);
@@ -176,8 +182,14 @@ class AccountPostingInvariantsTest {
   void lockingOrderIsIndependentOfTransferDirection() {
     destination.setOwnerUserId(USER_ID);
 
-    service.post(new TransferCommand(
-        OPERATION_ID, DESTINATION_ID, SOURCE_ID, new BigDecimal("40.00"), "USD", USER_ID.toString()));
+    service.post(
+        new TransferCommand(
+            OPERATION_ID,
+            DESTINATION_ID,
+            SOURCE_ID,
+            new BigDecimal("40.00"),
+            "USD",
+            USER_ID.toString()));
 
     InOrder locking = inOrder(accounts);
     locking.verify(accounts).findByIdForUpdate(SOURCE_ID);
@@ -186,7 +198,12 @@ class AccountPostingInvariantsTest {
 
   private static TransferCommand command(String amount) {
     return new TransferCommand(
-        OPERATION_ID, SOURCE_ID, DESTINATION_ID, new BigDecimal(amount), "USD", USER_ID.toString());
+        OPERATION_ID,
+        SOURCE_ID,
+        DESTINATION_ID,
+        new BigDecimal(amount),
+        "USD",
+        USER_ID.toString());
   }
 
   private static AccountOperationEntity prior(String amount) {
