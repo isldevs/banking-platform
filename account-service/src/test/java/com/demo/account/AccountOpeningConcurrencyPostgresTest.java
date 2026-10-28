@@ -33,8 +33,7 @@ class AccountOpeningConcurrencyPostgresTest {
           .withPassword("account_test");
 
   private static final String LOCK_SQL =
-      "SELECT 1 FROM pg_advisory_xact_lock("
-          + "hashtextextended(CAST(? AS text) || ':' || ?, 0))";
+      "SELECT 1 FROM pg_advisory_xact_lock(" + "hashtextextended(CAST(? AS text) || ':' || ?, 0))";
 
   @BeforeAll
   static void migrate() {
@@ -54,7 +53,8 @@ class AccountOpeningConcurrencyPostgresTest {
     createAccount(account, principal);
 
     ExecutorService executor = Executors.newSingleThreadExecutor();
-    try (Connection first = connect(); Connection retry = connect()) {
+    try (Connection first = connect();
+        Connection retry = connect()) {
       first.setAutoCommit(false);
       retry.setAutoCommit(false);
 
