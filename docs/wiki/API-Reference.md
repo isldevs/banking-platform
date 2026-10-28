@@ -1,6 +1,6 @@
 # API Reference
 
-This is the canonical API reference for the current repository state. Local public APIs are normally accessed through the Gateway at `http://localhost:8080`. Direct service URLs are useful for local diagnostics and OAuth2 protocol endpoints.
+This is the **current implementation** API reference for `isldevs/banking-platform`. Target enterprise banking services (AML, FX, general ledger, payment rails, SWIFT, lending) do **not** yet expose APIs here. Call application routes through Gateway at `http://localhost:8080`; OAuth2 protocol endpoints are exposed by Auth Service at `http://localhost:8081`.
 
 ## Service URLs
 
@@ -8,12 +8,14 @@ This is the canonical API reference for the current repository state. Local publ
 |---|---|
 | Gateway | `http://localhost:8080` |
 | Auth / Authorization Server | `http://localhost:8081` |
-| Customer | `http://localhost:8082` |
-| Account | `http://localhost:8083` |
-| Transfer | `http://localhost:8084` |
-| Notification | `http://localhost:8085` |
-| Audit | `http://localhost:8086` |
+| Customer | `http://customer-service:8082` (Compose network only) |
+| Account | `http://account-service:8083` (Compose network only) |
+| Transfer | `http://transfer-service:8084` (Compose network only) |
+| Notification | `http://notification-service:8085` (Compose network only) |
+| Audit | `http://audit-service:8086` (Compose network only) |
 | Config | `http://localhost:8888` |
+
+> The current Docker Compose does not publish Customer/Account/Transfer/Notification/Audit host ports. Direct `localhost:8082`–`:8086` URLs apply only if you run or expose those services separately.
 
 ## Authentication
 
@@ -41,7 +43,7 @@ Demo clients:
 - `demo-browser` — public PKCE client; no refresh token.
 - `demo-bff` — confidential PKCE client for trusted BFF/Postman; refresh tokens rotate and expire after 7 days.
 
-Registered demo redirect URI: `https://oauth.pstmn.io/v1/callback`.
+Registered demo redirect URI: `https://oauth.pstmn.io/v1/callback` (`demo-browser` additionally allows `/v1/browser-callback`).
 
 ### Legacy compatibility
 
@@ -109,11 +111,11 @@ Request:
 
 ```json
 {
-  "customerId": "<customer-uuid>",
-  "productCode": "BASIC-USD",
+  "customer_id": "<customer-uuid>",
+  "product_code": "BASIC-USD",
   "currency": "USD",
-  "initialDeposit": 100.00,
-  "fundingChannel": "BANK_TRANSFER"
+  "initial_deposit": 100.00,
+  "funding_channel": "BANK_TRANSFER"
 }
 ```
 
@@ -162,7 +164,7 @@ Permission: `ACCOUNT_FREEZE`.
 
 Permission: `ACCOUNT_FUND`.
 
-This is the separate post-opening funding/demo operation. It is not the same workflow as settlement-confirmed initial funding.
+This is a **demo-only** post-opening funding operation using seeded system clearing accounts when enabled, not proof of external settlement. Do not expose as a real deposit facility.
 
 ### Post settled initial funding
 
@@ -193,13 +195,27 @@ Retries with the same instruction and external reference are idempotent. A diffe
 
 Permission: `TRANSFER_CREATE`.
 
-Recommended header for retry-safe financial commands:
+**Required in current Transfer Service application logic** (although the controller header is declared optional). Permitted idempotency keys are 8–200 characters consisting of letters, digits, `.`, `_`, `:`, or `-`:
 
 ```http
 Idempotency-Key: <unique-client-key>
 ```
 
-The authenticated user is derived from the JWT subject. Transfer Service owns workflow/idempotency; Account Service owns the financial ledger operation.
+Example request (snake_case request DTO naming):
+
+```json
+{
+  "source_account_id": "<source-account-uuid>",
+  "destination_account_id": "<destination-account-uuid>",
+  "amount": 100.00,
+  "currency": "USD",
+  "reference": "DEMO-TRANSFER-001"
+}
+```
+
+Current transfer currencies are **USD** and **KHR**, with maximum values USD 10,000.00 and KHR 40,000,000. The authenticated user is derived from the JWT subject. Transfer Service owns workflow/idempotency; Account Service owns ledger posting. Reusing a key with a different request fingerprint produces a conflict.
+
+**Response caveat:** transfer responses currently come from a Java Map with camelCase keys such as `sourceAccountId` and `destinationAccountId`, while most request DTO JSON is configured for snake_case. This is an existing contract inconsistency to address in code.
 
 ### Read transfer
 
@@ -237,7 +253,7 @@ Only non-secret configuration belongs in Config Service.
 
 ## Gateway rate limits
 
-Current development defaults:
+Configured rule values **only when** rate limiting is enabled:
 
 | Request | Limit |
 |---|---:|
@@ -247,7 +263,7 @@ Current development defaults:
 | `POST /api/transfers...` | 10/minute |
 | Other `/api/**` | 60/minute |
 
-Authenticated requests are limited by JWT subject; anonymous requests use client IP. Successful responses expose:
+Rate limiting is **disabled by default** in committed config (`GATEWAY_RATE_LIMIT_ENABLED=false`). When enabled, authenticated requests use JWT subject and anonymous requests use client IP. Allowed responses then expose:
 
 ```text
 X-RateLimit-Limit
@@ -268,6 +284,10 @@ X-External-Reference: <settlement-reference>
 ```
 
 Do not send service credentials from browser/mobile clients.
+
+## Planned API domains (not available)
+
+The repository currently exposes no production APIs for general ledger closing, AML/sanctions screening, real domestic clearing, SWIFT/ISO 20022 messaging, correspondent banks, FX, lending or regulatory reporting. These require separately designed contracts, ownership controls and settlement/reconciliation semantics.
 
 ## API source of truth
 
