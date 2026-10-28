@@ -104,7 +104,9 @@ class AccountLedgerAuthorizationTest {
   @Test
   void unrelatedUserCannotReadLedgerOrFetchEntries() {
     ResponseStatusException error =
-        assertThrows(ResponseStatusException.class, () -> service.ledger(OPERATION_ID, jwt(STRANGER, false)));
+        assertThrows(
+            ResponseStatusException.class,
+            () -> service.ledger(OPERATION_ID, jwt(STRANGER, false)));
     assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
     verifyNoInteractions(entries, mapper);
   }
