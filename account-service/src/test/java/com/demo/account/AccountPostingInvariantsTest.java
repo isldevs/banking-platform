@@ -43,14 +43,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 class AccountPostingInvariantsTest {
-  private static final UUID SOURCE_ID =
-      UUID.fromString("10000000-0000-0000-0000-000000000001");
+  private static final UUID SOURCE_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
   private static final UUID DESTINATION_ID =
       UUID.fromString("20000000-0000-0000-0000-000000000001");
-  private static final UUID OPERATION_ID =
-      UUID.fromString("30000000-0000-0000-0000-000000000001");
-  private static final UUID USER_ID =
-      UUID.fromString("40000000-0000-0000-0000-000000000001");
+  private static final UUID OPERATION_ID = UUID.fromString("30000000-0000-0000-0000-000000000001");
+  private static final UUID USER_ID = UUID.fromString("40000000-0000-0000-0000-000000000001");
 
   private final AccountRepository accounts = mock(AccountRepository.class);
   private final AccountBalanceRepository balances = mock(AccountBalanceRepository.class);
@@ -116,8 +113,7 @@ class AccountPostingInvariantsTest {
     assertEquals(OPERATION_ID, operation.getValue().getOperationId());
     assertEquals("COMMITTED", operation.getValue().getStatus());
 
-    ArgumentCaptor<LedgerEntryEntity> ledger =
-        ArgumentCaptor.forClass(LedgerEntryEntity.class);
+    ArgumentCaptor<LedgerEntryEntity> ledger = ArgumentCaptor.forClass(LedgerEntryEntity.class);
     verify(ledgerEntries, times(2)).save(ledger.capture());
     List<LedgerEntryEntity> entries = ledger.getAllValues();
     assertEquals(
