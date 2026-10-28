@@ -85,6 +85,6 @@ Before using a shared environment:
 - [ ] Verify financial idempotency, concurrency and reconciliation paths.
 - [ ] Verify backups, retention, alerts and incident procedures.
 - [ ] Run financial concurrency, retry, rollback, recovery and security tests before merging.
-- [ ] Repair missing CI demo scripts before representing end-to-end workflow as validated.
+- [ ] Add a full banking business-flow CI test with financial and ledger assertions; the current Docker job is a startup smoke test only.
 
 Related pages: [Authentication and OAuth2](Authentication-and-OAuth2.md), [Configuration](Configuration.md), [Development and Delivery](Development-and-Delivery.md).
