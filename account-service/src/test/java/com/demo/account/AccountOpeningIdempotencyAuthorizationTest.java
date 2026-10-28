@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -35,6 +36,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
@@ -113,7 +115,9 @@ class AccountOpeningIdempotencyAuthorizationTest {
     AccountResponse actual = service.open(request(), jwt(OWNER_ID, false), "open-key");
 
     assertSame(expected, actual);
-    verify(openingRequests).findByPrincipalIdAndIdempotencyKey(OWNER_ID, "open-key");
+    InOrder serialized = inOrder(openingRequests);
+    serialized.verify(openingRequests).lockForOpening(OWNER_ID, "open-key");
+    serialized.verify(openingRequests).findByPrincipalIdAndIdempotencyKey(OWNER_ID, "open-key");
   }
 
   @Test
@@ -125,7 +129,11 @@ class AccountOpeningIdempotencyAuthorizationTest {
     AccountResponse actual = service.open(request(), jwt(OTHER_USER_ID, true), "open-key");
 
     assertSame(expected, actual);
-    verify(openingRequests).findByPrincipalIdAndIdempotencyKey(OTHER_USER_ID, "open-key");
+    InOrder serialized = inOrder(openingRequests);
+    serialized.verify(openingRequests).lockForOpening(OTHER_USER_ID, "open-key");
+    serialized
+        .verify(openingRequests)
+        .findByPrincipalIdAndIdempotencyKey(OTHER_USER_ID, "open-key");
   }
 
   private static OpenAccount request() {

@@ -117,6 +117,9 @@ public class AccountingServiceImpl implements AccountingService {
   public AccountResponse open(OpenAccount request, Jwt jwt, String idempotencyKey) {
     String key = normalizeIdempotencyKey(idempotencyKey);
     UUID principalId = UUID.fromString(jwt.getSubject());
+    // Serialize first attempts and retries for this principal/key across service instances.
+    // Keep the lock until the outer @Transactional commit or rollback.
+    openingRequests.lockForOpening(principalId, key);
     AccountOpeningRequestEntity previous =
         openingRequests.findByPrincipalIdAndIdempotencyKey(principalId, key).orElse(null);
     if (previous != null) {

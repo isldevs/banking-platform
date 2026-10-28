@@ -20,6 +20,7 @@ Account Service is the financial accounting boundary. Its current migrations inc
 V1__accounts_ledger.sql
 V2__account_products_and_funding.sql
 V3__currency_reference_data.sql
+V4__scope_account_opening_idempotency.sql
 ```
 
 The account database also contains system clearing accounts used by the local/demo settlement configuration. These are demonstration infrastructure accounts, not a model for creating money in a real bank.
@@ -28,7 +29,7 @@ The account database also contains system clearing accounts used by the local/de
 
 `account_products` defines product rules such as currency, account type, initial-deposit requirements, and minimum balances.
 
-`account_opening_requests` makes opening requests idempotent by client key.
+`account_opening_requests` makes openings idempotent per authenticated principal and client key (`UNIQUE(principal_id, idempotency_key)`), after Flyway V4 backfills existing requests. The application takes a PostgreSQL transaction-scoped advisory lock based on principal and key before checking existing requests. This serializes same-key first attempts and retries at the database transaction boundary; historical admin-initiated openings need special migration review.
 
 `funding_instructions` records the initial funding request and settlement lifecycle, including channel, amount, external settlement reference, operation ID, and posting timestamps.
 
