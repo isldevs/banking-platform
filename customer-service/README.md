@@ -1,6 +1,6 @@
 # customer-service
 
-Java 21 / Spring Boot service on port `8082`. Customer Service owns the `customer` database and the customer/KYC lifecycle.
+Java 17 / Spring Boot service on port `8082`. Customer Service owns the `customer` database and the customer/KYC lifecycle.
 
 ## Responsibilities
 
