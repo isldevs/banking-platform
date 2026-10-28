@@ -281,11 +281,19 @@ public class AccountingServiceImpl implements AccountingService {
 
   @Override
   @Transactional(readOnly = true)
-  public LedgerResponse ledger(UUID operationId) {
+  public LedgerResponse ledger(UUID operationId, Jwt jwt) {
     AccountOperationEntity operation =
         operations
             .findById(operationId)
             .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "LEDGER_NOT_FOUND"));
+    // Ledger operation IDs do not grant permission to inspect another customer's history.
+    // Allow participants and admins, but refuse before fetching or mapping sensitive entries.
+    if (jwt == null
+        || (!isAdmin(jwt)
+            && !jwt.getSubject().equals(String.valueOf(findAccount(operation.getSourceAccountId()).getOwnerUserId()))
+            && !jwt.getSubject().equals(String.valueOf(findAccount(operation.getDestinationAccountId()).getOwnerUserId())))) {
+      throw Support.fail(HttpStatus.FORBIDDEN, "NOT_LEDGER_PARTICIPANT");
+    }
     List<LedgerEntryEntity> entries =
         ledgerEntries.findByTransactionIdOrderByEntryType(operationId);
     if (entries.isEmpty()) throw Support.fail(HttpStatus.NOT_FOUND, "LEDGER_NOT_FOUND");
