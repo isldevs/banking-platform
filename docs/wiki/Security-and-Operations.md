@@ -44,7 +44,7 @@ Development defaults to fail-open on a Redis outage; QA, stage and prod default 
 
 These are static-code findings, **not** outcomes of a completed security audit or test run:
 
-1. Account-opening retry responses enforce the normal owner/admin authorization check. Idempotency keys are still globally unique, so a future migration should scope keys by principal/client to prevent cross-client key collisions.
+1. Account-opening retries enforce owner/admin authorization and keys are uniquely scoped by the authenticated JWT subject. Migration V4 backfills prior requests from account ownership; legacy admin-initiated retries may need new keys. Same-principal concurrent first attempts still need integration testing to ensure predictable retry responses.
 2. Authorized demo funding can transfer from seeded system clearing accounts with `FUNDING_ENABLED=true`. A real bank must require verified settlement evidence and controlled posting authority.
 3. Internal `X-Service-Key` is a shared demo mechanism, not strong per-workload identity. Move toward scoped, short-lived credentials and mTLS.
 4. `/api/accounts/funding/{instructionId}/post` is technically gateway-routed and protected with a service key. Separate this from end-user channels and authenticate trusted settlement callers more strongly.
