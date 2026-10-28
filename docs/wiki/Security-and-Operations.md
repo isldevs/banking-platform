@@ -1,6 +1,6 @@
 # Security and Operations
 
-> This is a demo. Do not treat these controls as sufficient for a real banking deployment.
+> **Development/demo only.** Not approved for production banking, real funds, regulated customer data or production settlement. Roadmap controls are not implemented security measures.
 
 ## Authentication and authorization
 
@@ -26,7 +26,7 @@ Most `/internal/**` endpoints are service-only. The initial-funding settlement r
 
 ## Gateway rate limiting
 
-Redis-backed fixed-window rate limiting protects `/api/**` at the Gateway.
+Redis-backed fixed-window rate limiting exists at the Gateway, but it is **disabled by default** (`GATEWAY_RATE_LIMIT_ENABLED=false`) in checked-in environment configs. The following values apply **only when enabled**:
 
 | Rule | Default |
 |---|---:|
@@ -38,7 +38,18 @@ Redis-backed fixed-window rate limiting protects `/api/**` at the Gateway.
 
 Authenticated requests use JWT subject as the rate-limit identity. Anonymous requests use client IP. Responses expose `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`; blocked requests return `429` and `Retry-After`.
 
-Development is configured to fail open on Redis failure. Production-like environments should set this policy explicitly after deciding whether availability or strict abuse protection is the priority.
+Development defaults to fail-open on a Redis outage; QA, stage and prod default to fail-closed **if the limiter is enabled**. Document and test the actual desired behavior in each deployment.
+
+## Security and correctness gaps identified in code review
+
+These are static-code findings, **not** outcomes of a completed security audit or test run:
+
+1. Account-opening idempotency retries currently look up the stored key and return an account before rechecking the authenticated caller's ownership. Scope keys by principal/client and authorize the retry response.
+2. Authorized demo funding can transfer from seeded system clearing accounts with `FUNDING_ENABLED=true`. A real bank must require verified settlement evidence and controlled posting authority.
+3. Internal `X-Service-Key` is a shared demo mechanism, not strong per-workload identity. Move toward scoped, short-lived credentials and mTLS.
+4. `/api/accounts/funding/{instructionId}/post` is technically gateway-routed and protected with a service key. Separate this from end-user channels and authenticate trusted settlement callers more strongly.
+5. The implemented paired ledger entries do not yet constitute an enterprise GL, immutable journal subsystem or reversal workflow.
+6. Transfer recovery retries ambiguous operations using a stable ID; the future workflow should explicitly verify committed financial operation status and distinguish transient from permanent failures.
 
 ## Financial consistency
 
@@ -48,7 +59,7 @@ Development is configured to fail open on Redis failure. Production-like environ
 - Opening with initial funding creates a funding instruction; money is credited only through settlement posting.
 - Settlement posting is idempotent by funding instruction/external reference.
 - Transfer commands require a retry/idempotency strategy.
-- Never delete a posted financial record to correct history; use a compensating/reversal workflow when one is implemented.
+- Never delete a posted financial record to correct history. A controlled reversal/compensating operation is **planned**; it is not an implemented customer-facing API yet.
 - Audit records are traceability evidence and do not replace reconciliation.
 
 ## Observability
@@ -56,6 +67,10 @@ Development is configured to fail open on Redis failure. Production-like environ
 Services expose health/info/metrics endpoints according to environment configuration. Use `X-Correlation-Id` to connect logs and cross-service requests where supported.
 
 Never log Authorization headers, passwords, refresh tokens, client secrets, private keys, or service credentials.
+
+## Target enterprise controls (not implemented)
+
+Enhanced KYC/CDD, sanctions and PEP screening, AML/transaction monitoring, fraud decisions, maker-checker, HSM-backed keys, workload identity/mTLS, legal-entity isolation, immutable GL journal, EOD reconciliation, regulated reporting, and tested business continuity/disaster recovery are all **future design work**.
 
 ## Operational checklist
 
@@ -69,6 +84,7 @@ Before using a shared environment:
 - [ ] Confirm rate-limit behavior and Redis failure policy.
 - [ ] Verify financial idempotency, concurrency and reconciliation paths.
 - [ ] Verify backups, retention, alerts and incident procedures.
-- [ ] Run automated tests and security checks before merge/deployment.
+- [ ] Run financial concurrency, retry, rollback, recovery and security tests before merging.
+- [ ] Repair missing CI demo scripts before representing end-to-end workflow as validated.
 
-Related pages: [[Authentication-and-OAuth2]], [[Configuration]], [[Development-and-Delivery]].
+Related pages: [Authentication and OAuth2](Authentication-and-OAuth2.md), [Configuration](Configuration.md), [Development and Delivery](Development-and-Delivery.md).
