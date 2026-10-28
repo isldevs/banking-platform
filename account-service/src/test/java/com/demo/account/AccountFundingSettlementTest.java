@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -121,8 +122,8 @@ class AccountFundingSettlementTest {
         assertEquals(new BigDecimal("-100.00"), sourceBalance.getLedgerBalance());
         assertEquals(new BigDecimal("100.00"), destinationBalance.getLedgerBalance());
         verify(operations).save(any(AccountOperationEntity.class));
-        verify(transactions).save(any(AccountTransactionEntity.class));
-        verify(ledgerEntries).save(any(LedgerEntryEntity.class));
+        verify(transactions, times(2)).save(any(AccountTransactionEntity.class));
+        verify(ledgerEntries, times(2)).save(any(LedgerEntryEntity.class));
         verify(fundingInstructions).save(instruction);
     }
 
