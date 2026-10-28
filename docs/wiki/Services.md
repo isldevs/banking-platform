@@ -41,7 +41,7 @@ Owns accounts, balances, funding instructions, financial operations and current 
 | `GET /api/accounts/{id}` | `ACCOUNT_READ` |
 | `POST /api/accounts/{id}/freeze` | `ACCOUNT_FREEZE` |
 | `POST /api/accounts/{id}/fund` | `ACCOUNT_FUND` |
-| `GET /api/accounts/ledger/{operationId}` | `ACCOUNT_FUND` |
+| `GET /api/accounts/ledger/{operationId}` | `ACCOUNT_READ` + source/destination account ownership or `ADMIN` role |
 | `POST /api/accounts/funding/{instructionId}/post` | `X-Service-Key` + `X-External-Reference` |
 | `POST /internal/accounts/transfer` | `X-Service-Key` |
 | `GET /internal/accounts/operations/{id}` | `X-Service-Key` |

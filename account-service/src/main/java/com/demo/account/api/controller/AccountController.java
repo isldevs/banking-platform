@@ -62,9 +62,9 @@ public class AccountController {
   }
 
   @GetMapping("/api/accounts/ledger/{operationId}")
-  @PreAuthorize("hasAuthority('ACCOUNT_FUND')")
-  public LedgerResponse ledger(@PathVariable UUID operationId) {
-    return accountingService.ledger(operationId);
+  @PreAuthorize("hasAuthority('ACCOUNT_READ')")
+  public LedgerResponse ledger(@PathVariable UUID operationId, @AuthenticationPrincipal Jwt jwt) {
+    return accountingService.ledger(operationId, jwt);
   }
 
   @PostMapping("/internal/accounts/transfer")

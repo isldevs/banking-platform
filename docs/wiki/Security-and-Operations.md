@@ -8,6 +8,7 @@
 - Access tokens are RSA-signed JWTs with a 15-minute lifetime.
 - Gateway and protected downstream services validate JWTs independently.
 - Downstream services enforce permissions and ownership; never rely only on Gateway authorization.
+- Ledger reads require `ACCOUNT_READ` and source/destination ownership or admin; knowing an operation UUID is not authorization.
 - Do not trust client-supplied user identity when the authenticated JWT subject is available.
 
 ## Refresh tokens and secrets
