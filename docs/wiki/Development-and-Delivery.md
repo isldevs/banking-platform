@@ -2,7 +2,7 @@
 
 ## Repository structure
 
-The workspace contains eight independent Spring Boot builds coordinated by a root Gradle composite build:
+The `isldevs/banking-platform` workspace contains eight independent Spring Boot builds coordinated by a root Gradle composite build:
 
 ```text
 config-service/
@@ -20,34 +20,41 @@ docs/
 
 Each service has its own `settings.gradle` and `build.gradle`. The root `settings.gradle` uses `includeBuild(...)`; this is not a single multi-project Gradle build.
 
+## Toolchain
+
+- Current Java toolchains and CI: **JDK 17**, Spring Boot 3.3.x.
+- Committed Gradle wrapper: **8.13** (`gradlew`, `gradlew.bat`, `gradle/wrapper/`).
+- GitHub Actions installs Gradle **8.10.2** separately; align wrapper and CI in a follow-up.
+- The project is a Gradle composite build, not one cross-service JPA module.
+
 ## Build and test
 
 From the repository root:
 
 ```bash
-gradle showServices
-gradle buildAll
-gradle testAll
-gradle checkAll
-gradle bootJarAll
-gradle cleanAll
+./gradlew showServices
+./gradlew buildAll
+./gradlew testAll
+./gradlew checkAll
+./gradlew bootJarAll
+./gradlew cleanAll
 ```
 
 Formatting:
 
 ```bash
-gradle spotlessApplyAll
-gradle spotlessCheckAll
+./gradlew spotlessApplyAll
+./gradlew spotlessCheckAll
 ```
 
 Target one service through the composite build, for example:
 
 ```bash
-gradle :account-service:test
-gradle :gateway-service:bootJar
+./gradlew :account-service:test
+./gradlew :gateway-service:bootJar
 ```
 
-Or work directly inside a service directory with the approved Gradle installation.
+On Windows use `.\gradlew.bat`. For service-only work, run the composite task from the root or use an approved standalone Gradle setup inside the service directory.
 
 ## Runtime-contract validation
 
@@ -55,7 +62,9 @@ Or work directly inside a service directory with the approved Gradle installatio
 
 ## CI
 
-GitHub Actions provides build/test and CodeQL workflows. Do not report a queued or unavailable workflow as passed; inspect the actual workflow conclusion and logs before merging.
+GitHub Actions defines build/test and CodeQL workflows. The Docker demo job currently references **missing** `infrastructure/scripts/init-local.sh` and `infrastructure/scripts/demo_flow.py`; do not claim that end-to-end job is validated. No committed Postman export or Native Git workspace exists in the current tree. Inspect the actual workflow conclusion/logs, rather than assuming a defined workflow has passed.
+
+The Windows local setup helper is `scripts/setup-local.ps1`. It provisions local environment and JWT material but does not actually start Docker. Internal microservice host ports are not all published by Compose.
 
 ## Change workflow
 
@@ -70,8 +79,17 @@ GitHub Actions provides build/test and CodeQL workflows. Do not report a queued 
 9. Run targeted tests and the root verification tasks.
 10. Open a focused PR with behavior, test evidence and migration/operational notes.
 
+## Banking-specific engineering standards
+
+- Preserve a stable financial operation ID across retries and ambiguous outcomes.
+- Keep posting operations and balanced debit/credit journal entries in one atomic boundary.
+- Validate money precision per currency, account ownership, idempotency and concurrency.
+- Add PostgreSQL integration tests, failure-injection tests and reconciliation checks before expanding international payment support.
+- Distinguish current implementation from proposed general ledger, AML/FX, payment-rail and lending capabilities in all documentation.
+- Review producer outbox and Kafka consumer behavior for at-least-once delivery and duplicates.
+
 ## Documentation rule
 
 `docs/wiki/` is the canonical project documentation set. Avoid creating duplicate API references, architecture descriptions, or configuration guides elsewhere. Root and service READMEs should summarize and link to the canonical pages.
 
-Related pages: [[Architecture]], [[Services]], [[API-Reference]].
+Related pages: [Architecture](Architecture.md), [Services](Services.md), [API Reference](API-Reference.md).
