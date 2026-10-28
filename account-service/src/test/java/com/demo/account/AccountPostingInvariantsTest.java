@@ -174,6 +174,28 @@ class AccountPostingInvariantsTest {
   }
 
   @Test
+  void freezingAnAccountUsesThePostingRowLock() {
+    service.freeze(SOURCE_ID);
+
+    assertEquals("FROZEN", source.getStatus());
+    assertEquals(1L, source.getVersion());
+    verify(accounts).findByIdForUpdate(SOURCE_ID);
+    verify(accounts, never()).findById(SOURCE_ID);
+  }
+
+  @Test
+  void frozenAccountCannotBeDebited() {
+    source.setStatus("FROZEN");
+
+    ResponseStatusException exception =
+        assertThrows(ResponseStatusException.class, () -> service.post(command("40.00")));
+
+    assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, exception.getStatusCode());
+    verify(operations, never()).save(any(AccountOperationEntity.class));
+    verifyNoInteractions(transactions, ledgerEntries);
+  }
+
+  @Test
   void lockingOrderIsIndependentOfTransferDirection() {
     destination.setOwnerUserId(USER_ID);
 
