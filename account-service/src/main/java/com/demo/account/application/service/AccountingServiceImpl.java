@@ -428,67 +428,92 @@ public class AccountingServiceImpl implements AccountingService {
     @Transactional
     public void post(TransferCommand command) {
         if (command.transferId() == null || command.sourceAccountId() == null || command.destinationAccountId() == null || command.requestedBy() == null)
-            throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_TRANSFER");
+            throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_TRANSFER_FIELDS");
         if (command.sourceAccountId().equals(command.destinationAccountId()))
-            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "SELF_TRANSFER_NOT_ALLOWED");
-        AccountEntity source = accounts.findByIdForUpdate(command.sourceAccountId())
-                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "SOURCE_ACCOUNT_NOT_FOUND"));
-        AccountEntity destination = accounts.findByIdForUpdate(command.destinationAccountId())
-                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "DESTINATION_ACCOUNT_NOT_FOUND"));
+            throw Support.fail(HttpStatus.BAD_REQUEST, "SAME_ACCOUNT");
+
+        BigDecimal amount = money(command.amount(), command.currency(), false);
+        UUID first = command.sourceAccountId().compareTo(command.destinationAccountId()) < 0 ? command.sourceAccountId() : command.destinationAccountId();
+        UUID second = first.equals(command.sourceAccountId()) ? command.destinationAccountId() : command.sourceAccountId();
+        AccountEntity firstAccount = accounts.findByIdForUpdate(first)
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+        AccountEntity secondAccount = accounts.findByIdForUpdate(second)
+                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+        AccountEntity source = firstAccount.getId().equals(command.sourceAccountId()) ? firstAccount : secondAccount;
+        AccountEntity destination = firstAccount.getId().equals(command.destinationAccountId()) ? firstAccount : secondAccount;
+        AccountBalanceEntity sourceBalance = findBalance(source.getId());
+        AccountBalanceEntity destinationBalance = findBalance(destination.getId());
+
+        var existing = operations.findById(command.transferId());
+        if (existing.isPresent()) {
+            AccountOperationEntity prior = existing.get();
+            if (!prior.getSourceAccountId().equals(command.sourceAccountId()) || !prior.getDestinationAccountId().equals(command.destinationAccountId())
+                    || prior.getAmount().compareTo(amount) != 0 || !prior.getCurrency().equals(command.currency()) || !prior.getRequestedBy().equals(command.requestedBy()))
+                throw Support.fail(HttpStatus.CONFLICT, "OPERATION_ID_REUSED");
+            return;
+        }
+
         if (!"ACTIVE".equals(source.getStatus()) || !"ACTIVE".equals(destination.getStatus()))
             throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "ACCOUNT_NOT_ACTIVE");
-        if (!source.getCurrency().equals(command.currency()) || !destination.getCurrency().equals(command.currency()))
+        if (!command.currency().equals(source.getCurrency()) || !command.currency().equals(destination.getCurrency()))
             throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "CURRENCY_MISMATCH");
-        BigDecimal amount = money(command.amount(), command.currency(), false);
-        AccountBalanceEntity sourceBalance = balances.findByIdForUpdate(source.getId())
-                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "SOURCE_BALANCE_NOT_FOUND"));
-        AccountBalanceEntity destinationBalance = balances.findByIdForUpdate(destination.getId())
-                .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "DESTINATION_BALANCE_NOT_FOUND"));
-        if (sourceBalance.getAvailableBalance().compareTo(amount) < 0)
-            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INSUFFICIENT_FUNDS");
+        if (!"SYSTEM".equals(source.getAccountType()) && !command.requestedBy().equals(String.valueOf(source.getOwnerUserId())))
+            throw Support.fail(HttpStatus.FORBIDDEN, "NOT_ACCOUNT_OWNER");
+        if (!"SYSTEM".equals(source.getAccountType()) && sourceBalance.getAvailableBalance().compareTo(amount) < 0)
+            throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INSUFFICIENT_BALANCE");
+        if ("SYSTEM".equals(source.getAccountType()) && !"SYSTEM".equals(command.requestedBy()))
+            throw Support.fail(HttpStatus.FORBIDDEN, "RESERVED_ACCOUNT");
+
+        AccountOperationEntity operation = new AccountOperationEntity();
+        operation.setOperationId(command.transferId());
+        operation.setSourceAccountId(command.sourceAccountId());
+        operation.setDestinationAccountId(command.destinationAccountId());
+        operation.setAmount(amount);
+        operation.setCurrency(command.currency());
+        operation.setRequestedBy(command.requestedBy());
+        operation.setStatus("COMMITTED");
+        operations.save(operation);
+
         sourceBalance.setLedgerBalance(sourceBalance.getLedgerBalance().subtract(amount));
         sourceBalance.setAvailableBalance(sourceBalance.getAvailableBalance().subtract(amount));
         sourceBalance.setUpdatedAt(Instant.now());
         destinationBalance.setLedgerBalance(destinationBalance.getLedgerBalance().add(amount));
         destinationBalance.setAvailableBalance(destinationBalance.getAvailableBalance().add(amount));
         destinationBalance.setUpdatedAt(Instant.now());
+        balances.save(sourceBalance);
+        balances.save(destinationBalance);
 
-        AccountOperationEntity operation = new AccountOperationEntity();
-        operation.setId(command.transferId());
-        operation.setType("TRANSFER");
-        operation.setStatus("POSTED");
-        operation.setRequestedBy(command.requestedBy());
-        operation.setCreatedAt(Instant.now());
-        operations.save(operation);
+        saveTransaction(command, "DEBIT");
+        saveTransaction(command, "CREDIT");
+        saveLedger(command, "DEBIT");
+        saveLedger(command, "CREDIT");
+        source.setVersion(source.getVersion() + 1);
+        destination.setVersion(destination.getVersion() + 1);
+        accounts.save(source);
+        accounts.save(destination);
+    }
 
-        AccountTransactionEntity transaction = new AccountTransactionEntity();
-        transaction.setId(command.transferId());
-        transaction.setOperationId(command.transferId());
-        transaction.setSourceAccountId(source.getId());
-        transaction.setDestinationAccountId(destination.getId());
-        transaction.setAmount(amount);
-        transaction.setCurrency(command.currency());
-        transaction.setCreatedAt(Instant.now());
-        transactions.save(transaction);
+    private void saveTransaction(TransferCommand c, String type) {
+        AccountTransactionEntity tx = new AccountTransactionEntity();
+        tx.setId(UUID.randomUUID());
+        tx.setOperationId(c.transferId());
+        tx.setAccountId("DEBIT".equals(type) ? c.sourceAccountId() : c.destinationAccountId());
+        tx.setTransactionType(type);
+        tx.setAmount(money(c.amount(), c.currency(), false));
+        tx.setCurrency(c.currency());
+        tx.setReferenceId(c.transferId());
+        transactions.save(tx);
+    }
 
-        LedgerEntryEntity debit = new LedgerEntryEntity();
-        debit.setId(UUID.randomUUID());
-        debit.setTransactionId(command.transferId());
-        debit.setAccountId(source.getId());
-        debit.setEntryType("DEBIT");
-        debit.setAmount(amount);
-        debit.setCurrency(command.currency());
-        debit.setCreatedAt(Instant.now());
-        ledgerEntries.save(debit);
-
-        LedgerEntryEntity credit = new LedgerEntryEntity();
-        credit.setId(UUID.randomUUID());
-        credit.setTransactionId(command.transferId());
-        credit.setAccountId(destination.getId());
-        credit.setEntryType("CREDIT");
-        credit.setAmount(amount);
-        credit.setCurrency(command.currency());
-        credit.setCreatedAt(Instant.now());
-        ledgerEntries.save(credit);
+    private void saveLedger(TransferCommand c, String type) {
+        LedgerEntryEntity entry = new LedgerEntryEntity();
+        entry.setId(UUID.randomUUID());
+        entry.setTransactionId(c.transferId());
+        entry.setAccountId("DEBIT".equals(type) ? c.sourceAccountId() : c.destinationAccountId());
+        entry.setEntryType(type);
+        entry.setAmount(money(c.amount(), c.currency(), false));
+        entry.setCurrency(c.currency());
+        entry.setCreatedAt(Instant.now());
+        ledgerEntries.save(entry);
     }
 }
