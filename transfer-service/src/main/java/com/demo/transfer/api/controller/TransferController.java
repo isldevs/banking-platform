@@ -1,6 +1,7 @@
 package com.demo.transfer.api.controller;
 
 import com.demo.transfer.application.service.TransferService;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,7 +27,7 @@ public class TransferController {
   @PostMapping
   @PreAuthorize("hasAuthority('TRANSFER_CREATE')")
   public Map<String, Object> create(
-      @RequestHeader(value = "Idempotency-Key", required = false) String key,
+      @RequestHeader("Idempotency-Key") String key,
       @RequestBody TransferService.NewTransfer request,
       @AuthenticationPrincipal Jwt jwt) {
     return service.create(request, UUID.fromString(jwt.getSubject()), key);
@@ -35,7 +36,8 @@ public class TransferController {
   @GetMapping("/{id}")
   @PreAuthorize("hasAuthority('TRANSFER_READ')")
   public Map<String, Object> view(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-    return service.view(
-        id, UUID.fromString(jwt.getSubject()), jwt.getClaimAsStringList("roles").contains("ADMIN"));
+    List<String> roles = jwt.getClaimAsStringList("roles");
+    boolean admin = roles != null && roles.contains("ADMIN");
+    return service.view(id, UUID.fromString(jwt.getSubject()), admin);
   }
 }
