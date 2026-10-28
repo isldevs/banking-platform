@@ -1,6 +1,6 @@
 # account-service
 
-Java 21 / Spring Boot service on port `8083`. Account Service owns the `account` database and is the financial accounting boundary for customer accounts, balances, funding, operations, and ledger entries.
+Java 17 / Spring Boot service on port `8083`. Account Service owns the `account` database and is the financial accounting boundary for customer accounts, balances, funding, operations, and ledger entries.
 
 ## Responsibilities
 
@@ -44,11 +44,12 @@ cd infrastructure
 docker compose up --build -d
 ```
 
-Or build/test this service directly from its directory with the approved Gradle installation:
+Or build/test this service directly from its directory with the committed Gradle wrapper:
 
 ```bash
-gradle test
-gradle build
+cd account-service
+../gradlew test
+../gradlew build
 ```
 
 See [Getting Started](../docs/wiki/Getting-Started.md), [Account/API reference](../docs/wiki/API-Reference.md), and [Database ownership](../docs/DATABASES.md) for the canonical documentation.

@@ -1,6 +1,6 @@
 # notification-service
 
-Java 21 / Spring Boot Kafka consumer on port `8085`. Notification Service owns the `notification` database and processes asynchronous events into user-facing in-app notifications.
+Java 17 / Spring Boot Kafka consumer on port `8085`. Notification Service owns the `notification` database and processes asynchronous events into user-facing in-app notifications.
 
 ## Responsibilities
 

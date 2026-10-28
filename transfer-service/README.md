@@ -1,6 +1,6 @@
 # transfer-service
 
-Java 21 / Spring Boot service on port `8084`. Transfer Service owns the `transfer` database and the transfer workflow boundary.
+Java 17 / Spring Boot service on port `8084`. Transfer Service owns the `transfer` database and the transfer workflow boundary.
 
 ## Responsibilities
 
@@ -12,7 +12,7 @@ Java 21 / Spring Boot service on port `8084`. Transfer Service owns the `transfe
 
 ## APIs
 
-- `POST /api/transfers` — requires `TRANSFER_CREATE`; accepts optional `Idempotency-Key`.
+- `POST /api/transfers` — requires `TRANSFER_CREATE`; requires a valid `Idempotency-Key` (8–200 characters: letters, digits, `.`, `_`, `:`, `-`).
 - `GET /api/transfers/{id}` — requires `TRANSFER_READ`.
 
 The authenticated user comes from the JWT subject. Clients must not use request-body identity fields to impersonate another user.

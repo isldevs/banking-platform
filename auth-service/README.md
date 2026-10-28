@@ -1,6 +1,6 @@
 # auth-service
 
-Java 21 / Spring Boot service on port `8081`. Auth Service owns the `auth` PostgreSQL database and acts as the platform's Spring Authorization Server / OpenID Connect Provider.
+Java 17 / Spring Boot service on port `8081`. Auth Service owns the `auth` PostgreSQL database and acts as the platform's Spring Authorization Server / OpenID Connect Provider.
 
 ## Responsibilities
 
@@ -46,6 +46,6 @@ cd infrastructure
 docker compose up --build -d
 ```
 
-For service-only development, start Config Service and PostgreSQL first, then run this independent Gradle build with Java 21.
+For service-only development, start Config Service and PostgreSQL first, then run this independent Gradle build with Java 17.
 
 See [Authentication and OAuth2](../docs/wiki/Authentication-and-OAuth2.md) and [API Reference](../docs/wiki/API-Reference.md) for the canonical client and endpoint documentation.

@@ -1,6 +1,6 @@
 # audit-service
 
-Java 21 / Spring Boot Kafka consumer on port `8086`. Audit Service owns the `audit` database and records transfer-related audit events for traceability.
+Java 17 / Spring Boot Kafka consumer on port `8086`. Audit Service owns the `audit` database and records transfer-related audit events for traceability.
 
 ## Responsibilities
 
