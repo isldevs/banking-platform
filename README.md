@@ -150,7 +150,7 @@ The sequence is a **target business workflow**. Actual bank/payment-rail rules v
 - Git.
 - The committed **Gradle wrapper** (currently configured for Gradle 8.13); no separate Gradle installation is required for normal local commands.
 
-> Some older documentation still mentions Java 21 or an absent Gradle wrapper. The build files, wrapper and CI are the current source of truth. The CI workflow currently uses Gradle 8.10.2; these versions should be aligned in a follow-up maintenance change.
+> Some older documentation still mentions Java 21 or an absent Gradle wrapper. The build files, wrapper and CI are the current source of truth. CI uses the committed Gradle 8.13 wrapper instead of installing another Gradle version.
 
 ### Clone and build
 
@@ -255,7 +255,7 @@ This is a **development/demo system**, not a production banking solution. In par
 - `X-Service-Key` is a demonstration service-to-service credential, not a substitute for workload identity, mTLS, scoped authorization and proper key management.
 - A complete enterprise posting engine/general ledger, AML screening, clearing rails, regulated reporting, and international payment settlement **are not implemented**.
 - More integration, concurrency, security and disaster-recovery testing is required. A successful unit build alone does not establish financial correctness.
-- Some existing documentation and CI references are out of sync with the current tree (for example, missing Postman exports and demo-flow scripts); track and resolve these before relying on end-to-end automation.
+- Postman collection assets and a true end-to-end banking flow are not yet covered by CI. The Docker job verifies health/readiness, not financial business outcomes.
 
 Never use actual banking credentials, regulated customer data or real funds with this project.
 
