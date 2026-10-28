@@ -116,7 +116,9 @@ public class AccountingServiceImpl implements AccountingService {
   @Transactional
   public AccountResponse open(OpenAccount request, Jwt jwt, String idempotencyKey) {
     String key = normalizeIdempotencyKey(idempotencyKey);
-    AccountOpeningRequestEntity previous = openingRequests.findById(key).orElse(null);
+    UUID principalId = UUID.fromString(jwt.getSubject());
+    AccountOpeningRequestEntity previous =
+        openingRequests.findByPrincipalIdAndIdempotencyKey(principalId, key).orElse(null);
     if (previous != null) {
       validateIdempotentRetry(previous, request);
       // Idempotent retries must enforce the same account ownership policy as regular reads.
@@ -193,6 +195,8 @@ public class AccountingServiceImpl implements AccountingService {
     holders.save(holder);
 
     AccountOpeningRequestEntity opening = new AccountOpeningRequestEntity();
+    opening.setId(UUID.randomUUID());
+    opening.setPrincipalId(principalId);
     opening.setIdempotencyKey(key);
     opening.setCustomerId(request.customerId());
     opening.setAccountId(id);
@@ -211,7 +215,8 @@ public class AccountingServiceImpl implements AccountingService {
       instruction.setCurrency(currency);
       instruction.setChannel(fundingChannel);
       instruction.setStatus("PENDING_SETTLEMENT");
-      instruction.setIdempotencyKey(key + ":INITIAL_DEPOSIT");
+      // Account identity keeps funding instructions distinct when clients reuse keys.
+      instruction.setIdempotencyKey(id + ":INITIAL_DEPOSIT");
       instruction.setCreatedAt(Instant.now());
       fundingInstructions.save(instruction);
     }
