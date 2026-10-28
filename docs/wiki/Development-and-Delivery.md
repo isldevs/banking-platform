@@ -24,7 +24,7 @@ Each service has its own `settings.gradle` and `build.gradle`. The root `setting
 
 - Current Java toolchains and CI: **JDK 17**, Spring Boot 3.3.x.
 - Committed Gradle wrapper: **8.13** (`gradlew`, `gradlew.bat`, `gradle/wrapper/`).
-- GitHub Actions installs Gradle **8.10.2** separately; align wrapper and CI in a follow-up.
+- GitHub Actions executes the committed Gradle **8.13** wrapper.
 - The project is a Gradle composite build, not one cross-service JPA module.
 
 ## Build and test
@@ -62,7 +62,7 @@ On Windows use `.\gradlew.bat`. For service-only work, run the composite task fr
 
 ## CI
 
-GitHub Actions defines build/test and CodeQL workflows. The Docker demo job currently references **missing** `infrastructure/scripts/init-local.sh` and `infrastructure/scripts/demo_flow.py`; do not claim that end-to-end job is validated. No committed Postman export or Native Git workspace exists in the current tree. Inspect the actual workflow conclusion/logs, rather than assuming a defined workflow has passed.
+GitHub Actions defines build/test and CodeQL workflows. The Docker smoke job generates ephemeral credentials using `infrastructure/scripts/init-local.sh` and verifies service health. It does **not** run financial end-to-end workflows or ledger assertions. No committed Postman export or Native Git workspace exists in the current tree. Inspect the actual workflow conclusion/logs, rather than assuming a defined workflow has passed.
 
 The Windows local setup helper is `scripts/setup-local.ps1`. It provisions local environment and JWT material but does not actually start Docker. Internal microservice host ports are not all published by Compose.
 
