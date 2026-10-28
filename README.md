@@ -86,6 +86,129 @@ The versioned documentation has one canonical API reference under `docs/wiki/API
 
 Postman assets are under `docs/postman/`.
 
+## Postman Native Git workflow
+
+This repository uses Postman as the API development and testing client. The preferred long-term workflow is **Postman Native Git**, where Postman collections and environments are stored as files in the Git repository and synchronized with a shared Postman Cloud workspace when changes are ready to share.
+
+### Current Postman layout
+
+The repository currently contains exported Postman files under `docs/postman/`:
+
+- `docs/postman/iSLDevs-Banking-API.postman_collection.json`
+- `docs/postman/iSLDevs-Banking-Local.postman_environment.json`
+
+These are the current portable exports. Do not manually create Postman's Native Git YAML structure. During migration, let the Postman desktop app create `.postman/` and `postman/` and then verify the generated files before removing the legacy JSON exports.
+
+### Native Git setup
+
+Postman Native Git requires the Postman desktop app. For this repository, use the following workflow:
+
+1. Make sure the local repository is on the integration branch and up to date:
+
+   ```bash
+   git checkout main
+   git pull
+   git status
+   ```
+
+2. Open the repository folder in the Postman desktop app using **Local Files** / **Open Folder**.
+
+3. Create or open the Postman workspace for the **iSLDevs Microservices Banking Platform** and connect the local repository folder to that workspace.
+
+4. Because this is a multi-service monorepo, Postman normally recommends one workspace per service folder. This project intentionally uses a **single platform-level Postman collection covering multiple services**, so the initial Native Git workspace should be connected to the **repository root**. Revisit this decision only if the collection is later split into service-specific workspaces.
+
+5. If Postman detects the existing collection/environment, connect the existing workspace and pull the existing Postman resources into the local project. Do not overwrite the existing exports until the Native Git version has been verified.
+
+6. Confirm that Postman creates these Native Git files/directories:
+
+   ```text
+   .postman/
+   postman/
+   ```
+
+   The `.postman/resources.yaml` manifest maps local resources to the Postman Cloud workspace. The `postman/` directory contains the Git-managed collections, environments, and other Postman resources.
+
+7. In Postman **Local View**, review the generated collection and environment. Use the Postman **Issues** panel to fix schema/path/file-format problems before syncing.
+
+8. Test the important platform flow locally:
+
+   ```text
+   Authentication
+     -> Create Customer
+     -> Approve Customer KYC
+     -> Open Account
+     -> Post Settled Initial Funding
+     -> Get Account
+     -> Create Transfer
+     -> Get Transfer
+   ```
+
+9. Verify that dynamic values such as `customer_id`, `account_id`, `instruction_id`, `operation_id`, `transfer_id`, and `idempotency_key` are captured/generated correctly before committing the Native Git files.
+
+10. Review the Git diff. Native Git changes should be treated like application source changes:
+
+   ```bash
+   git status
+   git diff
+   git add .postman postman
+   git commit -m "chore(postman): migrate API workspace to native git"
+   git push -u origin <feature-branch>
+   ```
+
+11. Open a pull request and merge through the normal repository workflow. The merged integration branch becomes the source of truth for Git-managed Postman resources.
+
+### Postman Cloud sync
+
+Use **Local View** for normal development. Push to Postman Cloud only after the Git diff has been reviewed and the local requests have been tested. Cloud View is the shared representation for teammates who work from Postman without cloning the repository.
+
+For this project, the intended direction is:
+
+```text
+Feature branch
+    |
+    v
+Postman Local View
+    |
+    v
+Git diff -> commit -> pull request -> merge to main
+    |
+    v
+Postman Cloud sync
+```
+
+Do not make conflicting manual edits in Cloud View and Local View at the same time. If a Cloud change must be preserved, pull it into the local Git workspace before pushing local changes.
+
+### Secrets and environment values
+
+Never commit real passwords, OAuth client secrets, JWT signing material, service keys, or other credentials in Postman resources. Keep local-only values in Postman and use Postman Vault or another approved secret mechanism for sensitive values. Commit only non-sensitive shared values required by the project.
+
+The committed local environment should contain safe defaults such as local service URLs and empty placeholders for sensitive/runtime values. Review the Git diff before every Postman commit.
+
+### CI/CD: sync `main` to Postman Cloud
+
+After Native Git has been connected successfully and `.postman/resources.yaml` contains the real Postman workspace mapping, the repository can automate Cloud synchronization after a merge to `main` using the Postman CLI.
+
+The CI job should:
+
+1. Check out `main`.
+2. Install/authenticate the Postman CLI.
+3. Provide a protected `POSTMAN_API_KEY` repository secret.
+4. Run `postman workspace push` from the directory containing `.postman/resources.yaml`.
+5. Fail the workflow if the Native Git resources cannot be synchronized.
+
+Do not add a real Postman API key or workspace ID to source control. Configure them as repository/organization secrets or protected CI variables.
+
+### Native Git rules for this repository
+
+- **Git is the source of truth for reviewed API changes.**
+- **Postman Local View is the normal editing surface.**
+- **Postman Cloud is the shared/consumer view.**
+- Review Native Git YAML changes in pull requests just like Java/configuration changes.
+- Do not manually edit `.postman/resources.yaml` unless there is a specific Postman-supported reason.
+- Do not commit secrets.
+- Do not delete the legacy `docs/postman/*.json` exports until the Native Git migration is verified and the team agrees to remove them.
+- Keep the platform collection aligned with the actual gateway routes and current API contracts.
+
 ## Repository structure
 
 ```text
