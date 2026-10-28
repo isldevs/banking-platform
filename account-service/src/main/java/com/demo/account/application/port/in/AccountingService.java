@@ -25,7 +25,7 @@ public interface AccountingService {
   @Transactional
   AccountResponse fund(UUID id, Funding request);
 
-  LedgerResponse ledger(UUID operationId);
+  LedgerResponse ledger(UUID operationId, Jwt jwt);
 
   @Transactional
   AccountResponse internalTransfer(String key, TransferCommand command);
