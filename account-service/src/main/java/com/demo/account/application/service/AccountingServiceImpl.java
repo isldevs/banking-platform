@@ -245,7 +245,11 @@ public class AccountingServiceImpl implements AccountingService {
   @Override
   @Transactional
   public AccountResponse freeze(UUID id) {
-    AccountEntity account = findAccount(id);
+    // Serialize lifecycle changes against financial posting for the same account.
+    AccountEntity account =
+        accounts
+            .findByIdForUpdate(id)
+            .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
     if (!"CUSTOMER".equals(account.getAccountType()) || !"ACTIVE".equals(account.getStatus()))
       throw Support.fail(HttpStatus.CONFLICT, "ACCOUNT_FREEZE_INVALID");
     account.setStatus("FROZEN");
@@ -319,10 +323,15 @@ public class AccountingServiceImpl implements AccountingService {
     if (!"PENDING_SETTLEMENT".equals(instruction.getStatus()))
       throw Support.fail(HttpStatus.CONFLICT, "FUNDING_INSTRUCTION_NOT_POSTABLE");
 
+    // Acquire both settlement and customer account locks in the same canonical order
+    // as ordinary transfers. Locking the destination first could deadlock against
+    // a concurrent transfer from the settlement account into this account.
+    UUID sourceAccount = settlementAccountId(instruction.getChannel(), instruction.getCurrency());
+    if (sourceAccount.equals(instruction.getAccountId()))
+      throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_SETTLEMENT_ACCOUNT");
+    AccountEntity[] locked = lockAccountsInOrder(sourceAccount, instruction.getAccountId());
     AccountEntity destination =
-        accounts
-            .findByIdForUpdate(instruction.getAccountId())
-            .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+        locked[0].getId().equals(instruction.getAccountId()) ? locked[0] : locked[1];
     if (!"CUSTOMER".equals(destination.getAccountType()))
       throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_DESTINATION_INVALID");
     if (!"PENDING_FUNDING".equals(destination.getStatus()))
@@ -331,10 +340,6 @@ public class AccountingServiceImpl implements AccountingService {
       throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "CURRENCY_MISMATCH");
     if (instruction.getAmount() == null || instruction.getAmount().signum() <= 0)
       throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_FUNDING_AMOUNT");
-
-    UUID sourceAccount = settlementAccountId(instruction.getChannel(), instruction.getCurrency());
-    if (sourceAccount.equals(destination.getId()))
-      throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_SETTLEMENT_ACCOUNT");
 
     // post() deliberately requires ACTIVE accounts. Transition the opening account
     // inside this same transaction; if posting fails, the entire transaction rolls back.
@@ -463,6 +468,20 @@ public class AccountingServiceImpl implements AccountingService {
     }
   }
 
+  private AccountEntity[] lockAccountsInOrder(UUID leftId, UUID rightId) {
+    UUID first = leftId.compareTo(rightId) < 0 ? leftId : rightId;
+    UUID second = first.equals(leftId) ? rightId : leftId;
+    AccountEntity firstAccount =
+        accounts
+            .findByIdForUpdate(first)
+            .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+    AccountEntity secondAccount =
+        accounts
+            .findByIdForUpdate(second)
+            .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+    return new AccountEntity[] {firstAccount, secondAccount};
+  }
+
   @Transactional
   public void post(TransferCommand command) {
     if (command.transferId() == null
@@ -474,26 +493,12 @@ public class AccountingServiceImpl implements AccountingService {
       throw Support.fail(HttpStatus.BAD_REQUEST, "SAME_ACCOUNT");
 
     BigDecimal amount = money(command.amount(), command.currency(), false);
-    UUID first =
-        command.sourceAccountId().compareTo(command.destinationAccountId()) < 0
-            ? command.sourceAccountId()
-            : command.destinationAccountId();
-    UUID second =
-        first.equals(command.sourceAccountId())
-            ? command.destinationAccountId()
-            : command.sourceAccountId();
-    AccountEntity firstAccount =
-        accounts
-            .findByIdForUpdate(first)
-            .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
-    AccountEntity secondAccount =
-        accounts
-            .findByIdForUpdate(second)
-            .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+    AccountEntity[] locked =
+        lockAccountsInOrder(command.sourceAccountId(), command.destinationAccountId());
     AccountEntity source =
-        firstAccount.getId().equals(command.sourceAccountId()) ? firstAccount : secondAccount;
+        locked[0].getId().equals(command.sourceAccountId()) ? locked[0] : locked[1];
     AccountEntity destination =
-        firstAccount.getId().equals(command.destinationAccountId()) ? firstAccount : secondAccount;
+        locked[0].getId().equals(command.destinationAccountId()) ? locked[0] : locked[1];
     AccountBalanceEntity sourceBalance = findBalance(source.getId());
     AccountBalanceEntity destinationBalance = findBalance(destination.getId());
 
