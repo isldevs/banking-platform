@@ -27,7 +27,7 @@ security:
 
 gateway:
   rate-limit:
-    enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
+    enabled: ${GATEWAY_RATE_LIMIT_ENABLED:false}
     fail-open: ${GATEWAY_RATE_LIMIT_FAIL_OPEN:true}
     default-limit: ${GATEWAY_RATE_LIMIT_DEFAULT_LIMIT:60}
     default-window: ${GATEWAY_RATE_LIMIT_DEFAULT_WINDOW:1m}
