@@ -4,7 +4,7 @@ Java 17 / Spring Boot service on port `8083`. Account Service owns the `account`
 
 ## Responsibilities
 
-- Product-driven account opening with `Idempotency-Key`.
+- Product-driven account opening with `Idempotency-Key` unique per authenticated principal (database migration V4).
 - Account lifecycle and ownership.
 - Available and ledger balances.
 - Initial funding instructions and settlement posting.

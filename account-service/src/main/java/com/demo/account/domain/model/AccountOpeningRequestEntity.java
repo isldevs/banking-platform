@@ -12,7 +12,13 @@ import java.util.UUID;
 @Table(name = "account_opening_requests")
 public class AccountOpeningRequestEntity {
   @Id
-  @Column(name = "idempotency_key", length = 120)
+  @Column(nullable = false)
+  private UUID id;
+
+  @Column(name = "principal_id", nullable = false)
+  private UUID principalId;
+
+  @Column(name = "idempotency_key", nullable = false, length = 120)
   private String idempotencyKey;
 
   @Column(name = "customer_id", nullable = false)
@@ -35,6 +41,22 @@ public class AccountOpeningRequestEntity {
 
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
+
+  public UUID getId() {
+    return id;
+  }
+
+  public void setId(UUID id) {
+    this.id = id;
+  }
+
+  public UUID getPrincipalId() {
+    return principalId;
+  }
+
+  public void setPrincipalId(UUID principalId) {
+    this.principalId = principalId;
+  }
 
   public String getIdempotencyKey() {
     return idempotencyKey;
