@@ -12,7 +12,7 @@ config-service/src/main/resources/config/
 └── prod/
 ```
 
-Each environment contains shared `application.yml` plus service-specific files. There is no separate runtime `config-repo` checkout.
+Each environment contains **service-specific YAML** for the seven Config clients. No shared per-environment `application.yml` is present in the checked-in config tree; Config Service uses its own bootstrap `application.yml`. There is no runtime `config-repo` checkout.
 
 Application environment profiles are exactly:
 
@@ -40,7 +40,7 @@ Config Service itself does not depend on Config Server credentials or another co
 
 ## Runtime values
 
-The development configuration references runtime environment values for secrets and deployment-specific endpoints. Typical values include:
+The checked-in service YAML references environment values for secrets and endpoints. Example variable names are below; always confirm the precise property in the service profile YAML:
 
 ```text
 DATASOURCE_URL
@@ -60,7 +60,7 @@ AUTH_SERVICE_URL
 TRANSFER_SERVICE_URL
 NOTIFICATION_SERVICE_URL
 AUDIT_SERVICE_URL
-SPRING_KAFKA_BOOTSTRAP_SERVERS
+SPRING_KAFKA_BOOTSTRAPSERVERS
 REDIS_URL
 GATEWAY_RATE_LIMIT_ENABLED
 GATEWAY_RATE_LIMIT_FAIL_OPEN
@@ -70,13 +70,13 @@ Exact variables are service-specific; use the corresponding environment config f
 
 ## Local `.env`
 
-Create the ignored local environment from the committed example:
+Create the ignored local environment from the committed example; on Windows the provided `scripts/setup-local.ps1` initializes values and JWT material. No equivalent Linux/macOS setup script is present:
 
 ```text
 infrastructure/.env.example -> infrastructure/.env
 ```
 
-Edit the local `.env` with approved development values. Never commit it or real credentials.
+Populate every placeholder with local-only secrets. Do not commit `.env`, JWT signing keys or passwords. Note: the PowerShell helper only prepares files, it does not start Docker Compose.
 
 For the Docker stack, Compose reads these values directly and passes service-specific environment variables into containers.
 
@@ -94,7 +94,10 @@ notification-service:8085
 audit-service:8086
 kafka:9092
 redis:6379
+postgres:5432
 ```
+
+The current Compose exposes Gateway, Auth and Config Server to the host; Customer, Account, Transfer, Notification and Audit remain on the internal Compose network.
 
 Do not use `localhost` for service-to-service URLs inside containers.
 
@@ -105,17 +108,17 @@ The Gateway supports a default fixed-window rule plus endpoint-specific rules. T
 ```yaml
 gateway:
   rate-limit:
-    enabled: true
-    fail-open: true
+    enabled: ${GATEWAY_RATE_LIMIT_ENABLED:false}
+    fail-open: ${GATEWAY_RATE_LIMIT_FAIL_OPEN:true}
     default-limit: 60
     default-window: 1m
 ```
 
-Specific rules currently include 5/min for legacy login, 10/min for legacy refresh, 10/min for account-opening POSTs, and 10/min for transfer POSTs. Production-like environments should set fail-open explicitly according to the operational policy.
+**Limits are disabled until explicitly enabled.** When `GATEWAY_RATE_LIMIT_ENABLED=true`, rules include 5/min for legacy login, 10/min for legacy refresh, 10/min for account POST prefixes, 10/min for transfer POST prefixes, and 60/min as the default. QA, stage and prod default to fail-closed on Redis failure, while dev defaults to fail-open. Evaluate these policies and test them before deployment.
 
 ## REST JSON naming
 
-Shared configuration uses `SNAKE_CASE` at the HTTP boundary. Java properties and record components remain camelCase unless an endpoint has a documented exception.
+Jackson uses `SNAKE_CASE` for DTO/record JSON at the HTTP boundary; Java member names remain camelCase. **Current exception:** Transfer Service constructs Map response keys in camelCase (`sourceAccountId`, `destinationAccountId`). Treat that as a contract inconsistency to resolve in code.
 
 ## Promotion
 
@@ -123,6 +126,6 @@ Shared configuration uses `SNAKE_CASE` at the HTTP boundary. Java properties and
 dev -> qa -> stage -> prod
 ```
 
-Production secrets must come from the organization's approved secret-management system rather than copied local `.env` files.
+Promotion is a target release process, not proof that production infrastructure exists. Secrets for shared or production-grade environments must come from an approved secret manager rather than copied local `.env` files. `X-Service-Key` and seeded system clearing accounts are demo mechanisms, not approved global banking controls.
 
-Related pages: [[Getting-Started]], [[Security-and-Operations]].
+Related pages: [Getting Started](Getting-Started.md), [Security and Operations](Security-and-Operations.md).
