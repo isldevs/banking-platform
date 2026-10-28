@@ -411,7 +411,7 @@ public class AccountingServiceImpl implements AccountingService {
             throw Support.fail(HttpStatus.FORBIDDEN, "NOT_ACCOUNT_OWNER");
     }
 
-    private BigDecimal money(BigDecimal value, String currency, boolean allowZero) {
+    static BigDecimal money(BigDecimal value, String currency, boolean allowZero) {
         if (value == null || currency == null || !SUPPORTED_CURRENCIES.contains(currency)
                 || (!allowZero && value.signum() <= 0) || (allowZero && value.signum() < 0))
             throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_AMOUNT_OR_CURRENCY");
