@@ -1,6 +1,6 @@
 # gateway-service
 
-Java 21 / Spring Boot stateless API Gateway on port `8080`.
+Java 17 / Spring Boot stateless API Gateway on port `8080`.
 
 ## Responsibilities
 
