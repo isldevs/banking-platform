@@ -63,13 +63,15 @@ tasks.register('validateRuntimeContract') {
             }
         }
 
+        // Match legacy placeholders as complete variable references so the new
+        // SECURITY_* names are not rejected as false positives.
         def forbiddenRuntimePatterns = [
-                'AUTH_DATASOURCE_URL',
-                'AUTH_DATASOURCE_USERNAME',
-                'AUTH_DATASOURCE_PASSWORD',
-                'JWT_KEYSTORE_PASSWORD',
-                'JWT_ISSUER',
-                'JWT_AUDIENCE'
+                '${AUTH_DATASOURCE_URL',
+                '${AUTH_DATASOURCE_USERNAME',
+                '${AUTH_DATASOURCE_PASSWORD',
+                '${JWT_KEYSTORE_PASSWORD',
+                '${JWT_ISSUER',
+                '${JWT_AUDIENCE'
         ]
 
         fileTree('config-service/src/main/resources/config') {
