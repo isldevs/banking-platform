@@ -513,7 +513,6 @@ public class AccountingServiceImpl implements AccountingService {
         entry.setEntryType(type);
         entry.setAmount(money(c.amount(), c.currency(), false));
         entry.setCurrency(c.currency());
-        entry.setCreatedAt(Instant.now());
         ledgerEntries.save(entry);
     }
 }
