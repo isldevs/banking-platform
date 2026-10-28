@@ -54,21 +54,22 @@ class AccountLedgerAuthorizationTest {
 
   @BeforeEach
   void setUp() {
-    service = new AccountingServiceImpl(
-        accounts,
-        mock(AccountBalanceRepository.class),
-        mock(AccountHolderRepository.class),
-        mock(AccountOpeningRequestRepository.class),
-        operations,
-        mock(AccountProductRepository.class),
-        mock(AccountTransactionRepository.class),
-        mock(FundingInstructionRepository.class),
-        entries,
-        mapper,
-        mock(Support.class),
-        mock(FundingProperties.class),
-        mock(SettlementAccountProperties.class),
-        "http://localhost:8082");
+    service =
+        new AccountingServiceImpl(
+            accounts,
+            mock(AccountBalanceRepository.class),
+            mock(AccountHolderRepository.class),
+            mock(AccountOpeningRequestRepository.class),
+            operations,
+            mock(AccountProductRepository.class),
+            mock(AccountTransactionRepository.class),
+            mock(FundingInstructionRepository.class),
+            entries,
+            mapper,
+            mock(Support.class),
+            mock(FundingProperties.class),
+            mock(SettlementAccountProperties.class),
+            "http://localhost:8082");
 
     operation = new AccountOperationEntity();
     operation.setOperationId(OPERATION_ID);
