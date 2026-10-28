@@ -44,7 +44,7 @@ Development defaults to fail-open on a Redis outage; QA, stage and prod default 
 
 These are static-code findings, **not** outcomes of a completed security audit or test run:
 
-1. Account-opening idempotency retries currently look up the stored key and return an account before rechecking the authenticated caller's ownership. Scope keys by principal/client and authorize the retry response.
+1. Account-opening retry responses enforce the normal owner/admin authorization check. Idempotency keys are still globally unique, so a future migration should scope keys by principal/client to prevent cross-client key collisions.
 2. Authorized demo funding can transfer from seeded system clearing accounts with `FUNDING_ENABLED=true`. A real bank must require verified settlement evidence and controlled posting authority.
 3. Internal `X-Service-Key` is a shared demo mechanism, not strong per-workload identity. Move toward scoped, short-lived credentials and mTLS.
 4. `/api/accounts/funding/{instructionId}/post` is technically gateway-routed and protected with a service key. Separate this from end-user channels and authenticate trusted settlement callers more strongly.
