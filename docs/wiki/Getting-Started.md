@@ -2,31 +2,33 @@
 
 ## Prerequisites
 
-- Java 21 JDK.
-- Gradle 8.10.x or an approved equivalent build environment.
+- **Java 17 JDK**, matching current service Gradle toolchains and CI.
+- The committed Gradle wrapper (`gradlew` / `gradlew.bat`), configured for **Gradle 8.13**. The CI job independently installs Gradle 8.10.2; this mismatch should be resolved.
 - Git.
 - Docker Engine + Compose for the full local stack, or approved local PostgreSQL/Kafka/Redis services for non-container development.
 
-The repository does not ship a Gradle wrapper. Use an approved Gradle installation or development environment.
+The repository **does include** the Gradle wrapper. Run `./gradlew` on Linux/macOS or `.\gradlew.bat` on Windows PowerShell. The project is a Gradle composite build.
 
 ## Build and test
 
 From the repository root:
 
 ```bash
-gradle buildAll
-gradle testAll
-gradle checkAll
-gradle spotlessCheckAll
+./gradlew buildAll
+./gradlew testAll
+./gradlew checkAll
+./gradlew spotlessCheckAll
 ```
 
 To format all services:
 
 ```bash
-gradle spotlessApplyAll
+./gradlew spotlessApplyAll
 ```
 
 ## Full Docker Compose stack
+
+**Prepare secrets before starting the stack.** On Windows PowerShell run `./scripts/setup-local.ps1` (PowerShell syntax: `.\scripts\setup-local.ps1`) from the repository root. It generates local `.env` and JWT material but **does not actually start Compose**. On Linux/macOS prepare `infrastructure/.env` and JWT keystore/public certificate manually, using the committed example and Compose volume paths. The current repository has no committed Bash equivalent of the setup helper.
 
 From the repository root:
 
@@ -38,27 +40,30 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Compose provides:
+The following components are **published to the host** by the current Compose file:
 
 | Component | Host endpoint |
 |---|---|
 | Gateway | `http://localhost:8080` |
 | Auth | `http://localhost:8081` |
-| Customer | `http://localhost:8082` |
-| Account | `http://localhost:8083` |
-| Transfer | `http://localhost:8084` |
-| Notification | `http://localhost:8085` |
-| Audit | `http://localhost:8086` |
 | Config | `http://localhost:8888` |
 | PostgreSQL | `localhost:5439` |
 | Kafka | `localhost:29092` |
 | Redis | `localhost:6379` |
 
-Inside the Compose network, services use container DNS names and Kafka uses `kafka:9092`.
+Customer (`8082`), Account (`8083`), Transfer (`8084`), Notification (`8085`) and Audit (`8086`) are **not published on host ports** by the Compose file. Access their `/api/**` routes through Gateway, or reach them via service DNS names within the Compose network. Kafka uses `kafka:9092` inside Compose.
 
 ## Environment setup
 
-Create `infrastructure/.env` from `.env.example` and populate the required local values. The file is ignored by Git. Docker's JWT signing keystore and public key are mounted from ignored `infrastructure/secrets/` files when supplied by the local setup.
+The ignored `infrastructure/.env` is created from `infrastructure/.env.example`; replace every `replace-with-...` placeholder with suitable development-only secrets. Docker Compose loads this file and mounts JWT signing material under `infrastructure/secrets/`. A standalone Gradle process does **not** automatically receive variables from the Compose env file.
+
+Windows PowerShell helper:
+
+```powershell
+.\scripts\setup-local.ps1
+```
+
+The helper currently prints that the platform has started even though its Docker startup block is commented out. Run `docker compose up` yourself after setup.
 
 Do not commit secrets, signing keys, database passwords, OAuth client secrets, or internal service keys.
 
@@ -71,10 +76,10 @@ Do not commit secrets, signing keys, database passwords, OAuth client secrets, o
 
 ```bash
 cd account-service
-gradle bootRun
+../gradlew bootRun
 ```
 
-5. Check its health endpoint, for example `http://localhost:8083/actuator/health`.
+5. Check its health endpoint, for example `http://localhost:8083/actuator/health` when the service is directly hosted. For composite root execution, use `./gradlew :account-service:bootRun` from the repository root.
 
 For direct local runs, service URLs normally point to `localhost`; for Compose runs they point to container DNS names.
 
@@ -90,10 +95,15 @@ The recommended application flow is:
 5. If initialDeposit > 0, capture the returned funding instruction
 6. Post the settled funding instruction with X-Service-Key + X-External-Reference
 7. Verify account becomes ACTIVE and balances are updated
-8. Create transfers with Idempotency-Key when retry safety is required
+8. Create USD/KHR internal transfers with the **required** Idempotency-Key
+9. Read transfer and financial operation records; verify postings and balances
 ```
 
-Use the Postman collection under `docs/postman/` for a ready-made local request set.
+**Current repository gap:** the committed tree has no `docs/postman/` collection or Native Git Postman resource directories. Use the [API Reference](API-Reference.md) to construct requests until API assets are added.
+
+## CI and demo limits
+
+The GitHub Actions Docker demo job references `infrastructure/scripts/init-local.sh` and `infrastructure/scripts/demo_flow.py`, but these files are missing from the current tree. Do not claim end-to-end CI validation until the scripts and workflow are repaired. Demo settlement is not a real external payment or correspondent-bank integration.
 
 ## Troubleshooting
 
@@ -105,4 +115,4 @@ If a service fails to start, check in this order:
 4. JWT issuer/audience/key configuration.
 5. Service logs and correlation IDs.
 
-See [[Configuration]], [[Authentication-and-OAuth2]], and [[API-Reference]].
+See [Configuration](Configuration.md), [Authentication and OAuth2](Authentication-and-OAuth2.md), and [API Reference](API-Reference.md).
