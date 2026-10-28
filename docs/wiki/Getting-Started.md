@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - **Java 17 JDK**, matching current service Gradle toolchains and CI.
-- The committed Gradle wrapper (`gradlew` / `gradlew.bat`), configured for **Gradle 8.13**. The CI job independently installs Gradle 8.10.2; this mismatch should be resolved.
+- The committed Gradle wrapper (`gradlew` / `gradlew.bat`), configured for **Gradle 8.13**. GitHub Actions runs the same committed wrapper.
 - Git.
 - Docker Engine + Compose for the full local stack, or approved local PostgreSQL/Kafka/Redis services for non-container development.
 
@@ -103,7 +103,7 @@ The recommended application flow is:
 
 ## CI and demo limits
 
-The GitHub Actions Docker demo job references `infrastructure/scripts/init-local.sh` and `infrastructure/scripts/demo_flow.py`, but these files are missing from the current tree. Do not claim end-to-end CI validation until the scripts and workflow are repaired. Demo settlement is not a real external payment or correspondent-bank integration.
+GitHub Actions now generates ephemeral CI-only credentials with `infrastructure/scripts/init-local.sh`, then checks Docker Compose configuration and public/internal service health. This is a **startup smoke test**, not a completed end-to-end banking transaction or ledger correctness test. Demo settlement is not a real external payment or correspondent-bank integration.
 
 ## Troubleshooting
 
