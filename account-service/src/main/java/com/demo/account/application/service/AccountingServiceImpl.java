@@ -286,14 +286,9 @@ public class AccountingServiceImpl implements AccountingService {
         operations
             .findById(operationId)
             .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "LEDGER_NOT_FOUND"));
-    // Ledger operation IDs do not grant permission to inspect another customer's history.
-    // Allow participants and admins, but refuse before fetching or mapping sensitive entries.
-    if (jwt == null
-        || (!isAdmin(jwt)
-            && !jwt.getSubject().equals(String.valueOf(findAccount(operation.getSourceAccountId()).getOwnerUserId()))
-            && !jwt.getSubject().equals(String.valueOf(findAccount(operation.getDestinationAccountId()).getOwnerUserId())))) {
+    // An operation ID is not permission to inspect another customer's financial history.
+    if (!isLedgerParticipant(operation, jwt))
       throw Support.fail(HttpStatus.FORBIDDEN, "NOT_LEDGER_PARTICIPANT");
-    }
     List<LedgerEntryEntity> entries =
         ledgerEntries.findByTransactionIdOrderByEntryType(operationId);
     if (entries.isEmpty()) throw Support.fail(HttpStatus.NOT_FOUND, "LEDGER_NOT_FOUND");
@@ -440,6 +435,15 @@ public class AccountingServiceImpl implements AccountingService {
     return balances
         .findById(id)
         .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_BALANCE_NOT_FOUND"));
+  }
+
+  private boolean isLedgerParticipant(AccountOperationEntity operation, Jwt jwt) {
+    if (jwt == null) return false;
+    if (isAdmin(jwt)) return true;
+    AccountEntity source = findAccount(operation.getSourceAccountId());
+    if (jwt.getSubject().equals(String.valueOf(source.getOwnerUserId()))) return true;
+    AccountEntity destination = findAccount(operation.getDestinationAccountId());
+    return jwt.getSubject().equals(String.valueOf(destination.getOwnerUserId()));
   }
 
   private boolean isAdmin(Jwt jwt) {
