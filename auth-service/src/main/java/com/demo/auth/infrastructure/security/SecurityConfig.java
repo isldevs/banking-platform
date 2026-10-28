@@ -1,6 +1,19 @@
 package com.demo.auth.infrastructure.security;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyFactory;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,153 +44,173 @@ import org.springframework.security.web.authentication.LoginUrlAuthenticationEnt
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.util.StringUtils;
 
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.KeyFactory;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.security.interfaces.RSAPublicKey;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
-
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Bean
-    @Order(1)
-    SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
-        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
-        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
-                .oidc(Customizer.withDefaults());
-        http.exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")));
-        http.oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()));
-        return http.build();
-    }
+  @Bean
+  @Order(1)
+  SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+    OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
+    http.getConfigurer(OAuth2AuthorizationServerConfigurer.class).oidc(Customizer.withDefaults());
+    http.exceptionHandling(
+        exceptions ->
+            exceptions.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")));
+    http.oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()));
+    return http.build();
+  }
 
-    @Bean
-    @Order(2)
-    SecurityFilterChain browserLoginSecurityFilterChain(HttpSecurity http, JdbcTemplate jdbc) throws Exception {
-        SavedRequestAwareAuthenticationSuccessHandler defaultSuccessHandler =
-                new SavedRequestAwareAuthenticationSuccessHandler();
+  @Bean
+  @Order(2)
+  SecurityFilterChain browserLoginSecurityFilterChain(HttpSecurity http, JdbcTemplate jdbc)
+      throws Exception {
+    SavedRequestAwareAuthenticationSuccessHandler defaultSuccessHandler =
+        new SavedRequestAwareAuthenticationSuccessHandler();
 
-        http.securityMatcher("/login", "/logout", "/error")
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
-                .formLogin(form -> form
-                        .successHandler((request, response, authentication) -> {
-                            String username = authentication.getName();
-                            List<UUID> userIds = jdbc.query(
-                                    "SELECT id FROM users WHERE username = ?",
-                                    (rs, rowNum) -> rs.getObject(1, UUID.class), username);
-                            jdbc.update(
-                                    "UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE username = ?",
-                                    username);
-                            jdbc.update(
-                                    "INSERT INTO login_attempts(id, username, user_id, success, ip_address, user_agent) VALUES(?,?,?,?,?,?)",
-                                    UUID.randomUUID(), username, userIds.isEmpty() ? null : userIds.get(0),
-                                    true, request.getRemoteAddr(), request.getHeader("User-Agent"));
-                            defaultSuccessHandler.onAuthenticationSuccess(request, response, authentication);
+    http.securityMatcher("/login", "/logout", "/error")
+        .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+        .formLogin(
+            form ->
+                form.successHandler(
+                        (request, response, authentication) -> {
+                          String username = authentication.getName();
+                          List<UUID> userIds =
+                              jdbc.query(
+                                  "SELECT id FROM users WHERE username = ?",
+                                  (rs, rowNum) -> rs.getObject(1, UUID.class),
+                                  username);
+                          jdbc.update(
+                              "UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE username = ?",
+                              username);
+                          jdbc.update(
+                              "INSERT INTO login_attempts(id, username, user_id, success, ip_address, user_agent) VALUES(?,?,?,?,?,?)",
+                              UUID.randomUUID(),
+                              username,
+                              userIds.isEmpty() ? null : userIds.get(0),
+                              true,
+                              request.getRemoteAddr(),
+                              request.getHeader("User-Agent"));
+                          defaultSuccessHandler.onAuthenticationSuccess(
+                              request, response, authentication);
                         })
-                        .failureHandler((request, response, exception) -> {
-                            recordBrowserLoginFailure(jdbc, request, exception);
-                            response.sendRedirect("/login?error");
+                    .failureHandler(
+                        (request, response, exception) -> {
+                          recordBrowserLoginFailure(jdbc, request, exception);
+                          response.sendRedirect("/login?error");
                         }))
-                .logout(Customizer.withDefaults());
-        return http.build();
+        .logout(Customizer.withDefaults());
+    return http.build();
+  }
+
+  private void recordBrowserLoginFailure(
+      JdbcTemplate jdbc, HttpServletRequest request, Exception exception) {
+    String username = request.getParameter("username");
+    if (!StringUtils.hasText(username) || !(exception instanceof BadCredentialsException)) {
+      return;
     }
 
-    private void recordBrowserLoginFailure(
-            JdbcTemplate jdbc, HttpServletRequest request, Exception exception) {
-        String username = request.getParameter("username");
-        if (!StringUtils.hasText(username) || !(exception instanceof BadCredentialsException)) {
-            return;
-        }
-
-        List<UUID> userIds = jdbc.query(
-                "SELECT id FROM users WHERE username = ?",
-                (rs, rowNum) -> rs.getObject(1, UUID.class), username);
-        UUID userId = userIds.isEmpty() ? null : userIds.get(0);
-        if (userId != null) {
-            jdbc.update(
-                    "UPDATE users SET failed_login_count = failed_login_count + 1, "
-                            + "locked_until = CASE WHEN failed_login_count + 1 >= 5 "
-                            + "THEN NOW() + INTERVAL '15 minutes' ELSE locked_until END WHERE id = ?",
-                    userId);
-        }
-        jdbc.update(
-                "INSERT INTO login_attempts(id, username, user_id, success, ip_address, user_agent) VALUES(?,?,?,?,?,?)",
-                UUID.randomUUID(), username, userId, false,
-                request.getRemoteAddr(), request.getHeader("User-Agent"));
+    List<UUID> userIds =
+        jdbc.query(
+            "SELECT id FROM users WHERE username = ?",
+            (rs, rowNum) -> rs.getObject(1, UUID.class),
+            username);
+    UUID userId = userIds.isEmpty() ? null : userIds.get(0);
+    if (userId != null) {
+      jdbc.update(
+          "UPDATE users SET failed_login_count = failed_login_count + 1, "
+              + "locked_until = CASE WHEN failed_login_count + 1 >= 5 "
+              + "THEN NOW() + INTERVAL '15 minutes' ELSE locked_until END WHERE id = ?",
+          userId);
     }
+    jdbc.update(
+        "INSERT INTO login_attempts(id, username, user_id, success, ip_address, user_agent) VALUES(?,?,?,?,?,?)",
+        UUID.randomUUID(),
+        username,
+        userId,
+        false,
+        request.getRemoteAddr(),
+        request.getHeader("User-Agent"));
+  }
 
-    @Bean
-    @Order(3)
-    SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
-        http.securityMatcher("/api/**", "/internal/**", "/actuator/**")
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                        .requestMatchers("/internal/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh").permitAll()
-                        .anyRequest().authenticated())
-                .oauth2ResourceServer(resourceServer -> resourceServer
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
-        return http.build();
-    }
+  @Bean
+  @Order(3)
+  SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
+    http.securityMatcher("/api/**", "/internal/**", "/actuator/**")
+        .csrf(AbstractHttpConfigurer::disable)
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            authorize ->
+                authorize
+                    .requestMatchers("/actuator/health/**", "/actuator/info")
+                    .permitAll()
+                    .requestMatchers("/internal/**")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh")
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated())
+        .oauth2ResourceServer(
+            resourceServer ->
+                resourceServer.jwt(
+                    jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+    return http.build();
+  }
 
-    @Bean
-    JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            List<GrantedAuthority> result = new ArrayList<>();
-            List<String> permissions = jwt.getClaimAsStringList("permissions");
-            for (String permission : permissions == null ? List.<String>of() : permissions) {
-                result.add(new SimpleGrantedAuthority(permission));
-            }
-            return result;
+  @Bean
+  JwtAuthenticationConverter jwtAuthenticationConverter() {
+    JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+    converter.setJwtGrantedAuthoritiesConverter(
+        jwt -> {
+          List<GrantedAuthority> result = new ArrayList<>();
+          List<String> permissions = jwt.getClaimAsStringList("permissions");
+          for (String permission : permissions == null ? List.<String>of() : permissions) {
+            result.add(new SimpleGrantedAuthority(permission));
+          }
+          return result;
         });
-        return converter;
-    }
+    return converter;
+  }
 
-    @Bean
-    JwtDecoder jwtDecoder(@Value("${security.jwt.public-key-path}") String path,
-                          @Value("${security.jwt.issuer}") String issuer,
-                          @Value("${security.jwt.audience}") String audience) throws Exception {
-        String pem = Files.readString(Path.of(path), StandardCharsets.UTF_8).trim();
-        RSAPublicKey key = loadRsaPublicKey(pem);
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(key).build();
-        OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
-        OAuth2TokenValidator<Jwt> audienceValidator = token -> {
-            List<String> audiences = token.getAudience();
-            return audiences != null && audiences.contains(audience)
-                    ? OAuth2TokenValidatorResult.success()
-                    : OAuth2TokenValidatorResult.failure(
-                    new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
+  @Bean
+  JwtDecoder jwtDecoder(
+      @Value("${security.jwt.public-key-path}") String path,
+      @Value("${security.jwt.issuer}") String issuer,
+      @Value("${security.jwt.audience}") String audience)
+      throws Exception {
+    String pem = Files.readString(Path.of(path), StandardCharsets.UTF_8).trim();
+    RSAPublicKey key = loadRsaPublicKey(pem);
+    NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(key).build();
+    OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
+    OAuth2TokenValidator<Jwt> audienceValidator =
+        token -> {
+          List<String> audiences = token.getAudience();
+          return audiences != null && audiences.contains(audience)
+              ? OAuth2TokenValidatorResult.success()
+              : OAuth2TokenValidatorResult.failure(
+                  new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
         };
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
-        return decoder;
+    decoder.setJwtValidator(
+        new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
+    return decoder;
+  }
+
+  private RSAPublicKey loadRsaPublicKey(String pem) throws Exception {
+    if (pem.contains("-----BEGIN CERTIFICATE-----")) {
+      byte[] certificateBytes = pem.getBytes(StandardCharsets.UTF_8);
+      X509Certificate certificate =
+          (X509Certificate)
+              CertificateFactory.getInstance("X.509")
+                  .generateCertificate(new ByteArrayInputStream(certificateBytes));
+      return (RSAPublicKey) certificate.getPublicKey();
     }
 
-    private RSAPublicKey loadRsaPublicKey(String pem) throws Exception {
-        if (pem.contains("-----BEGIN CERTIFICATE-----")) {
-            byte[] certificateBytes = pem.getBytes(StandardCharsets.UTF_8);
-            X509Certificate certificate = (X509Certificate) CertificateFactory.getInstance("X.509")
-                    .generateCertificate(new ByteArrayInputStream(certificateBytes));
-            return (RSAPublicKey) certificate.getPublicKey();
-        }
-
-        String publicKey = pem
-                .replace("-----BEGIN PUBLIC KEY-----", "")
-                .replace("-----END PUBLIC KEY-----", "")
-                .replaceAll("\\s", "");
-        return (RSAPublicKey) KeyFactory.getInstance("RSA")
-                .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(publicKey)));
-    }
+    String publicKey =
+        pem.replace("-----BEGIN PUBLIC KEY-----", "")
+            .replace("-----END PUBLIC KEY-----", "")
+            .replaceAll("\\s", "");
+    return (RSAPublicKey)
+        KeyFactory.getInstance("RSA")
+            .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(publicKey)));
+  }
 }

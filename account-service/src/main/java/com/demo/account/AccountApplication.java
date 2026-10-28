@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ConfigurationPropertiesScan
 @EnableScheduling
 public class AccountApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(AccountApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(AccountApplication.class, args);
+  }
 }

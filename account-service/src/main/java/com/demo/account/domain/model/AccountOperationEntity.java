@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -13,86 +12,93 @@ import java.util.UUID;
 @Entity
 @Table(name = "account_operations")
 public class AccountOperationEntity {
-    @Id
-    @Column(name = "operation_id")
-    private UUID operationId;
-    @Column(name = "source_account_id", nullable = false)
-    private UUID sourceAccountId;
-    @Column(name = "destination_account_id", nullable = false)
-    private UUID destinationAccountId;
-    @Column(nullable = false, precision = 20, scale = 2)
-    private BigDecimal amount;
-    @Column(nullable = false, length = 3)
-    private String currency;
-    @Column(name = "requested_by", nullable = false, length = 80)
-    private String requestedBy;
-    @Column(nullable = false, length = 30)
-    private String status;
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+  @Id
+  @Column(name = "operation_id")
+  private UUID operationId;
 
-    @PrePersist
-    void prePersist() {
-        createdAt = Instant.now();
-    }
+  @Column(name = "source_account_id", nullable = false)
+  private UUID sourceAccountId;
 
-    public UUID getOperationId() {
-        return operationId;
-    }
+  @Column(name = "destination_account_id", nullable = false)
+  private UUID destinationAccountId;
 
-    public void setOperationId(UUID operationId) {
-        this.operationId = operationId;
-    }
+  @Column(nullable = false, precision = 20, scale = 2)
+  private BigDecimal amount;
 
-    public UUID getSourceAccountId() {
-        return sourceAccountId;
-    }
+  @Column(nullable = false, length = 3)
+  private String currency;
 
-    public void setSourceAccountId(UUID sourceAccountId) {
-        this.sourceAccountId = sourceAccountId;
-    }
+  @Column(name = "requested_by", nullable = false, length = 80)
+  private String requestedBy;
 
-    public UUID getDestinationAccountId() {
-        return destinationAccountId;
-    }
+  @Column(nullable = false, length = 30)
+  private String status;
 
-    public void setDestinationAccountId(UUID destinationAccountId) {
-        this.destinationAccountId = destinationAccountId;
-    }
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private Instant createdAt;
 
-    public BigDecimal getAmount() {
-        return amount;
-    }
+  @PrePersist
+  void prePersist() {
+    createdAt = Instant.now();
+  }
 
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
+  public UUID getOperationId() {
+    return operationId;
+  }
 
-    public String getCurrency() {
-        return currency;
-    }
+  public void setOperationId(UUID operationId) {
+    this.operationId = operationId;
+  }
 
-    public void setCurrency(String currency) {
-        this.currency = currency;
-    }
+  public UUID getSourceAccountId() {
+    return sourceAccountId;
+  }
 
-    public String getRequestedBy() {
-        return requestedBy;
-    }
+  public void setSourceAccountId(UUID sourceAccountId) {
+    this.sourceAccountId = sourceAccountId;
+  }
 
-    public void setRequestedBy(String requestedBy) {
-        this.requestedBy = requestedBy;
-    }
+  public UUID getDestinationAccountId() {
+    return destinationAccountId;
+  }
 
-    public String getStatus() {
-        return status;
-    }
+  public void setDestinationAccountId(UUID destinationAccountId) {
+    this.destinationAccountId = destinationAccountId;
+  }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
+  public BigDecimal getAmount() {
+    return amount;
+  }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+  public void setAmount(BigDecimal amount) {
+    this.amount = amount;
+  }
+
+  public String getCurrency() {
+    return currency;
+  }
+
+  public void setCurrency(String currency) {
+    this.currency = currency;
+  }
+
+  public String getRequestedBy() {
+    return requestedBy;
+  }
+
+  public void setRequestedBy(String requestedBy) {
+    this.requestedBy = requestedBy;
+  }
+
+  public String getStatus() {
+    return status;
+  }
+
+  public void setStatus(String status) {
+    this.status = status;
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
 }

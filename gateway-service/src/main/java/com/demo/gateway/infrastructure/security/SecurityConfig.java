@@ -1,5 +1,8 @@
 package com.demo.gateway.infrastructure.security;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,55 +24,58 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Stream;
-
 @Configuration
 public class SecurityConfig {
-    @Bean
-    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(a -> a
-                        .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh").permitAll()
-                        .anyRequest().authenticated())
-                .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(jwtAuthenticationConverter())));
-        return http.build();
-    }
+  @Bean
+  SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http.csrf(AbstractHttpConfigurer::disable)
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            a ->
+                a.requestMatchers("/actuator/health/**", "/actuator/info")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh")
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated())
+        .oauth2ResourceServer(
+            o -> o.jwt(j -> j.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+    return http.build();
+  }
 
-    @Bean
-    JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            List<String> permissions = jwt.getClaimAsStringList("permissions");
-            return (permissions == null ? Stream.<String>empty() : permissions.stream())
-                    .filter(Objects::nonNull)
-                    .map(SimpleGrantedAuthority::new)
-                    .map(GrantedAuthority.class::cast)
-                    .toList();
+  @Bean
+  JwtAuthenticationConverter jwtAuthenticationConverter() {
+    JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+    converter.setJwtGrantedAuthoritiesConverter(
+        jwt -> {
+          List<String> permissions = jwt.getClaimAsStringList("permissions");
+          return (permissions == null ? Stream.<String>empty() : permissions.stream())
+              .filter(Objects::nonNull)
+              .map(SimpleGrantedAuthority::new)
+              .map(GrantedAuthority.class::cast)
+              .toList();
         });
-        return converter;
-    }
+    return converter;
+  }
 
-    @Bean
-    JwtDecoder jwtDecoder(@Value("${security.jwt.issuer}") String issuer,
-                          @Value("${security.jwt.audience}") String audience) {
-        NimbusJwtDecoder decoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuer);
+  @Bean
+  JwtDecoder jwtDecoder(
+      @Value("${security.jwt.issuer}") String issuer,
+      @Value("${security.jwt.audience}") String audience) {
+    NimbusJwtDecoder decoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuer);
 
-        OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
-        OAuth2TokenValidator<Jwt> audienceValidator = token -> {
-            List<String> audiences = token.getAudience();
-            return audiences != null && audiences.contains(audience)
-                    ? OAuth2TokenValidatorResult.success()
-                    : OAuth2TokenValidatorResult.failure(
-                    new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
+    OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
+    OAuth2TokenValidator<Jwt> audienceValidator =
+        token -> {
+          List<String> audiences = token.getAudience();
+          return audiences != null && audiences.contains(audience)
+              ? OAuth2TokenValidatorResult.success()
+              : OAuth2TokenValidatorResult.failure(
+                  new OAuth2Error("invalid_audience", "Required JWT audience is missing", null));
         };
 
-        decoder.setJwtValidator(
-                new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
-        return decoder;
-    }
+    decoder.setJwtValidator(
+        new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
+    return decoder;
+  }
 }

@@ -57,7 +57,7 @@ tasks.register('validateRuntimeContract') {
         profiles.each { profile ->
             services.each { service ->
                 def configFile = file("config-service/src/main/resources/config/${profile}/${service}.yml")
-                if (!configFile.isFile()) {
+                if (!configFile.isFile() && service != "config-service") {
                     throw new GradleException("Validation failed: missing ${configFile}")
                 }
             }

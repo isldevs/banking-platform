@@ -4,7 +4,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -12,45 +11,48 @@ import java.util.UUID;
 @Entity
 @Table(name = "account_balances")
 public class AccountBalanceEntity {
-    @Id
-    @Column(name = "account_id")
-    private UUID accountId;
-    @Column(name = "ledger_balance", nullable = false, precision = 20, scale = 2)
-    private BigDecimal ledgerBalance = BigDecimal.ZERO;
-    @Column(name = "available_balance", nullable = false, precision = 20, scale = 2)
-    private BigDecimal availableBalance = BigDecimal.ZERO;
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+  @Id
+  @Column(name = "account_id")
+  private UUID accountId;
 
-    public UUID getAccountId() {
-        return accountId;
-    }
+  @Column(name = "ledger_balance", nullable = false, precision = 20, scale = 2)
+  private BigDecimal ledgerBalance = BigDecimal.ZERO;
 
-    public void setAccountId(UUID accountId) {
-        this.accountId = accountId;
-    }
+  @Column(name = "available_balance", nullable = false, precision = 20, scale = 2)
+  private BigDecimal availableBalance = BigDecimal.ZERO;
 
-    public BigDecimal getLedgerBalance() {
-        return ledgerBalance;
-    }
+  @Column(name = "updated_at", nullable = false)
+  private Instant updatedAt;
 
-    public void setLedgerBalance(BigDecimal ledgerBalance) {
-        this.ledgerBalance = ledgerBalance;
-    }
+  public UUID getAccountId() {
+    return accountId;
+  }
 
-    public BigDecimal getAvailableBalance() {
-        return availableBalance;
-    }
+  public void setAccountId(UUID accountId) {
+    this.accountId = accountId;
+  }
 
-    public void setAvailableBalance(BigDecimal availableBalance) {
-        this.availableBalance = availableBalance;
-    }
+  public BigDecimal getLedgerBalance() {
+    return ledgerBalance;
+  }
 
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
+  public void setLedgerBalance(BigDecimal ledgerBalance) {
+    this.ledgerBalance = ledgerBalance;
+  }
 
-    public void setUpdatedAt(Instant updatedAt) {
-        this.updatedAt = updatedAt;
-    }
+  public BigDecimal getAvailableBalance() {
+    return availableBalance;
+  }
+
+  public void setAvailableBalance(BigDecimal availableBalance) {
+    this.availableBalance = availableBalance;
+  }
+
+  public Instant getUpdatedAt() {
+    return updatedAt;
+  }
+
+  public void setUpdatedAt(Instant updatedAt) {
+    this.updatedAt = updatedAt;
+  }
 }

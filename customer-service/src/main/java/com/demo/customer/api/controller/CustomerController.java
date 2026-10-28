@@ -4,6 +4,7 @@ import com.demo.customer.api.dto.request.NewCustomer;
 import com.demo.customer.api.dto.response.CustomerResponse;
 import com.demo.customer.application.port.in.CustomerService;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -14,43 +15,43 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 @RestController
 public class CustomerController {
 
-    private final CustomerService customerService;
+  private final CustomerService customerService;
 
-    public CustomerController(CustomerService customerService) {
-        this.customerService = customerService;
-    }
+  public CustomerController(CustomerService customerService) {
+    this.customerService = customerService;
+  }
 
-    @PostMapping("/api/customers")
-    @PreAuthorize("hasAuthority('CUSTOMER_CREATE')")
-    public CustomerResponse create(@Valid @RequestBody NewCustomer request, @AuthenticationPrincipal Jwt jwt) {
-        return customerService.create(request, jwt);
-    }
+  @PostMapping("/api/customers")
+  @PreAuthorize("hasAuthority('CUSTOMER_CREATE')")
+  public CustomerResponse create(
+      @Valid @RequestBody NewCustomer request, @AuthenticationPrincipal Jwt jwt) {
+    return customerService.create(request, jwt);
+  }
 
-    @GetMapping("/api/customers/{id}")
-    @PreAuthorize("hasAuthority('CUSTOMER_READ')")
-    public CustomerResponse read(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return customerService.read(id, jwt);
-    }
+  @GetMapping("/api/customers/{id}")
+  @PreAuthorize("hasAuthority('CUSTOMER_READ')")
+  public CustomerResponse read(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+    return customerService.read(id, jwt);
+  }
 
-    @PostMapping("/api/customers/{id}/kyc/approve")
-    @PreAuthorize("hasAuthority('KYC_APPROVE')")
-    public CustomerResponse approve(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return customerService.approve(id, jwt);
-    }
+  @PostMapping("/api/customers/{id}/kyc/approve")
+  @PreAuthorize("hasAuthority('KYC_APPROVE')")
+  public CustomerResponse approve(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+    return customerService.approve(id, jwt);
+  }
 
-    /**
-     * Legacy/internal compatibility endpoint.
-     * <p>
-     * Modern endpoints use OAuth2/JWT. This endpoint intentionally keeps
-     * X-Service-Key authentication until all legacy callers are migrated.
-     */
-    @GetMapping("/internal/customers/{id}/status")
-    public CustomerResponse internal(@PathVariable UUID id, @RequestHeader("X-Service-Key") String key) {
-        return customerService.internal(id, key);
-    }
+  /**
+   * Legacy/internal compatibility endpoint.
+   *
+   * <p>Modern endpoints use OAuth2/JWT. This endpoint intentionally keeps X-Service-Key
+   * authentication until all legacy callers are migrated.
+   */
+  @GetMapping("/internal/customers/{id}/status")
+  public CustomerResponse internal(
+      @PathVariable UUID id, @RequestHeader("X-Service-Key") String key) {
+    return customerService.internal(id, key);
+  }
 }

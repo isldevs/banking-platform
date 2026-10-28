@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -13,95 +12,102 @@ import java.util.UUID;
 @Entity
 @Table(name = "account_transactions")
 public class AccountTransactionEntity {
-    @Id
-    private UUID id;
-    @Column(name = "operation_id", nullable = false)
-    private UUID operationId;
-    @Column(name = "account_id", nullable = false)
-    private UUID accountId;
-    @Column(name = "transaction_type", nullable = false, length = 20)
-    private String transactionType;
-    @Column(nullable = false, precision = 20, scale = 2)
-    private BigDecimal amount;
-    @Column(nullable = false, length = 3)
-    private String currency;
-    @Column(name = "reference_id", nullable = false)
-    private UUID referenceId;
-    @Column(nullable = false, length = 30)
-    private String status = "COMPLETED";
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+  @Id private UUID id;
 
-    @PrePersist
-    void prePersist() {
-        createdAt = Instant.now();
-    }
+  @Column(name = "operation_id", nullable = false)
+  private UUID operationId;
 
-    public UUID getId() {
-        return id;
-    }
+  @Column(name = "account_id", nullable = false)
+  private UUID accountId;
 
-    public void setId(UUID id) {
-        this.id = id;
-    }
+  @Column(name = "transaction_type", nullable = false, length = 20)
+  private String transactionType;
 
-    public UUID getOperationId() {
-        return operationId;
-    }
+  @Column(nullable = false, precision = 20, scale = 2)
+  private BigDecimal amount;
 
-    public void setOperationId(UUID operationId) {
-        this.operationId = operationId;
-    }
+  @Column(nullable = false, length = 3)
+  private String currency;
 
-    public UUID getAccountId() {
-        return accountId;
-    }
+  @Column(name = "reference_id", nullable = false)
+  private UUID referenceId;
 
-    public void setAccountId(UUID accountId) {
-        this.accountId = accountId;
-    }
+  @Column(nullable = false, length = 30)
+  private String status = "COMPLETED";
 
-    public String getTransactionType() {
-        return transactionType;
-    }
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private Instant createdAt;
 
-    public void setTransactionType(String transactionType) {
-        this.transactionType = transactionType;
-    }
+  @PrePersist
+  void prePersist() {
+    createdAt = Instant.now();
+  }
 
-    public BigDecimal getAmount() {
-        return amount;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
+  public void setId(UUID id) {
+    this.id = id;
+  }
 
-    public String getCurrency() {
-        return currency;
-    }
+  public UUID getOperationId() {
+    return operationId;
+  }
 
-    public void setCurrency(String currency) {
-        this.currency = currency;
-    }
+  public void setOperationId(UUID operationId) {
+    this.operationId = operationId;
+  }
 
-    public UUID getReferenceId() {
-        return referenceId;
-    }
+  public UUID getAccountId() {
+    return accountId;
+  }
 
-    public void setReferenceId(UUID referenceId) {
-        this.referenceId = referenceId;
-    }
+  public void setAccountId(UUID accountId) {
+    this.accountId = accountId;
+  }
 
-    public String getStatus() {
-        return status;
-    }
+  public String getTransactionType() {
+    return transactionType;
+  }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
+  public void setTransactionType(String transactionType) {
+    this.transactionType = transactionType;
+  }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+  public BigDecimal getAmount() {
+    return amount;
+  }
+
+  public void setAmount(BigDecimal amount) {
+    this.amount = amount;
+  }
+
+  public String getCurrency() {
+    return currency;
+  }
+
+  public void setCurrency(String currency) {
+    this.currency = currency;
+  }
+
+  public UUID getReferenceId() {
+    return referenceId;
+  }
+
+  public void setReferenceId(UUID referenceId) {
+    this.referenceId = referenceId;
+  }
+
+  public String getStatus() {
+    return status;
+  }
+
+  public void setStatus(String status) {
+    this.status = status;
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
 }

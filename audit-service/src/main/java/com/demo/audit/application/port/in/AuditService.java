@@ -5,5 +5,5 @@ import java.util.Map;
 import java.util.UUID;
 
 public interface AuditService {
-    List<Map<String, Object>> find(UUID id);
+  List<Map<String, Object>> find(UUID id);
 }

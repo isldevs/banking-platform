@@ -10,21 +10,21 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @EnableConfigurationProperties(RateLimitProperties.class)
 public class RateLimitWebConfig implements WebMvcConfigurer {
 
-    private final RateLimitService rateLimitService;
-    private final RateLimitProperties properties;
+  private final RateLimitService rateLimitService;
+  private final RateLimitProperties properties;
 
-    public RateLimitWebConfig(RateLimitService rateLimitService, RateLimitProperties properties) {
-        this.rateLimitService = rateLimitService;
-        this.properties = properties;
-    }
+  public RateLimitWebConfig(RateLimitService rateLimitService, RateLimitProperties properties) {
+    this.rateLimitService = rateLimitService;
+    this.properties = properties;
+  }
 
-    @Bean
-    RateLimitInterceptor rateLimitInterceptor() {
-        return new RateLimitInterceptor(rateLimitService, properties);
-    }
+  @Bean
+  RateLimitInterceptor rateLimitInterceptor() {
+    return new RateLimitInterceptor(rateLimitService, properties);
+  }
 
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(rateLimitInterceptor()).addPathPatterns("/api/**");
-    }
+  @Override
+  public void addInterceptors(InterceptorRegistry registry) {
+    registry.addInterceptor(rateLimitInterceptor()).addPathPatterns("/api/**");
+  }
 }

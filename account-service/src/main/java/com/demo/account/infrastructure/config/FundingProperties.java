@@ -9,5 +9,5 @@ import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "account.funding")
-public record FundingProperties(boolean enabled, @NotEmpty Map<String, @NotNull UUID> sourceAccountIds) {
-}
+public record FundingProperties(
+    boolean enabled, @NotEmpty Map<String, @NotNull UUID> sourceAccountIds) {}

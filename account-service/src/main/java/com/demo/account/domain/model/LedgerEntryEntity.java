@@ -4,71 +4,74 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-
 import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
 @Table(name = "ledger_entries")
 public class LedgerEntryEntity {
-    @Id
-    private UUID id;
-    @Column(name = "transaction_id", nullable = false)
-    private UUID transactionId;
-    @Column(name = "account_id", nullable = false)
-    private UUID accountId;
-    @Column(name = "entry_type", nullable = false, length = 10)
-    private String entryType;
-    @Column(nullable = false, precision = 20, scale = 2)
-    private BigDecimal amount;
-    @Column(nullable = false, length = 3)
-    private String currency;
+  @Id private UUID id;
 
-    public UUID getId() {
-        return id;
-    }
+  @Column(name = "transaction_id", nullable = false)
+  private UUID transactionId;
 
-    public void setId(UUID id) {
-        this.id = id;
-    }
+  @Column(name = "account_id", nullable = false)
+  private UUID accountId;
 
-    public UUID getTransactionId() {
-        return transactionId;
-    }
+  @Column(name = "entry_type", nullable = false, length = 10)
+  private String entryType;
 
-    public void setTransactionId(UUID transactionId) {
-        this.transactionId = transactionId;
-    }
+  @Column(nullable = false, precision = 20, scale = 2)
+  private BigDecimal amount;
 
-    public UUID getAccountId() {
-        return accountId;
-    }
+  @Column(nullable = false, length = 3)
+  private String currency;
 
-    public void setAccountId(UUID accountId) {
-        this.accountId = accountId;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public String getEntryType() {
-        return entryType;
-    }
+  public void setId(UUID id) {
+    this.id = id;
+  }
 
-    public void setEntryType(String entryType) {
-        this.entryType = entryType;
-    }
+  public UUID getTransactionId() {
+    return transactionId;
+  }
 
-    public BigDecimal getAmount() {
-        return amount;
-    }
+  public void setTransactionId(UUID transactionId) {
+    this.transactionId = transactionId;
+  }
 
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
+  public UUID getAccountId() {
+    return accountId;
+  }
 
-    public String getCurrency() {
-        return currency;
-    }
+  public void setAccountId(UUID accountId) {
+    this.accountId = accountId;
+  }
 
-    public void setCurrency(String currency) {
-        this.currency = currency;
-    }
+  public String getEntryType() {
+    return entryType;
+  }
+
+  public void setEntryType(String entryType) {
+    this.entryType = entryType;
+  }
+
+  public BigDecimal getAmount() {
+    return amount;
+  }
+
+  public void setAmount(BigDecimal amount) {
+    this.amount = amount;
+  }
+
+  public String getCurrency() {
+    return currency;
+  }
+
+  public void setCurrency(String currency) {
+    this.currency = currency;
+  }
 }

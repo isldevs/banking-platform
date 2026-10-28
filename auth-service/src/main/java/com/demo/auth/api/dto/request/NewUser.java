@@ -5,5 +5,4 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import jakarta.validation.constraints.NotBlank;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-public record NewUser(@NotBlank String username, @NotBlank String password, String email) {
-}
+public record NewUser(@NotBlank String username, @NotBlank String password, String email) {}
