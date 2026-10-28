@@ -1,104 +1,91 @@
 # Service Catalogue
 
-This page summarizes the bounded contexts, local ports, principal data ownership, and main API entry points.
+This page is the concise service inventory. Detailed request/response examples belong in [[API-Reference]].
 
-## Gateway Service — port 8080
+## Gateway — `8080`
 
-**Role:** public edge entry point and JWT resource-server validation.
+Public API entry point.
 
-- Validates JWT signature, issuer, audience, and expiration using the configured public key.
-- Converts JWT `permissions` claims into Spring Security authorities.
-- Health and info endpoints are publicly accessible; other requests require authentication.
-- Keep routing and edge concerns here; business rules belong in the business services.
+- JWT resource-server validation at the edge.
+- Routing and correlation ID handling.
+- Redis-backed API rate limiting.
+- No banking business logic.
 
-## Auth Service — port 8081
+## Auth — `8081`
 
-**Role:** identity management and Spring Authorization Server / OpenID Connect Provider.
+Identity and Spring Authorization Server / OIDC Provider.
 
-- Stores users and credentials in the auth database.
-- Persists OAuth2 client registrations, authorizations, tokens, and consent through JDBC repositories.
-- Exposes discovery, authorization, token, revocation, and JWKS endpoints.
-- Issues RSA-signed JWT access tokens with `sub`, `username`, `roles`, and `permissions`.
-- Retains deprecated `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` for compatibility only.
+- OAuth2/OIDC discovery, authorization, token, revocation and JWKS endpoints.
+- Authorization Code + PKCE is the recommended client flow.
+- Legacy `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout` remain for compatibility only.
 
-Primary entry points: `/.well-known/openid-configuration`, `/oauth2/authorize`, `/oauth2/token`, `/oauth2/revoke`,
-`/oauth2/jwks`, `GET /api/auth/me`, `POST /api/users`.
+## Customer — `8082`
 
-## Customer Service — port 8082
+Owns the customer database and KYC lifecycle.
 
-**Role:** customer profile and KYC lifecycle.
+| Endpoint | Security |
+|---|---|
+| `POST /api/customers` | `CUSTOMER_CREATE` |
+| `GET /api/customers/{id}` | `CUSTOMER_READ` |
+| `POST /api/customers/{id}/kyc/approve` | `KYC_APPROVE` |
+| `GET /internal/customers/{id}/status` | `X-Service-Key` |
 
-| Endpoint                               | Permission / security          |
-|----------------------------------------|--------------------------------|
-| `POST /api/customers`                  | `CUSTOMER_CREATE`              |
-| `GET /api/customers/{id}`              | `CUSTOMER_READ`                |
-| `POST /api/customers/{id}/kyc/approve` | `KYC_APPROVE`                  |
-| `GET /internal/customers/{id}/status`  | `X-Service-Key`; internal only |
+## Account — `8083`
 
-The customer database is owned by Customer Service. Other services should call its API rather than query its tables.
+Owns accounts, balances, funding instructions, financial operations and the ledger.
 
-## Account Service — port 8083
+| Endpoint | Security |
+|---|---|
+| `POST /api/accounts` | `ACCOUNT_OPEN` + `Idempotency-Key` |
+| `GET /api/accounts` | `ACCOUNT_READ` |
+| `GET /api/accounts/{id}` | `ACCOUNT_READ` |
+| `POST /api/accounts/{id}/freeze` | `ACCOUNT_FREEZE` |
+| `POST /api/accounts/{id}/fund` | `ACCOUNT_FUND` |
+| `GET /api/accounts/ledger/{operationId}` | `ACCOUNT_FUND` |
+| `POST /api/accounts/funding/{instructionId}/post` | `X-Service-Key` + `X-External-Reference` |
+| `POST /internal/accounts/transfer` | `X-Service-Key` |
+| `GET /internal/accounts/operations/{id}` | `X-Service-Key` |
 
-**Role:** account state, balances, funding and ledger operations.
+The funding-settlement endpoint intentionally uses the existing `/api` Gateway proxy but remains service-authenticated; it is not a public user endpoint.
 
-| Endpoint                                 | Permission / security          |
-|------------------------------------------|--------------------------------|
-| `POST /api/accounts`                     | `ACCOUNT_OPEN`                 |
-| `GET /api/accounts/{id}`                 | `ACCOUNT_READ`                 |
-| `GET /api/accounts`                      | `ACCOUNT_READ`                 |
-| `POST /api/accounts/{id}/freeze`         | `ACCOUNT_FREEZE`               |
-| `POST /api/accounts/{id}/fund`           | `ACCOUNT_FUND`                 |
-| `GET /api/accounts/ledger/{operationId}` | `ACCOUNT_FUND`                 |
-| `POST /internal/accounts/transfer`       | `X-Service-Key`; internal only |
-| `GET /internal/accounts/operations/{id}` | `X-Service-Key`; internal only |
+## Transfer — `8084`
 
-The account database and ledger are owned by Account Service.
+Owns transfer workflow, idempotency and outbox state.
 
-## Transfer Service — port 8084
+| Endpoint | Security |
+|---|---|
+| `POST /api/transfers` | `TRANSFER_CREATE`; optional `Idempotency-Key` |
+| `GET /api/transfers/{id}` | `TRANSFER_READ` |
 
-**Role:** transfer lifecycle, idempotency and recovery.
+Account Service owns the actual financial account mutation and ledger.
 
-| Endpoint                  | Permission / security                                   |
-|---------------------------|---------------------------------------------------------|
-| `POST /api/transfers`     | `TRANSFER_CREATE`; optionally accepts `Idempotency-Key` |
-| `GET /api/transfers/{id}` | `TRANSFER_READ`                                         |
+## Notification — `8085`
 
-The authenticated user is obtained from the JWT subject. Clients should not use request-body identity fields to
-impersonate another user. Transfer Service owns workflow state; Account Service owns the financial account ledger.
+Consumes Kafka events and stores in-app notifications.
 
-## Notification Service — port 8085
+- `GET /api/notifications` — `NOTIFICATION_READ` or `TRANSFER_READ`.
 
-**Role:** user-facing in-app notifications.
+## Audit — `8086`
 
-- `GET /api/notifications` returns recent notifications for the authenticated user.
-- Requires `NOTIFICATION_READ` or `TRANSFER_READ`.
-- The current controller limits the result to the latest 100 notifications.
-- Notification records belong to the notification database.
+Consumes Kafka events and stores transfer audit history.
 
-## Audit Service — port 8086
+- `GET /api/audit/transfers/{id}` — `AUDIT_READ`.
 
-**Role:** transfer audit history.
+## Config — `8888`
 
-- `GET /api/audit/transfers/{id}` requires `AUDIT_READ`.
-- The audit database belongs to Audit Service.
-- Audit records should be treated as evidence for traceability, not as a substitute for reconciliation.
+Spring Cloud Config Server using the native classpath backend.
 
-## Config Service — port 8888
-
-**Role:** centralized Spring Cloud Config Server using the native classpath backend.
-
-- Configuration is bundled under `config-service/src/main/resources/config/{dev,qa,stage,prod}/`.
-- Each environment folder contains `application.yml` and per-service configuration files.
-- The server requires Config Client credentials.
-- The internal Config Server backend profile is `native`; application environment profiles remain `dev`, `qa`, `stage`,
-  and `prod`.
+- Configuration is under `config-service/src/main/resources/config/{dev,qa,stage,prod}/`.
+- No runtime `config-repo` checkout.
+- No Docker-specific Spring profile.
+- Local/demo Config Server has no authentication and must remain on a trusted network.
 
 ## Cross-service standards
 
-- Carry `Authorization: Bearer <access-token>` on protected APIs.
-- Use `X-Correlation-Id` for request traceability where supported.
-- Use `Idempotency-Key` for safe client retries of transfer commands.
-- Reserve `X-Service-Key` for internal service-to-service calls only.
-- Do not share persistence entities between services.
+- Protected APIs use `Authorization: Bearer <access-token>`.
+- `X-Correlation-Id` is used for request traceability where supported.
+- `Idempotency-Key` protects retryable financial commands.
+- `X-Service-Key` is reserved for trusted service-to-service calls.
+- Database ownership is strict; never query another service's database.
 
-For request payloads and response shapes, use [[API-Reference]].
+For complete payloads, responses, OAuth2 protocol endpoints, and rate-limit behavior, use [[API-Reference]].

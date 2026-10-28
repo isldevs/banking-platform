@@ -1,209 +1,115 @@
-# Microservices Platform — Executable Demo Package
+# iSLDevs Microservices Banking Platform
 
-A **learning/demo implementation** derived from `MICROSERVICES_README_SOURCE.md`. It is **not a production-ready banking
-platform**.
+A Java 21 / Spring Boot microservices learning platform that demonstrates banking-oriented backend design: OAuth2/OIDC authentication, customer/KYC lifecycle, account opening and funding, double-entry ledger operations, transfers, idempotency, Kafka events, audit/notification processing, centralized configuration, and Redis-backed gateway rate limiting.
 
-## Services
+> **Status:** learning/demo project. It is not a production-ready banking platform.
 
-| Service              | Port | Database     | Responsibility                                                         |
-|----------------------|-----:|--------------|------------------------------------------------------------------------|
-| gateway-service      | 8080 | None         | Public routing, JWT verification, correlation ID                       |
-| auth-service         | 8081 | auth         | OAuth2/OIDC Authorization Server; legacy demo login/refresh deprecated |
-| customer-service     | 8082 | customer     | Customer profile, KYC approval                                         |
-| account-service      | 8083 | account      | Account ownership, balance, atomic ledger                              |
-| transfer-service     | 8084 | transfer     | Idempotency, transfer workflow, recovery, Kafka outbox                 |
-| notification-service | 8085 | notification | Kafka consumer, in-app notices                                         |
-| audit-service        | 8086 | audit        | Append-only Kafka audit events                                         |
-| config-service       | 8888 | None         | Native Spring Cloud Config Server                                      |
+## Architecture
 
-## Configuration architecture
+The runtime consists of independent Spring Boot services. Each business service owns its database and migrations; services communicate through APIs or Kafka events and never read another service's database directly.
 
-Configuration is bundled directly inside `config-service`. There is **no separate `config-repo`** and no Git clone at
-Config Server runtime.
+| Service | Port | Owns | Responsibility |
+|---|---:|---|---|
+| gateway-service | 8080 | — | Public API entry point, JWT validation, routing, correlation ID, rate limiting |
+| auth-service | 8081 | auth | OAuth2/OIDC Authorization Server, identity and token issuance |
+| customer-service | 8082 | customer | Customer profile and KYC lifecycle |
+| account-service | 8083 | account | Account lifecycle, balances, funding, operations and ledger |
+| transfer-service | 8084 | transfer | Transfer workflow, idempotency, recovery and Kafka outbox |
+| notification-service | 8085 | notification | Kafka-driven in-app notifications |
+| audit-service | 8086 | audit | Kafka-driven append-oriented audit history |
+| config-service | 8888 | — | Spring Cloud Config Server using bundled native configuration |
 
-```text
-config-service/src/main/resources/config/
-├── dev/
-│   ├── application.yml
-│   ├── auth-service.yml
-│   ├── customer-service.yml
-│   ├── account-service.yml
-│   ├── transfer-service.yml
-│   ├── notification-service.yml
-│   ├── audit-service.yml
-│   └── gateway-service.yml
-├── qa/
-│   └── same service files
-├── stage/
-│   └── same service files
-└── prod/
-    └── same service files
-```
+## Key flows
 
-There is intentionally **no `base/` directory**, no `*-dev.yml`/`*-qa.yml` filename scheme, and no `docker` Spring
-profile.
+### Authentication
 
-The only application environment profiles are:
+New clients use **OAuth 2.0 Authorization Code + PKCE** through Spring Authorization Server. The older `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` endpoints remain only as deprecated compatibility endpoints.
 
-```text
-dev
-qa
-stage
-prod
-```
+### Account opening and initial funding
 
-Docker is a deployment mechanism only. Docker Compose runs the services with `SPRING_PROFILES_ACTIVE=dev` and supplies
-container endpoints through environment variables; it does not create a Docker profile.
+Account products are data-driven. An opening request requires `Idempotency-Key`; when an initial deposit is requested, the account is created as `PENDING_FUNDING` and a `funding_instruction` is created. The account is credited only when the settlement/posting step is received with an external settlement reference. Posting creates the financial operation and ledger entries atomically, then activates the account.
 
-The Config Server native backend maps the requested Config Client profile to the matching directory:
+### Transfers
 
-```text
-/auth-service/dev    -> config/dev/application.yml + config/dev/auth-service.yml
-/auth-service/qa     -> config/qa/application.yml + config/qa/auth-service.yml
-/auth-service/stage  -> config/stage/application.yml + config/stage/auth-service.yml
-/auth-service/prod   -> config/prod/application.yml + config/prod/auth-service.yml
-```
+Transfer Service owns transfer workflow and client idempotency. Account Service remains the financial accounting boundary and owns balances and ledger entries. Kafka outbox events provide durable downstream processing for notification and audit.
 
-Environment branches can therefore promote configuration cleanly:
+### Gateway rate limiting
 
-```text
-dev -> qa -> stage -> prod
-```
+The Gateway uses Redis-backed fixed-window limits. Authenticated requests are limited by JWT subject; anonymous requests use client IP. Current defaults include 5/min for legacy login, 10/min for legacy refresh, 10/min for account-opening requests, 10/min for transfer creation, and 60/min for other `/api/**` requests. Limits are configurable by environment.
 
-## Runtime configuration and local development
+## Configuration
 
-The recommended local flow keeps secret values outside committed configuration:
+Configuration is bundled in `config-service/src/main/resources/config/` and separated by the application environments `dev`, `qa`, `stage`, and `prod`. There is no runtime `config-repo` checkout and Docker is not a Spring profile.
 
-```text
-infrastructure/.env.example
-        |
-        v
-infrastructure/.env
-        |
-        v
-scripts/local-env.ps1 / scripts/local-env.cmd
-        |
-        v
-Gradle bootRun -> Spring Boot service -> Config Service
-```
+Secrets and runtime values come from the environment. Never commit database passwords, JWT signing material, OAuth client secrets, or internal service keys.
 
-`infrastructure/.env` is ignored by Git and is the local source for passwords, JWT settings, demo credentials, database
-values, and other runtime values. Config Server owns the configuration structure and references runtime environment
-variables instead of storing secrets in committed YAML.
+## Local development
 
-Create the local environment from the safe template:
-
-```powershell
-Copy-Item infrastructure\.env.example infrastructure\.env
-```
-
-On Windows PowerShell:
-
-```powershell
-. .\scripts\local-env.ps1 auth
-.\gradlew.bat :auth-service:bootRun
-```
-
-On Windows CMD:
-
-```cmd
-call scripts\local-env.cmd auth
-gradlew.bat :auth-service:bootRun
-```
-
-For another service, replace `auth` with `customer`, `account`, `transfer`, `notification`, `audit`, or `gateway`.
-
-The local scripts generate JWT signing material under the ignored `.jwt/` directory when required. Docker's
-initialization flow keeps its generated signing material under ignored `infrastructure/secrets/`.
-
-See `docs/wiki/Getting-Started.md` and `docs/wiki/Configuration.md` for the complete local environment and configuration
-contract.
-
-## Gradle composite build
-
-The workspace includes root `settings.gradle`, `build.gradle`, and `gradle.properties`. It is a Gradle composite build,
-not a multi-module monorepo: each Spring Boot service keeps its own independent Gradle build.
+Prerequisites: Java 21, Git, Gradle 8.10.x, and Docker Compose for the full local stack.
 
 ```bash
 gradle buildAll
+gradle testAll
+gradle checkAll
 ```
 
-Windows PowerShell:
-
-```powershell
-./infrastructure/scripts/build-all.ps1
-```
-
-See `docs/GRADLE_COMPOSITE_BUILD.md` for build details. Java 21 is required.
-
-## Quick start with Docker Compose
+Full local stack:
 
 ```bash
-bash infrastructure/scripts/init-local.sh
+cp infrastructure/.env.example infrastructure/.env
+# edit infrastructure/.env with local values
 cd infrastructure
 docker compose up --build -d
 docker compose ps
-python3 scripts/demo_flow.py
 ```
 
-Postgres is available on local port `5439`, gateway on `8080`, auth-service on `8081`, and Kafka's host listener on
-`29092`.
-Local demo secrets and generated signing material live only in `infrastructure/.env` and `infrastructure/secrets/`; both
-are git-ignored.
+Compose exposes PostgreSQL on `127.0.0.1:5439`, Kafka on `127.0.0.1:29092`, Redis on `127.0.0.1:6379`, Config Service on `127.0.0.1:8888`, Auth Service on `127.0.0.1:8081`, and the Gateway on `127.0.0.1:8080`.
 
-The full project documentation source set is indexed in [Wiki Home](docs/wiki/Home.md), with
-the [API Reference](docs/wiki/API-Reference.md) covering endpoints and token flows. New clients should use Spring
-Authorization Server (`/oauth2/authorize` and `/oauth2/token`); the custom `/api/auth/login`, `/api/auth/refresh`, and
-`/api/auth/logout` endpoints are deprecated compatibility endpoints.
+The repository does not ship a Gradle wrapper. Use an approved local Gradle installation matching the documented version or an approved build environment.
 
-## GitHub Actions configuration
+## Documentation
 
-To sync local demo settings into GitHub Actions Variables and Secrets:
+The versioned documentation has one canonical API reference under `docs/wiki/API-Reference.md`; the older duplicate `docs/API_REFERENCE.md` is intentionally not maintained.
 
-```bash
-gh auth login
-bash infrastructure/scripts/init-local.sh
-bash infrastructure/scripts/sync-github-actions-config.sh
-```
+- [Project Wiki](docs/wiki/Home.md)
+- [Architecture](docs/wiki/Architecture.md)
+- [Services](docs/wiki/Services.md)
+- [Getting Started](docs/wiki/Getting-Started.md)
+- [Authentication and OAuth2](docs/wiki/Authentication-and-OAuth2.md)
+- [API Reference](docs/wiki/API-Reference.md)
+- [Configuration](docs/wiki/Configuration.md)
+- [Security and Operations](docs/wiki/Security-and-Operations.md)
+- [Development and Delivery](docs/wiki/Development-and-Delivery.md)
+- [Database ownership and reconciliation](docs/DATABASES.md)
+- [Gradle composite build](docs/GRADLE_COMPOSITE_BUILD.md)
+- [Architecture/package conventions](docs/architecture/package-structure.md)
 
-The sync script uploads non-sensitive settings such as `JWT_ISSUER`, `APP_UID`, `APP_GID`, and `DEMO_ADMIN_USERNAME` as
-Variables. Database passwords, `INTERNAL_SERVICE_KEY`, `OAUTH2_DEMO_CLIENT_SECRET`, and demo passwords are uploaded as
-Secrets. Config Service and its clients do not require Config Server credentials.
+Postman assets are under `docs/postman/`.
 
-## Security and data ownership
-
-- `auth-service` persists OAuth2 clients, authorizations, and consents in PostgreSQL using JDBC repositories and Flyway.
-- Six application databases are isolated by service; services do not read another service's tables.
-- `account-service` is the financial atomicity boundary for balance and ledger updates.
-- `transfer-service` owns transfer workflow state and client idempotency and uses a Kafka outbox.
-- Internal service credentials and JWT signing material are supplied at runtime and must never be committed.
-- This remains a demo: production deployment still requires real service identity/mTLS, key management, TLS, rate
-  limiting/WAF, complete resilience policies, operational controls, and full integration coverage.
-
-## Repo tree
+## Repository structure
 
 ```text
-microservices-platform/
-├── settings.gradle
-├── build.gradle
-├── gradle.properties
+microservice-platform-demo/
 ├── auth-service/
 ├── customer-service/
 ├── account-service/
 ├── transfer-service/
 ├── notification-service/
 ├── audit-service/
-├── config-service/
 ├── gateway-service/
+├── config-service/
 ├── contracts/
 ├── infrastructure/
-│   ├── docker-compose.yml
-│   ├── .env.example
-│   └── scripts/
-└── MICROSERVICES_README_SOURCE.md
+├── docs/
+├── build.gradle
+├── settings.gradle
+└── README.md
 ```
 
-## Architecture
+Each service remains independently buildable. The root Gradle project orchestrates those independent builds through Gradle composite-build `includeBuild` entries.
 
-The service package conventions, bounded-context boundaries, and banking-specific design guardrails are documented in
-`docs/architecture/package-structure.md`.
+## Security boundary
+
+The Gateway performs edge validation and rate limiting, but it is not the only security boundary. Downstream services validate JWTs and enforce their own permissions and ownership rules. Service-to-service credentials such as `X-Service-Key` are for trusted internal calls only.
+
+Financial operations must preserve idempotency, transaction boundaries, concurrency controls, and balanced ledger entries. This demo still requires organization-approved identity controls, key management, TLS/service identity, compliance controls, resilience validation, monitoring, reconciliation, and end-to-end integration testing before any real banking use.

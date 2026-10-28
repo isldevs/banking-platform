@@ -2,9 +2,10 @@
 
 ## Repository structure
 
-The repository contains independent Spring Boot service builds coordinated by a root Gradle composite build:
+The workspace contains eight independent Spring Boot builds coordinated by a root Gradle composite build:
 
 ```text
+config-service/
 auth-service/
 customer-service/
 account-service/
@@ -12,66 +13,65 @@ transfer-service/
 notification-service/
 audit-service/
 gateway-service/
-config-service/
 contracts/
 infrastructure/
 docs/
 ```
 
-Each service keeps its own Gradle build rather than being a single Gradle subproject. Java 21 is required.
+Each service has its own `settings.gradle` and `build.gradle`. The root `settings.gradle` uses `includeBuild(...)`; this is not a single multi-project Gradle build.
 
 ## Build and test
 
 From the repository root:
 
 ```bash
+gradle showServices
 gradle buildAll
+gradle testAll
+gradle checkAll
+gradle bootJarAll
+gradle cleanAll
 ```
 
-On Windows PowerShell, use:
-
-```powershell
-./infrastructure/scripts/build-all.ps1
-```
-
-Run targeted Gradle tests inside the service directory when iterating on one service:
+Formatting:
 
 ```bash
-./gradlew test
+gradle spotlessApplyAll
+gradle spotlessCheckAll
 ```
 
-Use the Gradle wrapper where available so the project-selected Gradle distribution is used. If a dependency is missing,
-validate the wrapper, Java version, and approved network access rather than changing corporate network controls.
+Target one service through the composite build, for example:
 
-## Continuous integration
+```bash
+gradle :account-service:test
+gradle :gateway-service:bootJar
+```
 
-The repository uses GitHub Actions for build/test and CodeQL checks. A commit can be queued before a result is
-available; do not report a queued run as passed. Review the actual workflow conclusion and test logs before merging.
+Or work directly inside a service directory with the approved Gradle installation.
 
-The helper script `infrastructure/scripts/sync-github-actions-config.sh` can sync required local settings to Actions
-Variables and Secrets through the GitHub CLI. It requires an authenticated `gh` session and a populated
-`infrastructure/.env`; review the script before syncing. Never print secrets into logs or paste secrets into issues or
-pull requests.
+## Runtime-contract validation
 
-## Suggested change workflow
+`buildAll` and `checkAll` include `validateRuntimeContract`, which checks the expected service builds, Config Service environment files, Micrometer/OpenTelemetry dependencies, correlation configuration, and required bootstrap settings.
 
-1. Confirm the service owns the business capability you are changing.
-2. Read the existing controller, application service/port, domain model, and infrastructure adapter.
-3. Add or update characterization tests before major refactoring.
-4. Keep external JSON fields snake_case with the shared Jackson setting while retaining camelCase Java names.
-5. Keep secrets and signing material out of the diff.
-6. Run targeted tests and the root build.
-7. Review authorization, idempotency, error cases, observability, and migration behavior.
-8. Open a pull request with the behavioral change, test evidence, migration/rollback notes, and operational
-   implications.
+## CI
 
-## Architecture quality checks
+GitHub Actions provides build/test and CodeQL workflows. Do not report a queued or unavailable workflow as passed; inspect the actual workflow conclusion and logs before merging.
 
-- Avoid a service accessing another service's database.
-- Keep controllers thin and move orchestration into application services.
-- Add outbound ports for persistence and remote dependencies when extracting infrastructure concerns.
-- Keep financial operations idempotent and transaction boundaries explicit.
-- Preserve stable API behavior and update [[API-Reference]] when endpoints change.
-- Review migration compatibility and token/client changes whenever updating authorization behavior.
+## Change workflow
+
+1. Confirm the owning bounded context.
+2. Read the current controller, application service/port, domain model and infrastructure adapter.
+3. Add/update tests before significant behavior changes.
+4. Preserve the shared snake_case REST contract unless an exception is deliberate.
+5. Keep financial operations idempotent and transaction boundaries explicit.
+6. Keep secrets out of commits and logs.
+7. Update the canonical wiki API/architecture page when behavior changes.
+8. Keep the affected service README concise; link to the canonical documentation instead of duplicating it.
+9. Run targeted tests and the root verification tasks.
+10. Open a focused PR with behavior, test evidence and migration/operational notes.
+
+## Documentation rule
+
+`docs/wiki/` is the canonical project documentation set. Avoid creating duplicate API references, architecture descriptions, or configuration guides elsewhere. Root and service READMEs should summarize and link to the canonical pages.
 
 Related pages: [[Architecture]], [[Services]], [[API-Reference]].

@@ -1,17 +1,37 @@
 # transfer-service
 
-Independent Java 21 / Spring Boot service on port `8084`, owning transfer workflow state and its Kafka outbox.
+Java 21 / Spring Boot service on port `8084`. Transfer Service owns the `transfer` database and the transfer workflow boundary.
+
+## Responsibilities
+
+- Transfer creation and lookup.
+- Client idempotency.
+- Transfer lifecycle and recovery state.
+- Account-service financial-operation orchestration.
+- Kafka outbox events for downstream processing.
+
+## APIs
+
+- `POST /api/transfers` — requires `TRANSFER_CREATE`; accepts optional `Idempotency-Key`.
+- `GET /api/transfers/{id}` — requires `TRANSFER_READ`.
+
+The authenticated user comes from the JWT subject. Clients must not use request-body identity fields to impersonate another user.
+
+## Data ownership
+
+Transfer Service owns transfer workflow state, idempotency records, status history, and outbox events. Account Service owns customer account balances and ledger entries. Transfer Service must not query the account database.
 
 ## Configuration
 
-Uses a mandatory Spring Cloud Config Client import. Shared settings, service URLs, and Kafka defaults are in
-`config-repo/application.yml` and `config-repo/application-docker.yml`; service settings are in
-`config-repo/transfer-service.yml` and `config-repo/transfer-service-docker.yml`. Database password, JWT verification
-key path, and internal service key are runtime-injected, never stored in Git.
+Configuration is bundled in `config-service/src/main/resources/config/{dev,qa,stage,prod}/transfer-service.yml`. Database credentials, Kafka bootstrap settings, JWT public-key path, and internal credentials are runtime values.
 
 ## Run
 
-From the repository root: `bash infrastructure/scripts/init-local.sh`, then
-`cd infrastructure && docker compose up --build -d`. For standalone `gradle bootRun`, start PostgreSQL, Kafka, and
-Config Server; source `infrastructure/.env`; set `CONFIG_SERVICE_URL=http://localhost:8888`, `DATASOURCE_PASSWORD`, and
-`SECURITY_JWT_PUBLIC_KEY_PATH`.
+```bash
+cp infrastructure/.env.example infrastructure/.env
+# edit infrastructure/.env
+cd infrastructure
+docker compose up --build -d
+```
+
+See [Architecture](../docs/wiki/Architecture.md), [Services](../docs/wiki/Services.md), and [API Reference](../docs/wiki/API-Reference.md).

@@ -1,17 +1,29 @@
 # notification-service
 
-Independent Java 21 / Spring Boot Kafka consumer on port `8085`, owning the `notification` database.
+Java 21 / Spring Boot Kafka consumer on port `8085`. Notification Service owns the `notification` database and processes asynchronous events into user-facing in-app notifications.
+
+## Responsibilities
+
+- Consume Kafka events from the platform event stream.
+- Persist notification records and processed-event state.
+- Expose authenticated notification reads.
+- Tolerate at-least-once delivery through event-processing idempotency.
+
+## API
+
+- `GET /api/notifications` — requires `NOTIFICATION_READ` or `TRANSFER_READ` and returns recent notifications for the authenticated user.
 
 ## Configuration
 
-Uses a mandatory Spring Cloud Config Client import. Shared settings, Kafka and service URLs are in
-`config-repo/application.yml` and `config-repo/application-docker.yml`; service settings are in
-`config-repo/notification-service.yml` and `config-repo/notification-service-docker.yml`. Database password, JWT
-verification key path, and internal service key remain runtime-injected.
+Configuration is bundled in `config-service/src/main/resources/config/{dev,qa,stage,prod}/notification-service.yml`. Kafka settings, database credentials, JWT public-key path, and internal credentials are runtime values.
 
 ## Run
 
-From the repository root: `bash infrastructure/scripts/init-local.sh`, then
-`cd infrastructure && docker compose up --build -d`. For standalone `gradle bootRun`, start PostgreSQL, Kafka, and
-Config Server; source `infrastructure/.env`; set `CONFIG_SERVICE_URL=http://localhost:8888`, `DATASOURCE_PASSWORD`, and
-`SECURITY_JWT_PUBLIC_KEY_PATH`.
+```bash
+cp infrastructure/.env.example infrastructure/.env
+# edit infrastructure/.env
+cd infrastructure
+docker compose up --build -d
+```
+
+See [Architecture](../docs/wiki/Architecture.md) and [Services](../docs/wiki/Services.md) for the canonical event and service-boundary documentation.

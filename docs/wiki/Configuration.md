@@ -1,55 +1,31 @@
 # Configuration
 
-## Configuration ownership
+## Source of configuration
 
-All application configuration is bundled inside Config Service. The repository does not use a separate runtime
-`config-repo` checkout, and Docker is not a Spring environment profile.
-
-Folder layout:
+All application configuration is bundled inside Config Service:
 
 ```text
 config-service/src/main/resources/config/
 ├── dev/
-│   ├── application.yml
-│   ├── auth-service.yml
-│   ├── customer-service.yml
-│   ├── account-service.yml
-│   ├── transfer-service.yml
-│   ├── notification-service.yml
-│   ├── audit-service.yml
-│   └── gateway-service.yml
 ├── qa/
 ├── stage/
 └── prod/
 ```
 
-Each environment folder contains shared `application.yml` plus files for individual services.
+Each environment contains shared `application.yml` plus service-specific files. There is no separate runtime `config-repo` checkout.
 
-## Application profiles
-
-The only application environment profiles are:
+Application environment profiles are exactly:
 
 - `dev`
 - `qa`
 - `stage`
 - `prod`
 
-Activate one through `SPRING_PROFILES_ACTIVE`. Docker Compose uses `dev` for the demo, but Docker is only the deployment
-mechanism. The Config Server itself uses Spring Cloud Config's internal `native` backend profile to load classpath
-files; that does not introduce a fifth application environment.
+Docker Compose uses `dev`; Docker is a deployment mechanism, not a Spring profile.
 
-## Config Server
+## Config Client bootstrap
 
-Config Service listens on port 8888 and uses the native classpath search location:
-
-```text
-classpath:/config/{profile}
-```
-
-For example, a Config Client requesting `auth-service` under `dev` receives the shared `config/dev/application.yml` and
-service-specific `config/dev/auth-service.yml` configuration.
-
-Clients import Config Server configuration through:
+Application services import Config Server with:
 
 ```yaml
 spring:
@@ -60,135 +36,93 @@ spring:
       fail-fast: true
 ```
 
-Config Server does not require client credentials in this local/demo configuration. No `CONFIG_SERVER_USERNAME` or
-`CONFIG_SERVER_PASSWORD` variables are needed. Keep Config Server limited to a trusted network and never put secret
-values in committed YAML.
+Config Service itself does not depend on Config Server credentials or another configuration repository. It starts independently and serves the other services' configuration.
 
-## Runtime configuration contract
+## Runtime values
 
-The development Config Server configuration uses a consistent runtime contract across services. Local or container
-orchestration supplies the environment values; Config Server references them rather than storing secret values itself.
-
-For database-backed services, use:
+The development configuration references runtime environment values for secrets and deployment-specific endpoints. Typical values include:
 
 ```text
 DATASOURCE_URL
 DATASOURCE_USERNAME
 DATASOURCE_PASSWORD
-```
-
-For JWT configuration, use:
-
-```text
 SECURITY_JWT_ISSUER
 SECURITY_JWT_AUDIENCE
 SECURITY_JWT_KEYSTORE_PATH
 SECURITY_JWT_KEYSTORE_PASSWORD
 SECURITY_JWT_KEYSTORE_ALIAS
 SECURITY_JWT_PUBLIC_KEY_PATH
+INTERNAL_SERVICE_KEY
+OAUTH2_DEMO_CLIENT_SECRET
+CUSTOMER_SERVICE_URL
+ACCOUNT_SERVICE_URL
+AUTH_SERVICE_URL
+TRANSFER_SERVICE_URL
+NOTIFICATION_SERVICE_URL
+AUDIT_SERVICE_URL
+SPRING_KAFKA_BOOTSTRAP_SERVERS
+REDIS_URL
+GATEWAY_RATE_LIMIT_ENABLED
+GATEWAY_RATE_LIMIT_FAIL_OPEN
 ```
 
-Additional runtime values include service URLs, Kafka bootstrap servers, internal service credentials, OAuth2 demo
-client secrets, and demo credentials as required by the individual service configuration.
+Exact variables are service-specific; use the corresponding environment config file as the source of truth.
 
-The important rule is that **Config Server owns the configuration structure, while the runtime environment owns secret
-values**.
+## Local `.env`
 
-## Local `.env` workflow
-
-For local development, `infrastructure/.env` is the recommended source for local secrets and environment-specific
-values. It is ignored by Git and should be created from `infrastructure/.env.example`.
+Create the ignored local environment from the committed example:
 
 ```text
-infrastructure/.env.example
-        |
-        v
-infrastructure/.env
-        |
-        v
-scripts/local-env.ps1 / scripts/local-env.cmd
-        |
-        v
-service process -> Config Server -> config/{dev}/<service>.yml
+infrastructure/.env.example -> infrastructure/.env
 ```
 
-The local environment scripts also generate `.jwt/jwt-signing.p12` and `.jwt/jwt-public.pem` when required. The
-generated `.jwt/` directory is ignored by Git.
+Edit the local `.env` with approved development values. Never commit it or real credentials.
 
-PowerShell:
+For the Docker stack, Compose reads these values directly and passes service-specific environment variables into containers.
 
-```powershell
-. .\scripts\local-env.ps1 auth
-. .\gradlew.bat :auth-service:bootRun
-```
+## Docker networking
 
-CMD:
-
-```cmd
-call scripts\local-env.cmd auth
-gradlew.bat :auth-service:bootRun
-```
-
-The PowerShell script is intentionally dot-sourced and the CMD script intentionally uses `call`, because environment
-changes must remain in the caller's shell so Gradle and the Spring Boot process inherit them.
-
-## Docker Compose configuration
-
-Docker Compose also uses the `dev` Spring profile, but supplies container-specific runtime values. For example:
+Inside Compose, services use container DNS names:
 
 ```text
-CONFIG_SERVICE_URL=http://config-service:8888
-AUTH_SERVICE_URL=http://auth-service:8081
-CUSTOMER_SERVICE_URL=http://customer-service:8082
-ACCOUNT_SERVICE_URL=http://account-service:8083
-TRANSFER_SERVICE_URL=http://transfer-service:8084
-NOTIFICATION_SERVICE_URL=http://notification-service:8085
-AUDIT_SERVICE_URL=http://audit-service:8086
-SPRING_KAFKA_BOOTSTRAPSERVERS=kafka:9092
+config-service:8888
+auth-service:8081
+customer-service:8082
+account-service:8083
+transfer-service:8084
+notification-service:8085
+audit-service:8086
+kafka:9092
+redis:6379
 ```
 
-The JWT issuer used inside the Compose network must be reachable by services using container DNS. Do not use `localhost`
-for an inter-container issuer; inside a container, `localhost` refers to that same container.
+Do not use `localhost` for service-to-service URLs inside containers.
 
-## Global REST JSON naming
+## Gateway rate-limit configuration
 
-Shared environment configuration sets:
+The Gateway supports a default fixed-window rule plus endpoint-specific rules. The current development defaults are:
 
 ```yaml
-spring:
-  jackson:
-    property-naming-strategy: SNAKE_CASE
+gateway:
+  rate-limit:
+    enabled: true
+    fail-open: true
+    default-limit: 60
+    default-window: 1m
 ```
 
-Java properties and record components should remain camelCase; JSON at the REST boundary should use snake_case. Avoid
-redundant per-DTO naming annotations unless a specific endpoint documents an exception.
+Specific rules currently include 5/min for legacy login, 10/min for legacy refresh, 10/min for account-opening POSTs, and 10/min for transfer POSTs. Production-like environments should set fail-open explicitly according to the operational policy.
 
-## Runtime settings and secrets
+## REST JSON naming
 
-Common runtime configuration includes:
+Shared configuration uses `SNAKE_CASE` at the HTTP boundary. Java properties and record components remain camelCase unless an endpoint has a documented exception.
 
-- Config Server URL (no client credentials in this demo)
-- Database URLs, usernames, and passwords
-- JWT issuer, audience, signing-keystore path/password/alias, and public-key path
-- Internal service-to-service key
-- OAuth2 confidential demo client secret
-- Seed/demo user credentials
-- Service URLs and Kafka bootstrap servers
-
-Locally generated values belong in ignored `infrastructure/.env`; local signing material belongs in ignored `.jwt/` for
-host-based development and `infrastructure/secrets/` for the Docker initialization flow. Commit only placeholders and
-safe examples, never actual credentials, signing keys, or passwords.
-
-## Environment promotion
-
-Promote reviewed configuration through the environment path:
+## Promotion
 
 ```text
 dev -> qa -> stage -> prod
 ```
 
-Environment-specific values should differ where required, but the service configuration structure should remain
-consistent. Production secrets must come from the organization's approved secret-management system rather than copied
-local `.env` files.
+Production secrets must come from the organization's approved secret-management system rather than copied local `.env` files.
 
-Related page: [[Getting-Started]].
+Related pages: [[Getting-Started]], [[Security-and-Operations]].
