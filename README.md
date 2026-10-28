@@ -1,75 +1,238 @@
-# iSLDevs Microservices Banking Platform
+# iSLDevs Banking Platform
 
-A Java 21 / Spring Boot microservices learning platform that demonstrates banking-oriented backend design: OAuth2/OIDC authentication, customer/KYC lifecycle, account opening and funding, double-entry ledger operations, transfers, idempotency, Kafka events, audit/notification processing, centralized configuration, and Redis-backed gateway rate limiting.
+**An evolving enterprise banking platform built with Java, Spring Boot, microservices, double-entry accounting, event-driven architecture, and secure APIs.**
 
-> **Status:** learning/demo project. It is not a production-ready banking platform.
+This repository explores how a banking backend can grow from core customer, account, and transfer workflows into a broader enterprise banking architecture. The goal is to model realistic financial processes, clear service ownership, reliable money movement, and operational controls while keeping the implementation understandable and independently testable.
 
-## Architecture
+> [!IMPORTANT]
+> **Project status: active learning and architecture development.** The features described under **Implemented today** exist in the repository. The enterprise banking capabilities under **Target roadmap** are design goals, not implemented integrations or claims of production readiness. This platform must not be used for real customer funds.
 
-The runtime consists of independent Spring Boot services. Each business service owns its database and migrations; services communicate through APIs or Kafka events and never read another service's database directly.
+## Implemented today
 
-| Service | Port | Owns | Responsibility |
-|---|---:|---|---|
-| gateway-service | 8080 | — | Public API entry point, JWT validation, routing, correlation ID, rate limiting |
-| auth-service | 8081 | auth | OAuth2/OIDC Authorization Server, identity and token issuance |
-| customer-service | 8082 | customer | Customer profile and KYC lifecycle |
-| account-service | 8083 | account | Account lifecycle, balances, funding, operations and ledger |
-| transfer-service | 8084 | transfer | Transfer workflow, idempotency, recovery and Kafka outbox |
-| notification-service | 8085 | notification | Kafka-driven in-app notifications |
-| audit-service | 8086 | audit | Kafka-driven append-oriented audit history |
-| config-service | 8888 | — | Spring Cloud Config Server using bundled native configuration |
+Eight independent Spring Boot services are coordinated through a Gradle composite build.
 
-## Key flows
+| Service | Port | Responsibility | Database |
+| --- | ---: | --- | --- |
+| `gateway-service` | `8080` | API routing, JWT validation, correlation IDs, Redis-backed rate limiting | None |
+| `auth-service` | `8081` | Identity, OAuth2/OIDC authorization and token issuance | `auth` |
+| `customer-service` | `8082` | Customer profiles, basic KYC review and customer status | `customer` |
+| `account-service` | `8083` | Account products, account opening, funding instructions, balances, financial operations and ledger entries | `account` |
+| `transfer-service` | `8084` | Transfer lifecycle, idempotency, recovery and transactional outbox | `transfer` |
+| `notification-service` | `8085` | Kafka-driven in-app notifications | `notification` |
+| `audit-service` | `8086` | Kafka-driven transfer audit history | `audit` |
+| `config-service` | `8888` | Spring Cloud Config using bundled environment configuration | None |
 
-### Authentication
+Each stateful business service owns its logical PostgreSQL database and Flyway migrations; services do not query one another's tables directly. Local Docker Compose runs these logical databases on one PostgreSQL instance.
 
-New clients use **OAuth 2.0 Authorization Code + PKCE** through Spring Authorization Server. The older `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` endpoints remain only as deprecated compatibility endpoints.
+### Current system architecture
 
-### Account opening and initial funding
+```text
+                            Web / Mobile / Postman
+                                     |
+                                     v
+                             Gateway :8080
+                          JWT / routing / limits
+                              |          |
+                              |          +------> Redis
+                 +------------+------------------+
+                 |            |                  |
+                 v            v                  v
+           Auth :8081    Customer :8082     Transfer :8084
+           auth DB       customer DB        transfer DB
+                              |                  |
+                              | customer checks  | financial command (HTTP)
+                              v                  v
+                         Account :8083 <---------+
+                         account DB / ledger
+                                                 
+            Transfer outbox ---> Kafka ---> Notification :8085
+                                  |
+                                  +-------> Audit :8086
 
-Account products are data-driven. An opening request requires `Idempotency-Key`; when an initial deposit is requested, the account is created as `PENDING_FUNDING` and a `funding_instruction` is created. The account is credited only when the settlement/posting step is received with an external settlement reference. Posting creates the financial operation and ledger entries atomically, then activates the account.
-
-### Transfers
-
-Transfer Service owns transfer workflow and client idempotency. Account Service remains the financial accounting boundary and owns balances and ledger entries. Kafka outbox events provide durable downstream processing for notification and audit.
-
-### Gateway rate limiting
-
-The Gateway uses Redis-backed fixed-window limits. Authenticated requests are limited by JWT subject; anonymous requests use client IP. Current defaults include 5/min for legacy login, 10/min for legacy refresh, 10/min for account-opening requests, 10/min for transfer creation, and 60/min for other `/api/**` requests. Limits are configurable by environment.
-
-## Configuration
-
-Configuration is bundled in `config-service/src/main/resources/config/` and separated by the application environments `dev`, `qa`, `stage`, and `prod`. There is no runtime `config-repo` checkout and Docker is not a Spring profile.
-
-Secrets and runtime values come from the environment. Never commit database passwords, JWT signing material, OAuth client secrets, or internal service keys.
-
-## Local development
-
-Prerequisites: Java 21, Git, Gradle 8.10.x, and Docker Compose for the full local stack.
-
-```bash
-gradle buildAll
-gradle testAll
-gradle checkAll
+           Config :8888 -> environment configuration for services
 ```
 
-Full local stack:
+**Financial posting boundary:** `account-service` owns account balances and ledger entries. `transfer-service` owns the transfer request, workflow state, client idempotency, recovery, and outbox. Notification and audit events are downstream effects; they are not the accounting source of truth.
+
+Read the canonical [architecture guide](docs/wiki/Architecture.md), [service catalogue](docs/wiki/Services.md), and [database ownership and reconciliation guide](docs/DATABASES.md) for details.
+
+## Banking flows available in the demo
+
+### 1. Customer onboarding and account opening
+
+1. Register/authenticate a user using the OAuth2/OIDC flow.
+2. Create a customer record, initially pending basic KYC.
+3. Approve KYC with an authorized user.
+4. Open a product-based USD or KHR account with an `Idempotency-Key`.
+5. When an initial deposit is requested, create an account in `PENDING_FUNDING` and a funding instruction; do not immediately increase its balance.
+6. Post the simulated settled instruction with a trusted service credential and external settlement reference, creating financial entries and activating the account within a database transaction.
+
+### 2. Internal account-to-account transfer
+
+```text
+Client request + Idempotency-Key
+             |
+             v
+     Transfer Service
+     persist PENDING state
+             |
+             v
+     Account Service
+     validate accounts / balances
+     post debit + credit
+     commit financial operation
+             |
+             v
+     Transfer COMPLETED
+     + outbox event (same transfer DB transaction)
+             |
+             v
+           Kafka
+           /   \
+ Notification   Audit
+```
+
+The Account Service uses the transfer/operation identity for posting idempotency. Ambiguous calls remain eligible for recovery/reconciliation instead of blindly generating a new financial operation. Current transfer currencies are **USD** and **KHR**, not arbitrary international currencies.
+
+### 3. Ledger and account operations
+
+The current demo stores debit and credit entries for financial operations, updates ledger/available balances inside transactional account operations, and exposes account/ledger queries. The roadmap includes a stronger immutable journal model, a full chart of accounts, general ledger, holds, reversals, accounting periods, and formal end-of-day reconciliation. The existing ledger should not be confused with a completed enterprise general ledger.
+
+See the [API reference](docs/wiki/API-Reference.md) and [security guide](docs/wiki/Security-and-Operations.md).
+
+## Target roadmap
+
+The following capabilities are **planned**, not part of the present runtime. They are grouped by business responsibility rather than assuming every box must become a separate microservice.
+
+| Stage | Target banking capabilities |
+| --- | --- |
+| **1. Financial foundation** | Strengthen authorization/idempotency, immutable journals, posting rules, holds, reversals, accounting invariants, concurrency testing, and reconciliation |
+| **2. Core banking** | Chart of accounts, general ledger, product/fee and interest rules, account lifecycle, value dates, business dates, and end-of-day processing |
+| **3. Customer and risk** | Enhanced KYC/CDD, sanctions and PEP screening, transaction limits, fraud monitoring, case management, maker-checker approval |
+| **4. Domestic payments** | Payment initiation/approval, payment orchestration, clearing and settlement adapters, rejects/returns, external settlement and reconciliation |
+| **5. International banking** | ISO 20022/SWIFT integration, correspondent banking, Nostro/Vostro accounting, FX, multi-currency rules, legal entities, branches and booking centers |
+| **6. Banking expansion** | Lending and repayment schedules, regulatory reporting, operational resilience, broader audit coverage and reporting |
+
+### Intended international payment flow
+
+```text
+Payment initiation
+   -> ownership, limits and fraud checks
+   -> sanctions / AML screening and approval
+   -> FX quote (when applicable)
+   -> payment orchestration
+   -> payment message / rail adapter (e.g. ISO 20022)
+   -> external clearing and settlement confirmation
+   -> financial posting and reconciliation
+   -> customer notification and regulatory/audit records
+```
+
+The sequence is a **target business workflow**. Actual bank/payment-rail rules vary by jurisdiction and scheme.
+
+## Technology and design principles
+
+- **Backend:** Java 17 toolchain, Spring Boot 3.3.x, Spring Security, Spring Authorization Server, Spring Cloud Config.
+- **Persistence:** PostgreSQL, Spring Data JPA/JDBC, Flyway; database-per-service ownership.
+- **Messaging:** Apache Kafka, transactional outbox and idempotent downstream processing.
+- **Cache / edge:** Redis for gateway rate limiting.
+- **Delivery:** independent Gradle builds (composite build), Docker Compose, GitHub Actions, CodeQL and Spotless.
+- **Observability:** Spring Actuator, Micrometer tracing/metrics and OpenTelemetry dependencies.
+- **Architecture:** business bounded contexts, explicit API/event contracts, synchronous calls for selected commands and asynchronous events for downstream work.
+
+**Design rules:** financial postings must balance, retries must not duplicate money movement, immutable history must be corrected with reversals rather than deletion, and failure recovery must use stable operation identifiers. Use security boundaries in each service, not solely at the gateway.
+
+## Getting started
+
+### Requirements
+
+- JDK **17** (current service Gradle toolchain and CI build).
+- Docker Engine with Docker Compose for the full local runtime.
+- Git.
+- The committed **Gradle wrapper** (currently configured for Gradle 8.13); no separate Gradle installation is required for normal local commands.
+
+> Some older documentation still mentions Java 21 or an absent Gradle wrapper. The build files, wrapper and CI are the current source of truth. The CI workflow currently uses Gradle 8.10.2; these versions should be aligned in a follow-up maintenance change.
+
+### Clone and build
 
 ```bash
-cp infrastructure/.env.example infrastructure/.env
-# edit infrastructure/.env with local values
+git clone https://github.com/isldevs/banking-platform.git
+cd banking-platform
+./gradlew buildAll
+./gradlew testAll
+./gradlew checkAll
+```
+
+On Windows PowerShell, use `.\gradlew.bat` instead of `./gradlew`.
+
+### Configure the local environment
+
+On **Windows PowerShell**, the included setup helper creates local environment values and JWT signing material:
+
+```powershell
+.\scripts\setup-local.ps1
+```
+
+This helper prepares local configuration; **start Docker Compose separately**.
+
+For other environments, create `infrastructure/.env` from `infrastructure/.env.example`, replace all placeholder secrets with local-only values, and provision the expected JWT keystore/public certificate under `infrastructure/secrets/` before startup. Do not commit either secrets or generated credentials.
+
+### Start the services
+
+```bash
 cd infrastructure
 docker compose up --build -d
 docker compose ps
 ```
 
-Compose exposes PostgreSQL on `127.0.0.1:5439`, Kafka on `127.0.0.1:29092`, Redis on `127.0.0.1:6379`, Config Service on `127.0.0.1:8888`, Auth Service on `127.0.0.1:8081`, and the Gateway on `127.0.0.1:8080`.
+Local host endpoints include:
 
-The repository does not ship a Gradle wrapper. Use an approved local Gradle installation matching the documented version or an approved build environment.
+| Component | Address |
+| --- | --- |
+| Gateway | `http://localhost:8080` |
+| Auth | `http://localhost:8081` |
+| Config | `http://localhost:8888` |
+| PostgreSQL | `localhost:5439` |
+| Kafka | `localhost:29092` |
+| Redis | `localhost:6379` |
+
+Other business services are reachable inside the Compose network. Their APIs are routed through the Gateway. See [Getting Started](docs/wiki/Getting-Started.md) for service startup and application-level examples.
+
+## API development and testing
+
+- Use the [API reference](docs/wiki/API-Reference.md) for the current OAuth2 endpoints, permissions, request/response contracts and banking operations.
+- The intended API development workflow is **Postman Native Git**. Open the cloned repository in Postman Desktop, connect a workspace to the repository root, let Postman generate its own local resource structure, review changes in Git, and synchronize through pull requests.
+- **Repository state:** the current tree does not contain committed `docs/postman/` exports or Postman Native Git resource directories. Do not assume the collection is available until those files are added.
+- Treat `Idempotency-Key` and financial operation identity as part of request contract testing. Never commit bearer tokens, signing material, client secrets or service keys.
+
+## Repository structure
+
+```text
+banking-platform/
+├── auth-service/
+├── customer-service/
+├── account-service/
+├── transfer-service/
+├── notification-service/
+├── audit-service/
+├── gateway-service/
+├── config-service/
+├── contracts/
+├── infrastructure/
+├── scripts/
+├── docs/
+├── gradle/
+├── gradlew
+├── gradlew.bat
+├── build.gradle
+├── settings.gradle
+└── README.md
+```
+
+Each service has its own `build.gradle` and `settings.gradle`. The root Gradle composite build orchestrates independent service builds; it is not a shared-JPA-model monolith.
 
 ## Documentation
 
-The versioned documentation has one canonical API reference under `docs/wiki/API-Reference.md`; the older duplicate `docs/API_REFERENCE.md` is intentionally not maintained.
+The canonical versioned documentation lives in `docs/wiki/`:
 
 - [Project Wiki](docs/wiki/Home.md)
 - [Architecture](docs/wiki/Architecture.md)
@@ -84,155 +247,18 @@ The versioned documentation has one canonical API reference under `docs/wiki/API
 - [Gradle composite build](docs/GRADLE_COMPOSITE_BUILD.md)
 - [Architecture/package conventions](docs/architecture/package-structure.md)
 
-Postman assets are under `docs/postman/`.
+## Security and current limitations
 
-## Postman Native Git workflow
+This is a **development/demo system**, not a production banking solution. In particular:
 
-This repository uses Postman as the API development and testing client. The preferred long-term workflow is **Postman Native Git**, where Postman collections and environments are stored as files in the Git repository and synchronized with a shared Postman Cloud workspace when changes are ready to share.
+- The local funding/settlement configuration uses seeded demo clearing accounts; it does not integrate with real external settlement.
+- `X-Service-Key` is a demonstration service-to-service credential, not a substitute for workload identity, mTLS, scoped authorization and proper key management.
+- A complete enterprise posting engine/general ledger, AML screening, clearing rails, regulated reporting, and international payment settlement **are not implemented**.
+- More integration, concurrency, security and disaster-recovery testing is required. A successful unit build alone does not establish financial correctness.
+- Some existing documentation and CI references are out of sync with the current tree (for example, missing Postman exports and demo-flow scripts); track and resolve these before relying on end-to-end automation.
 
-### Current Postman layout
+Never use actual banking credentials, regulated customer data or real funds with this project.
 
-The repository currently contains exported Postman files under `docs/postman/`:
+---
 
-- `docs/postman/iSLDevs-Banking-API.postman_collection.json`
-- `docs/postman/iSLDevs-Banking-Local.postman_environment.json`
-
-These are the current portable exports. Do not manually create Postman's Native Git YAML structure. During migration, let the Postman desktop app create `.postman/` and `postman/` and then verify the generated files before removing the legacy JSON exports.
-
-### Native Git setup
-
-Postman Native Git requires the Postman desktop app. For this repository, use the following workflow:
-
-1. Make sure the local repository is on the integration branch and up to date:
-
-   ```bash
-   git checkout main
-   git pull
-   git status
-   ```
-
-2. Open the repository folder in the Postman desktop app using **Local Files** / **Open Folder**.
-
-3. Create or open the Postman workspace for the **iSLDevs Microservices Banking Platform** and connect the local repository folder to that workspace.
-
-4. Because this is a multi-service monorepo, Postman normally recommends one workspace per service folder. This project intentionally uses a **single platform-level Postman collection covering multiple services**, so the initial Native Git workspace should be connected to the **repository root**. Revisit this decision only if the collection is later split into service-specific workspaces.
-
-5. If Postman detects the existing collection/environment, connect the existing workspace and pull the existing Postman resources into the local project. Do not overwrite the existing exports until the Native Git version has been verified.
-
-6. Confirm that Postman creates these Native Git files/directories:
-
-   ```text
-   .postman/
-   postman/
-   ```
-
-   The `.postman/resources.yaml` manifest maps local resources to the Postman Cloud workspace. The `postman/` directory contains the Git-managed collections, environments, and other Postman resources.
-
-7. In Postman **Local View**, review the generated collection and environment. Use the Postman **Issues** panel to fix schema/path/file-format problems before syncing.
-
-8. Test the important platform flow locally:
-
-   ```text
-   Authentication
-     -> Create Customer
-     -> Approve Customer KYC
-     -> Open Account
-     -> Post Settled Initial Funding
-     -> Get Account
-     -> Create Transfer
-     -> Get Transfer
-   ```
-
-9. Verify that dynamic values such as `customer_id`, `account_id`, `instruction_id`, `operation_id`, `transfer_id`, and `idempotency_key` are captured/generated correctly before committing the Native Git files.
-
-10. Review the Git diff. Native Git changes should be treated like application source changes:
-
-   ```bash
-   git status
-   git diff
-   git add .postman postman
-   git commit -m "chore(postman): migrate API workspace to native git"
-   git push -u origin <feature-branch>
-   ```
-
-11. Open a pull request and merge through the normal repository workflow. The merged integration branch becomes the source of truth for Git-managed Postman resources.
-
-### Postman Cloud sync
-
-Use **Local View** for normal development. Push to Postman Cloud only after the Git diff has been reviewed and the local requests have been tested. Cloud View is the shared representation for teammates who work from Postman without cloning the repository.
-
-For this project, the intended direction is:
-
-```text
-Feature branch
-    |
-    v
-Postman Local View
-    |
-    v
-Git diff -> commit -> pull request -> merge to main
-    |
-    v
-Postman Cloud sync
-```
-
-Do not make conflicting manual edits in Cloud View and Local View at the same time. If a Cloud change must be preserved, pull it into the local Git workspace before pushing local changes.
-
-### Secrets and environment values
-
-Never commit real passwords, OAuth client secrets, JWT signing material, service keys, or other credentials in Postman resources. Keep local-only values in Postman and use Postman Vault or another approved secret mechanism for sensitive values. Commit only non-sensitive shared values required by the project.
-
-The committed local environment should contain safe defaults such as local service URLs and empty placeholders for sensitive/runtime values. Review the Git diff before every Postman commit.
-
-### CI/CD: sync `main` to Postman Cloud
-
-After Native Git has been connected successfully and `.postman/resources.yaml` contains the real Postman workspace mapping, the repository can automate Cloud synchronization after a merge to `main` using the Postman CLI.
-
-The CI job should:
-
-1. Check out `main`.
-2. Install/authenticate the Postman CLI.
-3. Provide a protected `POSTMAN_API_KEY` repository secret.
-4. Run `postman workspace push` from the directory containing `.postman/resources.yaml`.
-5. Fail the workflow if the Native Git resources cannot be synchronized.
-
-Do not add a real Postman API key or workspace ID to source control. Configure them as repository/organization secrets or protected CI variables.
-
-### Native Git rules for this repository
-
-- **Git is the source of truth for reviewed API changes.**
-- **Postman Local View is the normal editing surface.**
-- **Postman Cloud is the shared/consumer view.**
-- Review Native Git YAML changes in pull requests just like Java/configuration changes.
-- Do not manually edit `.postman/resources.yaml` unless there is a specific Postman-supported reason.
-- Do not commit secrets.
-- Do not delete the legacy `docs/postman/*.json` exports until the Native Git migration is verified and the team agrees to remove them.
-- Keep the platform collection aligned with the actual gateway routes and current API contracts.
-
-## Repository structure
-
-```text
-microservice-platform-demo/
-├── auth-service/
-├── customer-service/
-├── account-service/
-├── transfer-service/
-├── notification-service/
-├── audit-service/
-├── gateway-service/
-├── config-service/
-├── contracts/
-├── infrastructure/
-├── docs/
-├── build.gradle
-├── settings.gradle
-└── README.md
-```
-
-Each service remains independently buildable. The root Gradle project orchestrates those independent builds through Gradle composite-build `includeBuild` entries.
-
-## Security boundary
-
-The Gateway performs edge validation and rate limiting, but it is not the only security boundary. Downstream services validate JWTs and enforce their own permissions and ownership rules. Service-to-service credentials such as `X-Service-Key` are for trusted internal calls only.
-
-Financial operations must preserve idempotency, transaction boundaries, concurrency controls, and balanced ledger entries. This demo still requires organization-approved identity controls, key management, TLS/service identity, compliance controls, resilience validation, monitoring, reconciliation, and end-to-end integration testing before any real banking use.
+**Maintained by [iSLDevs](https://github.com/isldevs)** · [Repository](https://github.com/isldevs/banking-platform) · Learning, design and implementation of realistic banking backend workflows.
