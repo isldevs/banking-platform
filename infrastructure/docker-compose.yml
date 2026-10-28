@@ -83,15 +83,15 @@ services:
       SECURITY_JWT_KEYSTORE_PATH: /app/secrets/jwt-signing.p12
       SECURITY_JWT_KEYSTORE_PASSWORD: ${SECURITY_JWT_KEYSTORE_PASSWORD:?Set SECURITY_JWT_KEYSTORE_PASSWORD}
       SECURITY_JWT_KEYSTORE_ALIAS: jwt-signing
-      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       DEMO_ADMIN_USERNAME: ${DEMO_ADMIN_USERNAME:?Set DEMO_ADMIN_USERNAME}
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD}
       DEMO_USER_USERNAME: ${DEMO_USER_USERNAME:-user}
       DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD}
       OAUTH2_DEMO_CLIENT_SECRET: ${OAUTH2_DEMO_CLIENT_SECRET:?Set OAUTH2_DEMO_CLIENT_SECRET}
-      DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth
-      DATASOURCE_USERNAME: auth_user
-      DATASOURCE_PASSWORD: ${DB_PASSWORD_AUTH:?Set DB_PASSWORD_AUTH}
+      DB_AUTH_URL: jdbc:postgresql://postgres:5432/auth
+      DB_AUTH_USERNAME: auth_user
+      DB_AUTH_PASSWORD: ${DB_PASSWORD_AUTH:?Set DB_PASSWORD_AUTH}
       <<: *service-endpoints
     ports:
       - "127.0.0.1:8081:8081"
@@ -103,6 +103,12 @@ services:
         condition: service_healthy
       config-service:
         condition: service_started
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health >/dev/null" ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 45s
 
   customer-service:
     build:
@@ -112,10 +118,10 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DATASOURCE_URL: jdbc:postgresql://postgres:5432/customer
-      DATASOURCE_USERNAME: customer_user
-      DATASOURCE_PASSWORD: ${DB_PASSWORD_CUSTOMER:?Set DB_PASSWORD_CUSTOMER}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_CUSTOMER_URL: jdbc:postgresql://postgres:5432/customer
+      DB_CUSTOMER_USERNAME: customer_user
+      DB_CUSTOMER_PASSWORD: ${DB_PASSWORD_CUSTOMER:?Set DB_PASSWORD_CUSTOMER}
       <<: *service-endpoints
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
@@ -133,10 +139,10 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DATASOURCE_URL: jdbc:postgresql://postgres:5432/account
-      DATASOURCE_USERNAME: account_user
-      DATASOURCE_PASSWORD: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_ACCOUNT_URL: jdbc:postgresql://postgres:5432/account
+      DB_ACCOUNT_USERNAME: account_user
+      DB_ACCOUNT_PASSWORD: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
       FUNDING_ENABLED: 'true'
       <<: *service-endpoints
     volumes:
@@ -155,10 +161,10 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DATASOURCE_URL: jdbc:postgresql://postgres:5432/transfer
-      DATASOURCE_USERNAME: transfer_user
-      DATASOURCE_PASSWORD: ${DB_PASSWORD_TRANSFER:?Set DB_PASSWORD_TRANSFER}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_TRANSFER_URL: jdbc:postgresql://postgres:5432/transfer
+      DB_TRANSFER_USERNAME: transfer_user
+      DB_TRANSFER_PASSWORD: ${DB_PASSWORD_TRANSFER:?Set DB_PASSWORD_TRANSFER}
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
       <<: *service-endpoints
     volumes:
@@ -179,10 +185,10 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification
-      DATASOURCE_USERNAME: notification_user
-      DATASOURCE_PASSWORD: ${DB_PASSWORD_NOTIFICATION:?Set DB_PASSWORD_NOTIFICATION}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_NOTIFICATION_URL: jdbc:postgresql://postgres:5432/notification
+      DB_NOTIFICATION_USERNAME: notification_user
+      DB_NOTIFICATION_PASSWORD: ${DB_PASSWORD_NOTIFICATION:?Set DB_PASSWORD_NOTIFICATION}
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
       <<: *service-endpoints
     volumes:
@@ -203,10 +209,10 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
-      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      DATASOURCE_URL: jdbc:postgresql://postgres:5432/audit
-      DATASOURCE_USERNAME: audit_user
-      DATASOURCE_PASSWORD: ${DB_PASSWORD_AUDIT:?Set DB_PASSWORD_AUDIT}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_AUDIT_URL: jdbc:postgresql://postgres:5432/audit
+      DB_AUDIT_USERNAME: audit_user
+      DB_AUDIT_PASSWORD: ${DB_PASSWORD_AUDIT:?Set DB_PASSWORD_AUDIT}
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
       <<: *service-endpoints
     volumes:
@@ -226,10 +232,10 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
-      SPRING_DATA_REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://redis:6379
       SECURITY_JWT_ISSUER: ${DOCKER_JWT_ISSUER:-http://auth-service:8081}
       SECURITY_JWT_AUDIENCE: ${SECURITY_JWT_AUDIENCE:?Set SECURITY_JWT_AUDIENCE}
-      SECURITY_INTERNALKEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       <<: *service-endpoints
     ports:
       - "127.0.0.1:8080:8080"
@@ -239,7 +245,7 @@ services:
       redis:
         condition: service_healthy
       auth-service:
-        condition: service_started
+        condition: service_healthy
       customer-service:
         condition: service_started
       account-service:
