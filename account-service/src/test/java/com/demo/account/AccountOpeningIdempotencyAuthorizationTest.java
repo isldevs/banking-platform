@@ -131,7 +131,9 @@ class AccountOpeningIdempotencyAuthorizationTest {
     assertSame(expected, actual);
     InOrder serialized = inOrder(openingRequests);
     serialized.verify(openingRequests).lockForOpening(OTHER_USER_ID, "open-key");
-    serialized.verify(openingRequests).findByPrincipalIdAndIdempotencyKey(OTHER_USER_ID, "open-key");
+    serialized
+        .verify(openingRequests)
+        .findByPrincipalIdAndIdempotencyKey(OTHER_USER_ID, "open-key");
   }
 
   private static OpenAccount request() {
