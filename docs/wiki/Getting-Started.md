@@ -63,7 +63,7 @@ Windows PowerShell helper:
 .\scripts\setup-local.ps1
 ```
 
-The helper currently prints that the platform has started even though its Docker startup block is commented out. Run `docker compose up` yourself after setup.
+The helper prepares credentials and JWT signing material without starting Docker Compose. It preserves existing `.env` values and refuses to generate a new password when a JWT keystore exists without its matching `.env`. Run `docker compose up --build -d` from `infrastructure/` after setup.
 
 Do not commit secrets, signing keys, database passwords, OAuth client secrets, or internal service keys.
 

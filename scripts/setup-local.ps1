@@ -50,6 +50,13 @@ if (-not (Test-Path $example))
     throw "Missing $example"
 }
 
+# Do not silently generate a new keystore password when an old keystore exists.
+# Recover the matching .env instead, or intentionally remove the old credentials.
+if (-not (Test-Path $envFile) -and (Test-Path $keystore))
+{
+    throw 'Found an existing JWT keystore without infrastructure/.env. Restore its matching .env or explicitly reset both files before setup.'
+}
+
 New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
 
 if (-not (Test-Path $envFile))
@@ -220,7 +227,9 @@ foreach ($name in $required)
         $output += "$name=$( $values[$name] )"
     }
 }
-Set-Content -Path $envFile -Value $output -Encoding utf8
+# Windows PowerShell 5.1 uses UTF-8 with BOM for -Encoding utf8.
+# Docker Compose .env files should not start with a BOM.
+[System.IO.File]::WriteAllLines($envFile, [string[]] $output, [System.Text.UTF8Encoding]::new($false))
 
 foreach ($name in $values.Keys)
 {
@@ -252,41 +261,14 @@ if (-not (Test-Path $publicKey))
 }
 
 Write-Host ''
-Write-Host 'Local configuration is ready.'
+Write-Host 'Local configuration is ready. Docker Compose has NOT been started.'
 Write-Host "Environment: $envFile"
 Write-Host "JWT signing: $keystore"
-Write-Host 'Demo admin:  infrastructure/.env -> DEMO_ADMIN_USERNAME / DEMO_ADMIN_PASSWORD'
-
-# Docker is optional. Setup succeeds even when Docker Desktop is unavailable.
-#$docker = Get-Command docker -ErrorAction SilentlyContinue
-#if (-not $docker) {
-#    Write-Host ''
-#    Write-Host 'Docker is not available. Docker startup skipped.'
-#    Write-Host 'Start Docker later and run this same script again to start the complete platform.'
-#    exit 0
-#}
-#
-#& docker info *> $null
-#if ($LASTEXITCODE -ne 0) {
-#    Write-Host ''
-#    Write-Host 'Docker is installed but not running. Docker startup skipped.'
-#    Write-Host 'Start Docker Desktop later and run this same script again to start the complete platform.'
-#    exit 0
-#}
-
-#Push-Location $infra
-#try {
-#    Write-Host ''
-#    Write-Host 'Starting the complete local platform with Docker Compose...'
-#    & docker compose --env-file .env up --build -d
-#    if ($LASTEXITCODE -ne 0) { throw 'Docker Compose failed to start the local platform.' }
-#} finally {
-#    Pop-Location
-#}
-
+Write-Host 'Demo admin: infrastructure/.env -> DEMO_ADMIN_USERNAME / DEMO_ADMIN_PASSWORD'
 Write-Host ''
-Write-Host 'Complete local platform started.'
-Write-Host 'Gateway: http://localhost:8080'
-Write-Host 'Auth:    http://localhost:8081'
-Write-Host 'Config:  http://localhost:8888'
-Write-Host 'Login:   DEMO_ADMIN_USERNAME / DEMO_ADMIN_PASSWORD from infrastructure/.env'
+Write-Host 'Start the local platform when Docker is available:'
+Write-Host '  cd infrastructure'
+Write-Host '  docker compose up --build -d'
+Write-Host '  docker compose ps'
+Write-Host ''
+Write-Host 'After successful startup, access Gateway at http://localhost:8080'
