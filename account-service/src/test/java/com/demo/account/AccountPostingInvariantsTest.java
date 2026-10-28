@@ -117,8 +117,7 @@ class AccountPostingInvariantsTest {
     verify(ledgerEntries, times(2)).save(ledger.capture());
     List<LedgerEntryEntity> entries = ledger.getAllValues();
     assertEquals(
-        List.of("DEBIT", "CREDIT"),
-        entries.stream().map(LedgerEntryEntity::getEntryType).toList());
+        List.of("DEBIT", "CREDIT"), entries.stream().map(LedgerEntryEntity::getEntryType).toList());
     assertEquals(
         List.of(SOURCE_ID, DESTINATION_ID),
         entries.stream().map(LedgerEntryEntity::getAccountId).toList());
@@ -194,12 +193,7 @@ class AccountPostingInvariantsTest {
 
   private static TransferCommand command(String amount) {
     return new TransferCommand(
-        OPERATION_ID,
-        SOURCE_ID,
-        DESTINATION_ID,
-        new BigDecimal(amount),
-        "USD",
-        USER_ID.toString());
+        OPERATION_ID, SOURCE_ID, DESTINATION_ID, new BigDecimal(amount), "USD", USER_ID.toString());
   }
 
   private static AccountOperationEntity prior(String amount) {
