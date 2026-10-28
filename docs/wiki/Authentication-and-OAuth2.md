@@ -1,11 +1,13 @@
-# Authentication and OAuth2
+# Authentication and OAuth2/OIDC
+
+This page documents the **current demo authorization server**, not a production identity platform. The public OAuth2 protocol is served directly by Auth Service (port 8081) in the local stack.
 
 ## Recommended flow
 
 New interactive clients should use **OAuth 2.0 Authorization Code + PKCE** through Spring Authorization Server. Do not
 implement login by posting a username/password JSON object to the token endpoint.
 
-Local issuer: `http://localhost:8081`.
+Local host issuer: `http://localhost:8081` for matching host configuration. Docker Compose supports a container-specific issuer via `DOCKER_JWT_ISSUER`; ensure issuer, token validators, client redirect/discovery configuration and service hostnames are consistent.
 
 | Endpoint                                | Purpose                                          |
 |-----------------------------------------|--------------------------------------------------|
@@ -31,7 +33,7 @@ supplied as `OAUTH2_DEMO_CLIENT_SECRET` and stored hashed in the registered-clie
 Never embed `demo-bff`'s secret or a refresh token in browser JavaScript, a mobile application bundle, a URL, or logs.
 For browser/mobile applications needing long-lived access, keep refresh tokens in a backend-for-frontend (BFF).
 
-The demo redirect URI is `https://oauth.pstmn.io/v1/callback`. Registered scopes include `openid`, `profile`, `email`,
+The `demo-bff` redirect URI is `https://oauth.pstmn.io/v1/callback`; `demo-browser` additionally supports `https://oauth.pstmn.io/v1/browser-callback`. Registered scopes include `openid`, `profile`, `email`,
 `customer.read`, `account.read`, `account.write`, and `transfer.create`.
 
 ## Authorization-code exchange
@@ -113,6 +115,14 @@ The resource servers validate signature, issuer, audience, and expiry. Applicati
 For OAuth2 tokens, send a form-encoded revocation request to `POST /oauth2/revoke`, authenticated as the confidential
 client. After sign-out, discard locally stored tokens.
 
+## Resource server and internal-service authorization
+
+- Current JWT access tokens carry the UUID user ID in `sub`, plus `roles` and `permissions`. Controllers and application services must enforce both permission and ownership.
+- Gateway validation is not sufficient: protected downstream services independently validate JWTs.
+- Current `X-Service-Key` internal calls are a **demo trust mechanism**. The future enterprise design should use scoped workload identity, mTLS and service authorization.
+- Never leak tokens, client secrets, PKCE verifiers, signing keys or authorization codes in logs or committed Postman resources.
+- The Postman callback and demo credentials are **local development examples**, not production configurations.
+
 ## Deprecated custom token endpoints
 
 The following endpoints remain for old demo clients but are deprecated for new clients:
@@ -124,4 +134,4 @@ The following endpoints remain for old demo clients but are deprecated for new c
 The legacy endpoints and Spring Authorization Server use separate token stores. Never pass a legacy refresh token to
 `/oauth2/token`, or an OAuth2 refresh token to `/api/auth/refresh` or `/api/auth/logout`.
 
-See [[API-Reference]] for complete OAuth2 protocol and REST API details.
+See [API Reference](API-Reference.md) for the current REST contract, [Security and Operations](Security-and-Operations.md) for security gaps, and [Configuration](Configuration.md) for environment-specific issuer settings.
