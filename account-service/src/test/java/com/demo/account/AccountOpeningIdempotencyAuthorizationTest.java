@@ -37,14 +37,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
 class AccountOpeningIdempotencyAuthorizationTest {
-  private static final UUID ACCOUNT_ID =
-      UUID.fromString("a0000000-0000-0000-0000-000000000001");
-  private static final UUID CUSTOMER_ID =
-      UUID.fromString("b0000000-0000-0000-0000-000000000001");
-  private static final UUID OWNER_ID =
-      UUID.fromString("c0000000-0000-0000-0000-000000000001");
-  private static final UUID OTHER_USER_ID =
-      UUID.fromString("d0000000-0000-0000-0000-000000000001");
+  private static final UUID ACCOUNT_ID = UUID.fromString("a0000000-0000-0000-0000-000000000001");
+  private static final UUID CUSTOMER_ID = UUID.fromString("b0000000-0000-0000-0000-000000000001");
+  private static final UUID OWNER_ID = UUID.fromString("c0000000-0000-0000-0000-000000000001");
+  private static final UUID OTHER_USER_ID = UUID.fromString("d0000000-0000-0000-0000-000000000001");
 
   private final AccountRepository accounts = mock(AccountRepository.class);
   private final AccountBalanceRepository balances = mock(AccountBalanceRepository.class);
