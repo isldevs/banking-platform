@@ -119,7 +119,8 @@ public class AccountingServiceImpl implements AccountingService {
     AccountOpeningRequestEntity previous = openingRequests.findById(key).orElse(null);
     if (previous != null) {
       validateIdempotentRetry(previous, request);
-      return readInternal(previous.getAccountId());
+      // Idempotent retries must enforce the same account ownership policy as regular reads.
+      return read(previous.getAccountId(), jwt);
     }
 
     String productCode = normalize(request.productCode());
