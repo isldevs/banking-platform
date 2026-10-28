@@ -3,7 +3,10 @@ package com.demo.account;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -81,7 +84,8 @@ class AccountOpeningIdempotencyAuthorizationTest {
     previous.setProductCode("SAVINGS");
     previous.setCurrency("USD");
     previous.setRequestedInitialDeposit(BigDecimal.ZERO);
-    when(openingRequests.findById("open-key")).thenReturn(Optional.of(previous));
+    when(openingRequests.findByPrincipalIdAndIdempotencyKey(any(UUID.class), eq("open-key")))
+        .thenReturn(Optional.of(previous));
 
     account = new AccountEntity();
     account.setId(ACCOUNT_ID);
@@ -100,6 +104,7 @@ class AccountOpeningIdempotencyAuthorizationTest {
             () -> service.open(request(), jwt(OTHER_USER_ID, false), "open-key"));
 
     assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
+    verify(openingRequests).findByPrincipalIdAndIdempotencyKey(OTHER_USER_ID, "open-key");
     verifyNoInteractions(balances, mapper);
   }
 
@@ -112,6 +117,7 @@ class AccountOpeningIdempotencyAuthorizationTest {
     AccountResponse actual = service.open(request(), jwt(OWNER_ID, false), "open-key");
 
     assertSame(expected, actual);
+    verify(openingRequests).findByPrincipalIdAndIdempotencyKey(OWNER_ID, "open-key");
   }
 
   @Test
@@ -123,6 +129,7 @@ class AccountOpeningIdempotencyAuthorizationTest {
     AccountResponse actual = service.open(request(), jwt(OTHER_USER_ID, true), "open-key");
 
     assertSame(expected, actual);
+    verify(openingRequests).findByPrincipalIdAndIdempotencyKey(OTHER_USER_ID, "open-key");
   }
 
   private static OpenAccount request() {
