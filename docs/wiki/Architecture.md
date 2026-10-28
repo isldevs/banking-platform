@@ -155,7 +155,7 @@ A Redis-backed fixed-window limiter is implemented, but `GATEWAY_RATE_LIMIT_ENAB
 
 ## Consistency and events
 
-- Financial account mutations use explicit database transactions and row/version concurrency controls.
+- Financial account mutations use explicit database transactions and pessimistic account row locks. Transfers acquire both account locks in ascending UUID order; funding settlement uses the same order before activating the destination. Account freezing obtains the account's write lock so it cannot race an in-progress post. The manually maintained `version` field is not a JPA `@Version` mechanism.
 - Ledger postings must remain balanced: total debit equals total credit.
 - Financial commands must be idempotent where retries can duplicate money movement.
 - Kafka consumers must tolerate at-least-once delivery.
