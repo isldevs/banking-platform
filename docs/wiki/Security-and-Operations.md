@@ -8,6 +8,7 @@
 - Access tokens are RSA-signed JWTs with a 15-minute lifetime.
 - Gateway and protected downstream services validate JWTs independently.
 - Downstream services enforce permissions and ownership; never rely only on Gateway authorization.
+- OAuth tokens delegate only the intersection of granted scopes and user permissions. Administrative ownership bypass requires the confidential `banking.admin` scope; public clients cannot delegate it or `audit.read`.
 - Ledger reads require `ACCOUNT_READ` and source/destination ownership or admin; knowing an operation UUID is not authorization.
 - Do not trust client-supplied user identity when the authenticated JWT subject is available.
 
@@ -41,16 +42,16 @@ Authenticated requests use JWT subject as the rate-limit identity. Anonymous req
 
 Development defaults to fail-open on a Redis outage; QA, stage and prod default to fail-closed **if the limiter is enabled**. Document and test the actual desired behavior in each deployment.
 
-## Security and correctness gaps identified in code review
+## Implemented controls and remaining gaps
 
-These are static-code findings, **not** outcomes of a completed security audit or test run:
+The following describes the current implementation and the operational work that remains:
 
 1. Account-opening retries enforce owner/admin authorization and keys are uniquely scoped by the authenticated JWT subject. Migration V4 backfills prior requests from account ownership; legacy admin-initiated retries may need new keys. Same-principal concurrent first attempts now acquire a PostgreSQL transaction advisory lock. A Testcontainers regression test verifies serialized reads against a migrated PostgreSQL schema; test the production deployment's transaction isolation and contention behavior before treating this as bank-grade idempotency.
 2. Authorized demo funding can transfer from seeded system clearing accounts with `FUNDING_ENABLED=true`. A real bank must require verified settlement evidence and controlled posting authority.
 3. Internal `X-Service-Key` is a shared demo mechanism, not strong per-workload identity. Move toward scoped, short-lived credentials and mTLS.
 4. `/api/accounts/funding/{instructionId}/post` is technically gateway-routed and protected with a service key. Separate this from end-user channels and authenticate trusted settlement callers more strongly.
 5. The implemented paired ledger entries do not yet constitute an enterprise GL, immutable journal subsystem or reversal workflow.
-6. Transfer recovery retries ambiguous operations using a stable ID; the future workflow should explicitly verify committed financial operation status and distinguish transient from permanent failures.
+6. Transfer dispatch uses a PostgreSQL session advisory lock across replicas, records attempts before dispatch and checks the authoritative account operation on recovery. After an ambiguous attempt, a later rejection cannot prove the earlier HTTP request will never commit; such transfers remain reconcilable and require aging alerts and operational investigation.
 
 ## Financial consistency
 
@@ -58,10 +59,16 @@ These are static-code findings, **not** outcomes of a completed security audit o
 - Ledger postings must balance debit and credit amounts.
 - Account mutations use explicit transaction boundaries and concurrency controls.
 - Opening with initial funding creates a funding instruction; money is credited only through settlement posting.
-- Settlement posting is idempotent by funding instruction/external reference.
+- Settlement posting is idempotent per instruction and consumes an external reference only once per channel/currency. The database enforces this identity; migration refuses existing duplicates for reconciliation instead of changing financial history automatically.
 - Transfer commands require a retry/idempotency strategy.
 - Never delete a posted financial record to correct history. A controlled reversal/compensating operation is **planned**; it is not an implemented customer-facing API yet.
 - Audit records are traceability evidence and do not replace reconciliation.
+
+## Kafka consumer recovery
+
+Audit and notification listeners retry failed transactional processing without a finite log-and-skip recovery path. `messaging.consumer-retry-delay-ms` controls the pause between retries (default 1000 ms). Containers keep polling while paused so a retry delay does not itself cause a consumer-group rebalance.
+
+A malformed or poison event blocks progress on its partition until corrected; it is not silently discarded. Alert on repeated consumer failures, paused partitions and growing lag. Kafka retention must exceed the maximum supported outage and recovery time: unlimited application retries cannot preserve a record after the broker's retention expires. Keep durable backups and an explicit repair/replay procedure. When replaying, preserve the original `eventId` so the transactional `processed_events` table can prevent duplicate side effects. Correct an unprocessable event through the approved repair procedure before resuming its partition; do not advance offsets merely to clear an alert.
 
 ## Observability
 
@@ -86,6 +93,6 @@ Before using a shared environment:
 - [ ] Verify financial idempotency, concurrency and reconciliation paths.
 - [ ] Verify backups, retention, alerts and incident procedures.
 - [ ] Run financial concurrency, retry, rollback, recovery and security tests before merging.
-- [ ] Add a full banking business-flow CI test with financial and ledger assertions; the current Docker job is a startup smoke test only.
+- [ ] Run the banking API smoke test after startup; CI checks demo funding/transfer balances, ledger assertions and downstream events. Expand coverage for external settlement and other future banking workflows as they are implemented.
 
 Related pages: [Authentication and OAuth2](Authentication-and-OAuth2.md), [Configuration](Configuration.md), [Development and Delivery](Development-and-Delivery.md).

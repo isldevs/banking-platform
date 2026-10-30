@@ -12,7 +12,9 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +26,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
@@ -72,10 +76,7 @@ public class AuthorizationServerConfig {
             .scope(OidcScopes.OPENID)
             .scope(OidcScopes.PROFILE)
             .scope(OidcScopes.EMAIL)
-            .scope("customer.read")
-            .scope("account.read")
-            .scope("account.write")
-            .scope("transfer.create")
+            .scopes(scopes -> scopes.addAll(OAuthPermissionPolicy.CUSTOMER_SCOPES))
             .clientSettings(
                 ClientSettings.builder()
                     .requireProofKey(true)
@@ -84,8 +85,20 @@ public class AuthorizationServerConfig {
             .tokenSettings(tokenSettings)
             .build();
 
-    if (repository.findByClientId(browserClient.getClientId()) == null) {
+    RegisteredClient existingBrowser = repository.findByClientId(browserClient.getClientId());
+    if (existingBrowser == null) {
       repository.save(browserClient);
+    } else if (!existingBrowser.getScopes().equals(browserClient.getScopes())) {
+      // Update the known demo client's scope policy on upgrades without changing persisted IDs,
+      // credentials, redirects, authorization grants, or PKCE settings.
+      repository.save(
+          RegisteredClient.from(existingBrowser)
+              .scopes(
+                  scopes -> {
+                    scopes.clear();
+                    scopes.addAll(browserClient.getScopes());
+                  })
+              .build());
     }
 
     // Confidential client for trusted server-side clients / Postman. Its secret
@@ -104,10 +117,9 @@ public class AuthorizationServerConfig {
               .scope(OidcScopes.OPENID)
               .scope(OidcScopes.PROFILE)
               .scope(OidcScopes.EMAIL)
-              .scope("customer.read")
-              .scope("account.read")
-              .scope("account.write")
-              .scope("transfer.create")
+              .scopes(scopes -> scopes.addAll(OAuthPermissionPolicy.CUSTOMER_SCOPES))
+              .scope("audit.read")
+              .scope(OAuthPermissionPolicy.ADMIN_SCOPE)
               .clientSettings(
                   ClientSettings.builder()
                       .requireProofKey(true)
@@ -119,12 +131,20 @@ public class AuthorizationServerConfig {
       RegisteredClient existing = repository.findByClientId(confidentialClient.getClientId());
       if (existing == null) {
         repository.save(confidentialClient);
-      } else if (!passwordEncoder.matches(confidentialClientSecret, existing.getClientSecret())) {
-        // Allow deployment secret rotation without replacing the persisted client ID.
-        jdbcTemplate.update(
-            "UPDATE oauth2_registered_client SET client_secret = ? WHERE id = ?",
-            passwordEncoder.encode(confidentialClientSecret),
-            existing.getId());
+      } else {
+        boolean rotateSecret =
+            !passwordEncoder.matches(confidentialClientSecret, existing.getClientSecret());
+        if (rotateSecret || !existing.getScopes().equals(confidentialClient.getScopes())) {
+          RegisteredClient.Builder updated =
+              RegisteredClient.from(existing)
+                  .scopes(
+                      scopes -> {
+                        scopes.clear();
+                        scopes.addAll(confidentialClient.getScopes());
+                      });
+          if (rotateSecret) updated.clientSecret(passwordEncoder.encode(confidentialClientSecret));
+          repository.save(updated.build());
+        }
       }
     }
 
@@ -230,7 +250,9 @@ public class AuthorizationServerConfig {
               "SELECT id FROM users WHERE username = ? AND status = 'ACTIVE'",
               (rs, rowNum) -> rs.getObject(1, UUID.class),
               username);
-      if (userIds.isEmpty()) return;
+      if (userIds.isEmpty()) {
+        throw new OAuth2AuthenticationException(OAuth2ErrorCodes.INVALID_GRANT);
+      }
       UUID userId = userIds.get(0);
       List<String> permissions =
           jdbc.queryForList(
@@ -251,12 +273,25 @@ public class AuthorizationServerConfig {
                             """,
               String.class,
               userId);
+      Set<String> scopes =
+          context.getAuthorizedScopes().stream()
+              .filter(context.getRegisteredClient().getScopes()::contains)
+              .filter(
+                  scope ->
+                      !context
+                              .getRegisteredClient()
+                              .getClientAuthenticationMethods()
+                              .contains(ClientAuthenticationMethod.NONE)
+                          || (!OAuthPermissionPolicy.ADMIN_SCOPE.equals(scope)
+                              && !"audit.read".equals(scope)))
+              .collect(Collectors.toSet());
       context
           .getClaims()
           .subject(userId.toString())
           .claim("username", username)
-          .claim("permissions", permissions)
-          .claim("roles", roles);
+          .claim("scope", scopes)
+          .claim("permissions", OAuthPermissionPolicy.permissions(permissions, scopes))
+          .claim("roles", OAuthPermissionPolicy.roles(roles, scopes));
     };
   }
 }

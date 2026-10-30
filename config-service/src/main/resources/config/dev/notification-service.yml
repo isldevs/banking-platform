@@ -44,4 +44,6 @@ management:
 
 security:
   jwt:
+    issuer: ${SECURITY_JWT_ISSUER}
+    audience: ${SECURITY_JWT_AUDIENCE}
     public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH:${user.dir}/infrastructure/secrets/jwt-public.pem}

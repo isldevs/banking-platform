@@ -116,6 +116,9 @@ jobs:
             echo "Timed out waiting for internal service health endpoints" >&2
             exit 1
           '
+      - name: Verify banking workflow, posting idempotency and event delivery
+        run: python3 infrastructure/scripts/smoke-banking.py
+
       - name: Print service logs on failure
         if: failure()
         working-directory: infrastructure

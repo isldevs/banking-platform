@@ -28,7 +28,7 @@ To format all services:
 
 ## Full Docker Compose stack
 
-**Prepare secrets before starting the stack.** On Windows PowerShell run `./scripts/setup-local.ps1` (PowerShell syntax: `.\scripts\setup-local.ps1`) from the repository root. It generates local `.env` and JWT material but **does not actually start Compose**. On Linux/macOS prepare `infrastructure/.env` and JWT keystore/public certificate manually, using the committed example and Compose volume paths. The current repository has no committed Bash equivalent of the setup helper.
+**Prepare secrets before starting the stack.** On Windows PowerShell run `./scripts/setup-local.ps1` (PowerShell syntax: `.\scripts\setup-local.ps1`) from the repository root. For a fresh isolated Linux/macOS demo, run `bash infrastructure/scripts/init-local.sh`; it refuses to overwrite existing credentials. Both helpers generate local `.env` and JWT material; start Compose separately. Existing environments can provision values and key material manually using the committed example and Compose volume paths.
 
 From the repository root:
 

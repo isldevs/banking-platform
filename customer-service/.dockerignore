@@ -1,0 +1,5 @@
+# Host build outputs must never enter the image builder.
+build/
+.gradle/
+.git/
+*.log

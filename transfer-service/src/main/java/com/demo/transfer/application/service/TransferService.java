@@ -1,9 +1,13 @@
 package com.demo.transfer.application.service;
 
 import com.demo.transfer.common.Support;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -13,10 +17,14 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -51,9 +59,13 @@ public class TransferService {
   }
 
   private Row row(UUID id) {
-    return db
+    return row(db, id);
+  }
+
+  private Row row(JdbcTemplate database, UUID id) {
+    return database
         .query(
-            "SELECT id,source_account_id,destination_account_id,amount,currency,status,requested_by FROM transfers WHERE id=?",
+            "SELECT id,source_account_id,destination_account_id,amount,currency,status,requested_by,dispatch_attempted FROM transfers WHERE id=?",
             (r, n) ->
                 new Row(
                     r.getObject(1, UUID.class),
@@ -62,7 +74,8 @@ public class TransferService {
                     r.getBigDecimal(4),
                     r.getString(5),
                     r.getString(6),
-                    r.getObject(7, UUID.class)),
+                    r.getObject(7, UUID.class),
+                    r.getBoolean(8)),
             id)
         .stream()
         .findFirst()
@@ -130,7 +143,7 @@ public class TransferService {
               }
               UUID newId = UUID.randomUUID();
               db.update(
-                  "INSERT INTO transfers(id,transfer_reference,source_account_id,destination_account_id,amount,currency,status,requested_by,client_reference) VALUES(?,?,?,?,?,?,'PENDING',?,?)",
+                  "INSERT INTO transfers(id,transfer_reference,source_account_id,destination_account_id,amount,currency,status,requested_by,client_reference,dispatch_attempted) VALUES(?,?,?,?,?,?,'PENDING',?,?,false)",
                   newId,
                   "TRF-" + newId.toString(),
                   request.sourceAccountId(),
@@ -185,22 +198,92 @@ public class TransferService {
   }
 
   public void process(UUID id) {
-    Row r = row(id);
+    // A session lock spans the remote call without holding a database transaction open.
+    // Use one reserved connection for both the lock and all dispatch-state writes: if
+    // that session dies, it must not subsequently persist a terminal failure.
+    try (Connection connection = db.getDataSource().getConnection()) {
+      // The attempted marker must be visible before HTTP dispatch even when the pool
+      // defaults to autoCommit=false. The short transition transactions restore this
+      // setting when they finish.
+      connection.setAutoCommit(true);
+      SingleConnectionDataSource source = new SingleConnectionDataSource(connection, true);
+      JdbcTemplate dispatchDb = new JdbcTemplate(source);
+      TransactionTemplate dispatchTx =
+          new TransactionTemplate(new DataSourceTransactionManager(source));
+      String lock = "transfer-dispatch:" + id;
+      try {
+        if (!Boolean.TRUE.equals(
+            dispatchDb.queryForObject(
+                "SELECT pg_try_advisory_lock(hashtextextended(?,0))", Boolean.class, lock))) return;
+      } catch (DataAccessException failure) {
+        // Acquisition may have reached PostgreSQL before its response was lost.
+        // Closing a pooled handle alone would return a potentially locked session.
+        discardConnection(connection, failure);
+        throw failure;
+      }
+      try {
+        processLocked(dispatchDb, dispatchTx, id);
+      } finally {
+        try {
+          if (!Boolean.TRUE.equals(
+              dispatchDb.queryForObject(
+                  "SELECT pg_advisory_unlock(hashtextextended(?,0))", Boolean.class, lock)))
+            throw new DataAccessResourceFailureException("Transfer dispatch lock was lost");
+        } catch (DataAccessException failure) {
+          // Never return a possibly still-locked session to the connection pool.
+          discardConnection(connection, failure);
+          throw failure;
+        }
+      }
+    } catch (SQLException failure) {
+      throw new DataAccessResourceFailureException("Transfer dispatch connection failed", failure);
+    }
+  }
+
+  private void discardConnection(Connection connection, DataAccessException failure) {
+    try {
+      connection.abort(Runnable::run);
+    } catch (SQLException abortFailure) {
+      failure.addSuppressed(abortFailure);
+    }
+  }
+
+  private void processLocked(JdbcTemplate database, TransactionTemplate transactions, UUID id) {
+    Row r = row(database, id);
     if (!Set.of("PENDING", "PENDING_RECONCILIATION").contains(r.status())) return;
-    Map<String, Object> payload =
-        Map.of(
-            "transferId",
-            r.id(),
-            "sourceAccountId",
-            r.source(),
-            "destinationAccountId",
-            r.dest(),
-            "amount",
-            r.amount(),
-            "currency",
-            r.currency(),
-            "requestedBy",
-            r.owner().toString());
+    boolean priorAttempt = r.attempted();
+    if (priorAttempt) {
+      try {
+        JsonNode operation =
+            remote
+                .get()
+                .uri(accountUrl + "/internal/accounts/operations/" + id)
+                .header("X-Service-Key", key)
+                .retrieve()
+                .body(JsonNode.class);
+        if (operation != null
+            && id.toString().equals(operation.path("transfer_id").asText())
+            && "COMMITTED".equals(operation.path("status").asText())) {
+          transition(database, transactions, id, "COMPLETED", null);
+          return;
+        }
+        ambiguous(database, transactions, id);
+        return;
+      } catch (HttpClientErrorException.NotFound missing) {
+        // Absence is not proof of rejection: an earlier request may still be running.
+      } catch (Exception unavailable) {
+        ambiguous(database, transactions, id);
+        return;
+      }
+    }
+
+    // Commit this marker before dispatch. A timeout, crash or lost session may leave
+    // account work in flight; a future attempt must never interpret its own rejection
+    // as proof that every earlier attempt also failed.
+    database.update("UPDATE transfers SET dispatch_attempted=true,updated_at=NOW() WHERE id=?", id);
+    AccountTransferCommand payload =
+        new AccountTransferCommand(
+            r.id(), r.source(), r.dest(), r.amount(), r.currency(), r.owner().toString());
     try {
       remote
           .post()
@@ -210,55 +293,57 @@ public class TransferService {
           .body(payload)
           .retrieve()
           .toBodilessEntity();
-      complete(id);
-    } catch (HttpClientErrorException e) {
-      // Only definitive business rejections can be marked failed. Other results stay reconcilable.
-      if (Set.of(400, 403, 404, 409, 422).contains(e.getStatusCode().value()))
-        fail(id, "ACCOUNT_REJECTED_" + e.getStatusCode().value());
-      else ambiguous(id);
-    } catch (Exception e) {
-      ambiguous(id);
+      transition(database, transactions, id, "COMPLETED", null);
+    } catch (HttpClientErrorException rejection) {
+      if (!priorAttempt
+          && Set.of(400, 403, 404, 409, 422).contains(rejection.getStatusCode().value()))
+        transition(
+            database,
+            transactions,
+            id,
+            "FAILED",
+            "ACCOUNT_REJECTED_" + rejection.getStatusCode().value());
+      else ambiguous(database, transactions, id);
+    } catch (Exception unavailable) {
+      ambiguous(database, transactions, id);
     }
   }
 
-  private void ambiguous(UUID id) {
-    tx.executeWithoutResult(
+  private void ambiguous(JdbcTemplate database, TransactionTemplate transactions, UUID id) {
+    transactions.executeWithoutResult(
         s ->
-            db.update(
+            database.update(
                 "UPDATE transfers SET status='PENDING_RECONCILIATION',updated_at=NOW() WHERE id=? AND status IN ('PENDING','PENDING_RECONCILIATION')",
                 id));
   }
 
-  private void complete(UUID id) {
-    transition(id, "COMPLETED", null);
-  }
-
-  private void fail(UUID id, String reason) {
-    transition(id, "FAILED", reason);
-  }
-
-  private void transition(UUID id, String next, String reason) {
-    tx.executeWithoutResult(
+  private void transition(
+      JdbcTemplate database,
+      TransactionTemplate transactions,
+      UUID id,
+      String next,
+      String reason) {
+    transactions.executeWithoutResult(
         s -> {
           List<String> statuses =
-              db.queryForList(
+              database.queryForList(
                   "SELECT status FROM transfers WHERE id=? FOR UPDATE", String.class, id);
           if (statuses.isEmpty()
               || !Set.of("PENDING", "PENDING_RECONCILIATION").contains(statuses.get(0))) return;
           String old = statuses.get(0);
-          db.update(
+          database.update(
               "UPDATE transfers SET status=?,failure_code=?,updated_at=NOW() WHERE id=?",
               next,
               reason,
               id);
-          db.update(
+          database.update(
               "INSERT INTO transfer_status_history(id,transfer_id,old_status,new_status,reason,changed_by) VALUES(?,?,?,?,?,'SYSTEM')",
               UUID.randomUUID(),
               id,
               old,
               next,
               reason);
-          Row r = row(id);
+          Row r = row(database, id);
           String topic = "COMPLETED".equals(next) ? "transfer.completed.v1" : "transfer.failed.v1";
           UUID eventId = UUID.randomUUID();
           try {
@@ -272,7 +357,7 @@ public class TransferService {
             event.put("amount", r.amount().toPlainString());
             event.put("currency", r.currency());
             event.put("requestedBy", r.owner().toString());
-            db.update(
+            database.update(
                 "INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,payload) VALUES(?,'TRANSFER',?,?,CAST(? AS jsonb)) ON CONFLICT(aggregate_id,event_type) DO NOTHING",
                 eventId,
                 id,
@@ -288,7 +373,7 @@ public class TransferService {
   public void reconcile() {
     List<UUID> ids =
         db.queryForList(
-            "SELECT id FROM transfers WHERE status IN ('PENDING','PENDING_RECONCILIATION') AND created_at<NOW()-INTERVAL '5 seconds' ORDER BY created_at LIMIT 20",
+            "SELECT id FROM transfers WHERE status IN ('PENDING','PENDING_RECONCILIATION') AND updated_at<NOW()-INTERVAL '5 seconds' ORDER BY updated_at,created_at,id LIMIT 20",
             UUID.class);
     for (UUID id : ids) {
       try {
@@ -306,6 +391,14 @@ public class TransferService {
       String currency,
       String reference) {}
 
+  private record AccountTransferCommand(
+      @JsonProperty("transfer_id") UUID transferId,
+      @JsonProperty("source_account_id") UUID sourceAccountId,
+      @JsonProperty("destination_account_id") UUID destinationAccountId,
+      BigDecimal amount,
+      String currency,
+      @JsonProperty("requested_by") String requestedBy) {}
+
   private record Row(
       UUID id,
       UUID source,
@@ -313,5 +406,6 @@ public class TransferService {
       BigDecimal amount,
       String currency,
       String status,
-      UUID owner) {}
+      UUID owner,
+      boolean attempted) {}
 }

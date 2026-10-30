@@ -8,6 +8,11 @@ x-service-endpoints: &service-endpoints
   NOTIFICATION_SERVICE_URL: http://notification-service:8085
   AUDIT_SERVICE_URL: http://audit-service:8086
 
+x-jwt-environment: &jwt-environment
+  SECURITY_JWT_ISSUER: ${DOCKER_JWT_ISSUER:-http://auth-service:8081}
+  SECURITY_JWT_AUDIENCE: ${SECURITY_JWT_AUDIENCE:?Set SECURITY_JWT_AUDIENCE}
+  SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -78,8 +83,6 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
-      SECURITY_JWT_ISSUER: ${DOCKER_JWT_ISSUER:-http://auth-service:8081}
-      SECURITY_JWT_AUDIENCE: ${SECURITY_JWT_AUDIENCE:?Set SECURITY_JWT_AUDIENCE}
       SECURITY_JWT_KEYSTORE_PATH: /app/secrets/jwt-signing.p12
       SECURITY_JWT_KEYSTORE_PASSWORD: ${SECURITY_JWT_KEYSTORE_PASSWORD:?Set SECURITY_JWT_KEYSTORE_PASSWORD}
       SECURITY_JWT_KEYSTORE_ALIAS: jwt-signing
@@ -92,7 +95,7 @@ services:
       DB_AUTH_URL: jdbc:postgresql://postgres:5432/auth
       DB_AUTH_USERNAME: auth_user
       DB_AUTH_PASSWORD: ${DB_PASSWORD_AUTH:?Set DB_PASSWORD_AUTH}
-      <<: *service-endpoints
+      <<: [*service-endpoints, *jwt-environment]
     ports:
       - "127.0.0.1:8081:8081"
     volumes:
@@ -117,12 +120,11 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
-      SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       DB_CUSTOMER_URL: jdbc:postgresql://postgres:5432/customer
       DB_CUSTOMER_USERNAME: customer_user
       DB_CUSTOMER_PASSWORD: ${DB_PASSWORD_CUSTOMER:?Set DB_PASSWORD_CUSTOMER}
-      <<: *service-endpoints
+      <<: [*service-endpoints, *jwt-environment]
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
@@ -138,13 +140,24 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
-      SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       DB_ACCOUNT_URL: jdbc:postgresql://postgres:5432/account
       DB_ACCOUNT_USERNAME: account_user
       DB_ACCOUNT_PASSWORD: ${DB_PASSWORD_ACCOUNT:?Set DB_PASSWORD_ACCOUNT}
-      FUNDING_ENABLED: 'true'
-      <<: *service-endpoints
+      FUNDING_ENABLED: ${FUNDING_ENABLED:-false}
+      SETTLEMENT_ACCOUNT_BANK_TRANSFER_USD_ID: ${SETTLEMENT_ACCOUNT_BANK_TRANSFER_USD_ID:?Set SETTLEMENT_ACCOUNT_BANK_TRANSFER_USD_ID}
+      SETTLEMENT_ACCOUNT_BANK_TRANSFER_KHR_ID: ${SETTLEMENT_ACCOUNT_BANK_TRANSFER_KHR_ID:?Set SETTLEMENT_ACCOUNT_BANK_TRANSFER_KHR_ID}
+      SETTLEMENT_ACCOUNT_CASH_USD_ID: ${SETTLEMENT_ACCOUNT_CASH_USD_ID:?Set SETTLEMENT_ACCOUNT_CASH_USD_ID}
+      SETTLEMENT_ACCOUNT_CASH_KHR_ID: ${SETTLEMENT_ACCOUNT_CASH_KHR_ID:?Set SETTLEMENT_ACCOUNT_CASH_KHR_ID}
+      SETTLEMENT_ACCOUNT_CARD_USD_ID: ${SETTLEMENT_ACCOUNT_CARD_USD_ID:?Set SETTLEMENT_ACCOUNT_CARD_USD_ID}
+      SETTLEMENT_ACCOUNT_CARD_KHR_ID: ${SETTLEMENT_ACCOUNT_CARD_KHR_ID:?Set SETTLEMENT_ACCOUNT_CARD_KHR_ID}
+      SETTLEMENT_ACCOUNT_CHEQUE_USD_ID: ${SETTLEMENT_ACCOUNT_CHEQUE_USD_ID:?Set SETTLEMENT_ACCOUNT_CHEQUE_USD_ID}
+      SETTLEMENT_ACCOUNT_CHEQUE_KHR_ID: ${SETTLEMENT_ACCOUNT_CHEQUE_KHR_ID:?Set SETTLEMENT_ACCOUNT_CHEQUE_KHR_ID}
+      SETTLEMENT_ACCOUNT_DIRECT_DEBIT_USD_ID: ${SETTLEMENT_ACCOUNT_DIRECT_DEBIT_USD_ID:?Set SETTLEMENT_ACCOUNT_DIRECT_DEBIT_USD_ID}
+      SETTLEMENT_ACCOUNT_DIRECT_DEBIT_KHR_ID: ${SETTLEMENT_ACCOUNT_DIRECT_DEBIT_KHR_ID:?Set SETTLEMENT_ACCOUNT_DIRECT_DEBIT_KHR_ID}
+      FUNDING_SOURCE_ACCOUNT_USD_ID: ${FUNDING_SOURCE_ACCOUNT_USD_ID:?Set FUNDING_SOURCE_ACCOUNT_USD_ID}
+      FUNDING_SOURCE_ACCOUNT_KHR_ID: ${FUNDING_SOURCE_ACCOUNT_KHR_ID:?Set FUNDING_SOURCE_ACCOUNT_KHR_ID}
+      <<: [*service-endpoints, *jwt-environment]
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
@@ -160,13 +173,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
-      SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       DB_TRANSFER_URL: jdbc:postgresql://postgres:5432/transfer
       DB_TRANSFER_USERNAME: transfer_user
       DB_TRANSFER_PASSWORD: ${DB_PASSWORD_TRANSFER:?Set DB_PASSWORD_TRANSFER}
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
-      <<: *service-endpoints
+      <<: [*service-endpoints, *jwt-environment]
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
@@ -184,13 +196,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
-      SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       DB_NOTIFICATION_URL: jdbc:postgresql://postgres:5432/notification
       DB_NOTIFICATION_USERNAME: notification_user
       DB_NOTIFICATION_PASSWORD: ${DB_PASSWORD_NOTIFICATION:?Set DB_PASSWORD_NOTIFICATION}
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
-      <<: *service-endpoints
+      <<: [*service-endpoints, *jwt-environment]
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
@@ -208,13 +219,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
-      SECURITY_JWT_PUBLIC_KEY_PATH: /app/secrets/jwt-public.pem
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       DB_AUDIT_URL: jdbc:postgresql://postgres:5432/audit
       DB_AUDIT_USERNAME: audit_user
       DB_AUDIT_PASSWORD: ${DB_PASSWORD_AUDIT:?Set DB_PASSWORD_AUDIT}
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
-      <<: *service-endpoints
+      <<: [*service-endpoints, *jwt-environment]
     volumes:
       - ./secrets/jwt-public.pem:/app/secrets/jwt-public.pem:ro
     depends_on:
@@ -233,10 +243,8 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       CONFIG_SERVICE_URL: http://config-service:8888
       REDIS_URL: redis://redis:6379
-      SECURITY_JWT_ISSUER: ${DOCKER_JWT_ISSUER:-http://auth-service:8081}
-      SECURITY_JWT_AUDIENCE: ${SECURITY_JWT_AUDIENCE:?Set SECURITY_JWT_AUDIENCE}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
-      <<: *service-endpoints
+      <<: [*service-endpoints, *jwt-environment]
     ports:
       - "127.0.0.1:8080:8080"
     volumes:

@@ -6,7 +6,7 @@ RUN gradle --no-daemon bootJar
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 RUN useradd -r -u 10001 appuser
-COPY --from=builder /src/build/libs/*.jar /app/app.jar
+COPY --from=builder /src/build/libs/app.jar /app/app.jar
 USER appuser
 EXPOSE 8888
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

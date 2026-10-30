@@ -268,13 +268,18 @@ public class AccountingServiceImpl implements AccountingService {
     if (request == null || request.amount() == null || request.amount().signum() <= 0)
       throw Support.fail(HttpStatus.BAD_REQUEST, "INVALID_FUNDING_AMOUNT");
 
-    AccountEntity destination = findAccount(id);
+    String currency =
+        accounts
+            .findCurrencyById(id)
+            .orElseThrow(() -> Support.fail(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+    UUID sourceAccount = fundingSourceAccountId(currency);
+    AccountEntity[] locked = lockAccountsInOrder(sourceAccount, id);
+    AccountEntity destination = locked[0].getId().equals(id) ? locked[0] : locked[1];
     if (!"CUSTOMER".equals(destination.getAccountType()))
       throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_DESTINATION_INVALID");
     if (!"ACTIVE".equals(destination.getStatus()))
       throw Support.fail(HttpStatus.UNPROCESSABLE_ENTITY, "ACCOUNT_NOT_ACTIVE");
 
-    UUID sourceAccount = fundingSourceAccountId(destination.getCurrency());
     post(
         new TransferCommand(
             UUID.randomUUID(),
@@ -328,6 +333,22 @@ public class AccountingServiceImpl implements AccountingService {
     }
     if (!"PENDING_SETTLEMENT".equals(instruction.getStatus()))
       throw Support.fail(HttpStatus.CONFLICT, "FUNDING_INSTRUCTION_NOT_POSTABLE");
+
+    // A retry may identify a different instruction, but it must never consume the same
+    // external settlement twice. Scope references to the current channel/currency model.
+    fundingInstructions.lockForSettlement(
+        instruction.getChannel(), instruction.getCurrency(), normalizedExternalReference);
+    FundingInstructionEntity consumed =
+        fundingInstructions
+            .findByChannelAndCurrencyAndExternalReference(
+                instruction.getChannel(), instruction.getCurrency(), normalizedExternalReference)
+            .orElse(null);
+    if (consumed != null && !consumed.getId().equals(instructionId))
+      throw Support.fail(HttpStatus.CONFLICT, "EXTERNAL_REFERENCE_ALREADY_USED");
+
+    // Flush the unique reservation before posting. All of it rolls back if posting fails.
+    instruction.setExternalReference(normalizedExternalReference);
+    fundingInstructions.saveAndFlush(instruction);
 
     // Acquire both settlement and customer account locks in the same canonical order
     // as ordinary transfers. Locking the destination first could deadlock against

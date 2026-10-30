@@ -26,6 +26,7 @@ management:
 
 security:
   jwt:
+    public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH:${user.dir}/infrastructure/secrets/jwt-public.pem}
     # Direct Gradle runs are launched from the repository root; the environment can override this path.
     keystore-path: ${SECURITY_JWT_KEYSTORE_PATH:${user.dir}/infrastructure/secrets/jwt-signing.p12}
     keystore-password: ${SECURITY_JWT_KEYSTORE_PASSWORD}

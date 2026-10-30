@@ -9,6 +9,7 @@ spring:
   datasource:
     url: ${DATASOURCE_URL}
     username: ${DATASOURCE_USERNAME:auth_user}
+    password: ${DATASOURCE_PASSWORD}
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -25,6 +26,7 @@ management:
 
 security:
   jwt:
+    public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH}
     keystore-path: ${SECURITY_JWT_KEYSTORE_PATH}
     keystore-password: ${SECURITY_JWT_KEYSTORE_PASSWORD}
     keystore-alias: ${SECURITY_JWT_KEYSTORE_ALIAS:jwt-signing}

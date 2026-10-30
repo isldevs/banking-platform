@@ -33,8 +33,21 @@ supplied as `OAUTH2_DEMO_CLIENT_SECRET` and stored hashed in the registered-clie
 Never embed `demo-bff`'s secret or a refresh token in browser JavaScript, a mobile application bundle, a URL, or logs.
 For browser/mobile applications needing long-lived access, keep refresh tokens in a backend-for-frontend (BFF).
 
-The `demo-bff` redirect URI is `https://oauth.pstmn.io/v1/callback`; `demo-browser` additionally supports `https://oauth.pstmn.io/v1/browser-callback`. Registered scopes include `openid`, `profile`, `email`,
-`customer.read`, `account.read`, `account.write`, and `transfer.create`.
+The `demo-bff` redirect URI is `https://oauth.pstmn.io/v1/callback`; `demo-browser` additionally supports `https://oauth.pstmn.io/v1/browser-callback`. Both clients support `openid`, `profile`, `email` and the customer scopes below. Only the confidential client may delegate `banking.admin` or `audit.read`.
+
+| Scope | User permissions it may delegate |
+|---|---|
+| `customer.read` | `CUSTOMER_READ` |
+| `customer.write` | `CUSTOMER_CREATE` |
+| `account.read` | `ACCOUNT_READ` |
+| `account.write` | `ACCOUNT_OPEN` |
+| `transfer.create` | `TRANSFER_CREATE` |
+| `transfer.read` | `TRANSFER_READ` |
+| `notification.read` | `NOTIFICATION_READ` |
+| `audit.read` | `AUDIT_READ` (confidential client only) |
+| `banking.admin` | Administrative user management, KYC approval, freezing, demo funding and audit permissions (confidential client only) |
+
+Granted scopes restrict the user's database permissions; they never grant a permission the user lacks. Request ordinary read/write scopes as well as `banking.admin` when an administrative workflow needs both. An OAuth access token only carries the `ADMIN` ownership-bypass role when `banking.admin` is granted. A read-only grant therefore cannot write or use administrator ownership bypass. Existing demo registrations have their scope policy synchronized without changing their persisted IDs or client secrets.
 
 ## Authorization-code exchange
 
@@ -47,7 +60,7 @@ The browser authorization request includes:
 response_type=code
 client_id=demo-bff
 redirect_uri=https://oauth.pstmn.io/v1/callback
-scope=openid profile email customer.read account.read account.write transfer.create
+scope=openid profile email customer.read customer.write account.read account.write transfer.create transfer.read notification.read
 state=<random-state>
 nonce=<random-nonce>
 code_challenge=<BASE64URL_SHA256_CODE_CHALLENGE>
@@ -108,7 +121,7 @@ Authorization: Bearer <access-token>
 ```
 
 The resource servers validate signature, issuer, audience, and expiry. Application permissions are mapped from the JWT
-`permissions` claim.
+`permissions` claim after the authorization server intersects user permissions and granted scopes. Refresh-token issuance applies the current policy again. Previously issued self-contained access tokens remain valid until expiry; reauthorize clients after a policy upgrade and account for the existing 15-minute token lifetime.
 
 ## Revocation and sign-out
 
@@ -133,5 +146,7 @@ The following endpoints remain for old demo clients but are deprecated for new c
 
 The legacy endpoints and Spring Authorization Server use separate token stores. Never pass a legacy refresh token to
 `/oauth2/token`, or an OAuth2 refresh token to `/api/auth/refresh` or `/api/auth/logout`.
+
+Legacy login has no delegated OAuth scope request and intentionally issues the authenticated user's existing permissions and roles. It is retained for compatibility and isolated demo smoke-test setup, not as a replacement for scoped client authorization. Demo identities are initialized by one dev-only initializer; QA, stage and prod do not require demo passwords and must provision identities separately.
 
 See [API Reference](API-Reference.md) for the current REST contract, [Security and Operations](Security-and-Operations.md) for security gaps, and [Configuration](Configuration.md) for environment-specific issuer settings.

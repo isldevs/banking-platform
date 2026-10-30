@@ -9,6 +9,7 @@ spring:
   datasource:
     url: ${DATASOURCE_URL}
     username: ${DATASOURCE_USERNAME:transfer_user}
+    password: ${DATASOURCE_PASSWORD}
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -39,7 +40,12 @@ management:
 
 security:
   jwt:
+    issuer: ${SECURITY_JWT_ISSUER}
+    audience: ${SECURITY_JWT_AUDIENCE}
     public-key-path: ${SECURITY_JWT_PUBLIC_KEY_PATH}
   internal-key: ${INTERNAL_SERVICE_KEY}
   legacy:
     internal-key: ${INTERNAL_SERVICE_KEY}
+
+services:
+  account-url: ${ACCOUNT_SERVICE_URL}

@@ -39,6 +39,7 @@ tasks.named('bootRun') {
 }
 
 tasks.named('bootJar') {
+    archiveFileName = 'app.jar'
     manifest {
         attributes(
                 'Implementation-Title': project.name,

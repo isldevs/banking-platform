@@ -21,6 +21,7 @@ V1__accounts_ledger.sql
 V2__account_products_and_funding.sql
 V3__currency_reference_data.sql
 V4__scope_account_opening_idempotency.sql
+V5__unique_external_settlement.sql
 ```
 
 The account database also contains system clearing accounts used by the local/demo settlement configuration. These are demonstration infrastructure accounts, not a model for creating money in a real bank.
@@ -32,6 +33,8 @@ The account database also contains system clearing accounts used by the local/de
 `account_opening_requests` makes openings idempotent per authenticated principal and client key (`UNIQUE(principal_id, idempotency_key)`), after Flyway V4 backfills existing requests. The application takes a PostgreSQL transaction-scoped advisory lock based on principal and key before checking existing requests. This serializes same-key first attempts and retries at the database transaction boundary; historical admin-initiated openings need special migration review.
 
 `funding_instructions` records the initial funding request and settlement lifecycle, including channel, amount, external settlement reference, operation ID, and posting timestamps.
+
+External settlement references are consumed once per channel and currency. Posting serializes access to that identity and a unique database index prevents two instructions from consuming it. A same-instruction retry returns the original outcome; another instruction using the same identity is rejected. This demo has no provider dimension: an integration with multiple settlement providers must introduce an explicit provider identity and define its uniqueness before sharing a channel. The migration refuses existing duplicate identities; reconcile them against external records and the ledger before upgrading. Do not delete financial history to force a migration through.
 
 ## Ledger invariant
 
@@ -78,6 +81,18 @@ WHERE status = 'PENDING_SETTLEMENT';
 
 Pending instructions should be reconciled against the external settlement system in a real integration.
 
+Before applying V5 to an existing database, check for duplicate settlement identities:
+
+```sql
+SELECT channel, currency, BTRIM(external_reference) AS settlement_reference, COUNT(*)
+FROM funding_instructions
+WHERE external_reference IS NOT NULL
+GROUP BY channel, currency, BTRIM(external_reference)
+HAVING COUNT(*) > 1;
+```
+
+Expected result: **zero rows**. Investigate any result against the original settlement evidence and posted operations before upgrading. The migration deliberately stops instead of removing or silently rewriting posted financial history.
+
 ## Transfer outbox
 
 ```sql
@@ -87,6 +102,10 @@ GROUP BY status;
 ```
 
 Transfer records in ambiguous states should be reconciled using the stable financial operation identity rather than issuing a new money movement.
+
+Dispatch is coordinated across instances using a PostgreSQL session advisory lock. An attempted-dispatch marker is committed before the HTTP call. Recovery checks the account operation first; a rejection after an earlier ambiguous dispatch is not proof that an older request cannot still commit, so such transfers remain reconcilable. Monitor aging `PENDING_RECONCILIATION` records and investigate the authoritative account operation before any manual state correction. Existing transfers are conservatively treated as previously attempted during migration.
+
+The upgrade does not rewrite historical terminal statuses. Reconcile any historical failed transfer whose account operation committed, using the original operation identity and accounting evidence, before treating its workflow status as authoritative.
 
 ## Transaction boundaries
 
