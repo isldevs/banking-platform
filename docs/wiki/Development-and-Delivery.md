@@ -58,11 +58,11 @@ On Windows use `.\gradlew.bat`. For service-only work, run the composite task fr
 
 ## Runtime-contract validation
 
-`buildAll` and `checkAll` include `validateRuntimeContract`, which checks the expected service builds, Config Service environment files, Micrometer/OpenTelemetry dependencies, correlation configuration, and required bootstrap settings.
+`buildAll` and `checkAll` include `validateRuntimeContract`, which checks the expected service builds, Config Service environment files, Micrometer/OpenTelemetry dependencies, correlation configuration, and required bootstrap settings. Config Service tests also resolve the supported profile properties using the documented environment names and verify the Compose environment contract.
 
 ## CI
 
-GitHub Actions defines build/test and CodeQL workflows. The Docker smoke job generates ephemeral credentials using `infrastructure/scripts/init-local.sh` and verifies service health. It does **not** run financial end-to-end workflows or ledger assertions. No committed Postman export or Native Git workspace exists in the current tree. Inspect the actual workflow conclusion/logs, rather than assuming a defined workflow has passed.
+GitHub Actions defines build/test and CodeQL workflows. The Docker smoke job generates ephemeral credentials using `infrastructure/scripts/init-local.sh`, verifies service health, then runs `python3 infrastructure/scripts/smoke-banking.py`. The script exercises onboarding/KYC, pending and settled funding, cross-instruction settlement deduplication, concurrent transfer retries, balances, balanced ledger entries, ownership restrictions, and downstream audit/notification delivery. It creates throwaway demo data and never prints credentials or tokens. Its setup uses the legacy demo login API; dedicated OAuth tests cover scope restrictions. No committed Postman export or Native Git workspace exists in the current tree. Inspect actual workflow conclusions/logs rather than assuming a defined workflow has passed.
 
 The Windows local setup helper is `scripts/setup-local.ps1`. It provisions local environment and JWT material but does not actually start Docker. Internal microservice host ports are not all published by Compose.
 

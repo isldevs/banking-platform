@@ -1,5 +1,6 @@
 package com.demo.auth.infrastructure.security;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,6 +52,8 @@ public class DemoDataInitializer {
       @Value("${demo.user-username:user}") String userUsername,
       @Value("${demo.user-password}") String userPassword) {
     return args -> {
+      validatePassword(adminPassword);
+      validatePassword(userPassword);
       BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(12);
 
       UUID adminRoleId = ensureRole(jdbc, "ADMIN");
@@ -72,6 +75,15 @@ public class DemoDataInitializer {
       grantRole(jdbc, adminId, adminRoleId);
       grantRole(jdbc, userId, userRoleId);
     };
+  }
+
+  private static void validatePassword(String password) {
+    if (password == null
+        || password.length() < 12
+        || password.getBytes(StandardCharsets.UTF_8).length > 72) {
+      throw new IllegalStateException(
+          "Demo passwords must contain at least 12 characters and at most 72 UTF-8 bytes");
+    }
   }
 
   private UUID ensureRole(JdbcTemplate jdbc, String name) {

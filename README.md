@@ -174,7 +174,7 @@ On **Windows PowerShell**, the included setup helper creates local environment v
 
 This helper prepares local configuration; **start Docker Compose separately**.
 
-For other environments, create `infrastructure/.env` from `infrastructure/.env.example`, replace all placeholder secrets with local-only values, and provision the expected JWT keystore/public certificate under `infrastructure/secrets/` before startup. Do not commit either secrets or generated credentials.
+For a fresh, isolated Linux/macOS demo, run `bash infrastructure/scripts/init-local.sh` from the repository root. It generates throwaway credentials and signing material and refuses to overwrite an existing environment. For an existing environment, configure `infrastructure/.env` from the example and provision the expected JWT keystore/public certificate under `infrastructure/secrets/`. Do not commit secrets or generated credentials.
 
 ### Start the services
 
@@ -196,6 +196,14 @@ Local host endpoints include:
 | Redis | `localhost:6379` |
 
 Other business services are reachable inside the Compose network. Their APIs are routed through the Gateway. See [Getting Started](docs/wiki/Getting-Started.md) for service startup and application-level examples.
+
+After the stack is healthy, verify the demo banking workflow:
+
+```bash
+python3 infrastructure/scripts/smoke-banking.py
+```
+
+This creates throwaway users, approves KYC, opens accounts, settles initial funding, rejects a reused settlement reference, retries a transfer concurrently, and verifies balances, ledger entries, audit and notification delivery. It uses the deprecated demo login endpoint for test setup; interactive applications should use OAuth2 Authorization Code + PKCE.
 
 ## API development and testing
 
@@ -255,7 +263,7 @@ This is a **development/demo system**, not a production banking solution. In par
 - `X-Service-Key` is a demonstration service-to-service credential, not a substitute for workload identity, mTLS, scoped authorization and proper key management.
 - A complete enterprise posting engine/general ledger, AML screening, clearing rails, regulated reporting, and international payment settlement **are not implemented**.
 - More integration, concurrency, security and disaster-recovery testing is required. A successful unit build alone does not establish financial correctness.
-- Postman collection assets and a true end-to-end banking flow are not yet covered by CI. The Docker job verifies health/readiness, not financial business outcomes.
+- Postman collection assets are not yet covered by CI. The Docker job verifies health plus the demo banking API flow; it does not establish external settlement, regulatory compliance or complete banking correctness.
 
 Never use actual banking credentials, regulated customer data or real funds with this project.
 

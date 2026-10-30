@@ -16,6 +16,8 @@ Java 17 / Spring Boot service on port `8083`. Account Service owns the `account`
 
 An account opened with an initial deposit is created as `PENDING_FUNDING`. The request creates a durable funding instruction; it does not directly create money or mutate the customer balance. A trusted settlement caller posts the instruction with `X-Service-Key` and `X-External-Reference`. Posting is idempotent and activates the account after the financial operation and ledger entries commit successfully.
 
+An external settlement reference can be consumed by only one funding instruction per channel and currency. Retrying that same instruction/reference returns the previous result; using it for another instruction returns `409 EXTERNAL_REFERENCE_ALREADY_USED`. A transaction-scoped lock coordinates concurrent requests and migration V5 enforces uniqueness in PostgreSQL. This demo has no provider identifier; introduce an explicit provider/settlement-source identity before supporting multiple providers on one channel. V5 stops with reconciliation guidance if historical duplicate references exist; it does not delete or reverse financial history automatically.
+
 ## Public APIs
 
 - `POST /api/accounts`

@@ -28,6 +28,7 @@ dependencies {
     implementation 'io.micrometer:micrometer-tracing-bridge-otel'
     runtimeOnly 'io.opentelemetry:opentelemetry-exporter-otlp'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 dependencyManagement {
@@ -45,6 +46,7 @@ tasks.named('bootRun') {
 }
 
 tasks.named('bootJar') {
+    archiveFileName = 'app.jar'
     manifest {
         attributes(
                 'Implementation-Title': project.name,
@@ -61,6 +63,8 @@ spotless {
         endWithNewline()
     }
 }
+
+tasks.named('test') { useJUnitPlatform() }
 
 tasks.named('check') {
     dependsOn 'spotlessCheck'

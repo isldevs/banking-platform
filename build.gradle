@@ -30,7 +30,8 @@ def requireText = { File file, String expected ->
 
 tasks.register('validateRuntimeContract') {
     group = 'verification'
-    description = 'Validate the cross-service build, configuration, and observability contract.'
+    description = 'Validate the cross-service build, resolved runtime configuration, and observability contract.'
+    dependsOn gradle.includedBuild('config-service').task(':test')
     doLast {
         services.each { service ->
             def buildFile = file("${service}/build.gradle")
