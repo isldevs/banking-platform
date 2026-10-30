@@ -131,7 +131,8 @@ public class GatewayController {
             return new ResponseEntity<>(responseBody, headers, res.getStatusCode());
           });
     } catch (Exception e) {
-      log.error("Gateway downstream request failed: {}", dest, e);
+      // Exception messages can also contain the URI, query values, or response content.
+      log.error("Gateway downstream request failed for route {}", parts[2]);
       return ResponseEntity.status(502)
           .header(HttpHeaders.CONTENT_TYPE, "application/json")
           .header("X-Content-Type-Options", "nosniff")
