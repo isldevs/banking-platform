@@ -1,5 +1,6 @@
 package com.demo.auth.infrastructure.security;
 
+import com.demo.auth.common.LoginAudit;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -80,16 +81,15 @@ public class SecurityConfig {
                                   (rs, rowNum) -> rs.getObject(1, UUID.class),
                                   username);
                           jdbc.update(
-                              "UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE username = ?",
+                              "UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE"
+                                  + " username = ?",
                               username);
-                          jdbc.update(
-                              "INSERT INTO login_attempts(id, username, user_id, success, ip_address, user_agent) VALUES(?,?,?,?,?,?)",
-                              UUID.randomUUID(),
-                              username,
+                          LoginAudit.record(
+                              jdbc,
                               userIds.isEmpty() ? null : userIds.get(0),
+                              username,
                               true,
-                              request.getRemoteAddr(),
-                              request.getHeader("User-Agent"));
+                              request);
                           defaultSuccessHandler.onAuthenticationSuccess(
                               request, response, authentication);
                         })
@@ -122,14 +122,7 @@ public class SecurityConfig {
               + "THEN NOW() + INTERVAL '15 minutes' ELSE locked_until END WHERE id = ?",
           userId);
     }
-    jdbc.update(
-        "INSERT INTO login_attempts(id, username, user_id, success, ip_address, user_agent) VALUES(?,?,?,?,?,?)",
-        UUID.randomUUID(),
-        username,
-        userId,
-        false,
-        request.getRemoteAddr(),
-        request.getHeader("User-Agent"));
+    LoginAudit.record(jdbc, userId, username, false, request);
   }
 
   @Bean

@@ -5,6 +5,7 @@ import com.demo.auth.api.dto.request.NewUser;
 import com.demo.auth.api.dto.request.Refresh;
 import com.demo.auth.application.port.in.AuthService;
 import com.demo.auth.application.port.out.TokenService;
+import com.demo.auth.common.LoginAudit;
 import com.demo.auth.common.Support;
 import com.demo.auth.domain.model.User;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,7 +47,8 @@ public class AuthServiceImpl implements AuthService {
   public User lookup(String username) {
     return jdbc
         .query(
-            "SELECT u.id,u.username,u.status,u.failed_login_count,u.locked_until,c.password_hash FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE u.username=?",
+            "SELECT u.id,u.username,u.status,u.failed_login_count,u.locked_until,c.password_hash"
+                + " FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE u.username=?",
             (r, n) ->
                 new User(
                     r.getObject(1, UUID.class),
@@ -63,21 +65,16 @@ public class AuthServiceImpl implements AuthService {
 
   @Override
   public void attempt(User u, String name, boolean success, HttpServletRequest req) {
-    jdbc.update(
-        "INSERT INTO login_attempts(id,username,user_id,success,ip_address,user_agent) VALUES(?,?,?,?,?,?)",
-        UUID.randomUUID(),
-        name,
-        u == null ? null : u.id(),
-        success,
-        req.getRemoteAddr(),
-        req.getHeader("User-Agent"));
+    LoginAudit.record(jdbc, u == null ? null : u.id(), name, success, req);
   }
 
   @Override
   public Map<String, Object> tokens(User u) {
     List<String> perms =
         jdbc.queryForList(
-            "SELECT DISTINCT p.code FROM permissions p JOIN role_permissions rp ON rp.permission_id=p.id JOIN user_roles ur ON ur.role_id=rp.role_id WHERE ur.user_id=?",
+            "SELECT DISTINCT p.code FROM permissions p JOIN role_permissions rp ON"
+                + " rp.permission_id=p.id JOIN user_roles ur ON ur.role_id=rp.role_id WHERE"
+                + " ur.user_id=?",
             String.class,
             u.id());
     List<String> roles =
@@ -110,7 +107,8 @@ public class AuthServiceImpl implements AuthService {
     String tokenHash = Support.hash(req.refreshToken());
     List<UUID> matches =
         jdbc.query(
-            "UPDATE refresh_tokens SET revoked_at=NOW() WHERE token_hash=? AND revoked_at IS NULL AND expires_at>NOW() RETURNING user_id",
+            "UPDATE refresh_tokens SET revoked_at=NOW() WHERE token_hash=? AND revoked_at IS NULL"
+                + " AND expires_at>NOW() RETURNING user_id",
             (r, n) -> r.getObject(1, UUID.class),
             tokenHash);
     if (matches.isEmpty()) throw Support.fail(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
@@ -121,6 +119,9 @@ public class AuthServiceImpl implements AuthService {
             matches.get(0));
     User u = names.isEmpty() ? null : lookup(names.get(0));
     if (u == null) throw Support.fail(HttpStatus.UNAUTHORIZED, "USER_INACTIVE");
+    if (u.locked() != null && u.locked().isAfter(Instant.now())) {
+      throw Support.fail(HttpStatus.UNAUTHORIZED, "USER_LOCKED_OR_INACTIVE");
+    }
     return tokens(u);
   }
 
@@ -131,7 +132,9 @@ public class AuthServiceImpl implements AuthService {
       attempt(u, req.username(), false, http);
       if (u != null)
         jdbc.update(
-            "UPDATE users SET failed_login_count=failed_login_count+1,locked_until=CASE WHEN failed_login_count+1>=5 THEN NOW()+INTERVAL '15 minutes' ELSE locked_until END WHERE id=?",
+            "UPDATE users SET failed_login_count=failed_login_count+1,locked_until=CASE WHEN"
+                + " failed_login_count+1>=5 THEN NOW()+INTERVAL '15 minutes' ELSE locked_until END"
+                + " WHERE id=?",
             u.id());
       throw Support.fail(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
     }
@@ -145,7 +148,8 @@ public class AuthServiceImpl implements AuthService {
   @Override
   public Map<String, String> logout(Refresh req, Jwt principal) {
     jdbc.update(
-        "UPDATE refresh_tokens SET revoked_at=NOW() WHERE token_hash=? AND user_id=? AND revoked_at IS NULL",
+        "UPDATE refresh_tokens SET revoked_at=NOW() WHERE token_hash=? AND user_id=? AND revoked_at"
+            + " IS NULL",
         Support.hash(req.refreshToken()),
         UUID.fromString(principal.getSubject()));
     return Map.of("status", "LOGGED_OUT");
