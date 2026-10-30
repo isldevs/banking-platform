@@ -31,6 +31,8 @@ jobs:
     needs: gradle
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      COMPOSE_FILE: docker-compose.yml:docker-compose.postman.yml
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -41,8 +43,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Generate isolated demo credentials and RSA key
-        run: bash infrastructure/scripts/init-local.sh
+      - name: Set up Node for the API collection runner
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: docs/postman/package-lock.json
+
+      - name: Generate isolated demo credentials and test keys
+        run: bash infrastructure/scripts/setup-postman.sh
+
+      - name: Install the pinned collection runner
+        run: npm ci --prefix docs/postman
+
+      - name: Verify endpoint coverage and collection-only variable scope
+        run: python3 infrastructure/scripts/check-postman.py
 
       - name: Validate Docker Compose configuration
         working-directory: infrastructure
@@ -118,6 +133,9 @@ jobs:
           '
       - name: Verify banking workflow, posting idempotency and event delivery
         run: python3 infrastructure/scripts/smoke-banking.py
+
+      - name: Run every configured API endpoint collection
+        run: npm test --prefix docs/postman
 
       - name: Print service logs on failure
         if: failure()

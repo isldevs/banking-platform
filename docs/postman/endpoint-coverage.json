@@ -1,0 +1,24 @@
+{
+  "basis": "All configured endpoint contracts exposed by the repository",
+  "contract_instances": 121,
+  "groups": {
+    "application": 22,
+    "oauth_oidc_session": 16,
+    "config_read": 12,
+    "config_encryption": 7,
+    "management": 64
+  },
+  "management": {
+    "services": 8,
+    "templates_per_service": 8
+  },
+  "excluded_unconfigured_capabilities": [
+    "OAuth device authorization grant (no registered client permits it)",
+    "OpenID dynamic client registration (disabled)",
+    "OAuth password and client_credentials grants (unsupported)",
+    "Gateway PUT, PATCH and DELETE without business route mappings",
+    "Actuator env, mappings, configprops and shutdown endpoints (not exposed)",
+    "Framework fallback, implicit HEAD/OPTIONS and absent Swagger routes"
+  ],
+  "validation": "Run python3 infrastructure/scripts/check-postman.py"
+}

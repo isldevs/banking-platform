@@ -208,8 +208,8 @@ This creates throwaway users, approves KYC, opens accounts, settles initial fund
 ## API development and testing
 
 - Use the [API reference](docs/wiki/API-Reference.md) for the current OAuth2 endpoints, permissions, request/response contracts and banking operations.
-- The intended API development workflow is **Postman Native Git**. Open the cloned repository in Postman Desktop, connect a workspace to the repository root, let Postman generate its own local resource structure, review changes in Git, and synchronize through pull requests.
-- **Repository state:** the current tree does not contain committed `docs/postman/` exports or Postman Native Git resource directories. Do not assume the collection is available until those files are added.
+- Import the committed [complete API collection](docs/postman/banking-platform.postman_collection.json) or run it with the pinned Newman runner. See the [collection guide](docs/postman/README.md) for setup and coverage.
+- All test inputs and captured state are collection variables. No Postman environment is required or committed.
 - Treat `Idempotency-Key` and financial operation identity as part of request contract testing. Never commit bearer tokens, signing material, client secrets or service keys.
 
 ## Repository structure
@@ -263,7 +263,7 @@ This is a **development/demo system**, not a production banking solution. In par
 - `X-Service-Key` is a demonstration service-to-service credential, not a substitute for workload identity, mTLS, scoped authorization and proper key management.
 - A complete enterprise posting engine/general ledger, AML screening, clearing rails, regulated reporting, and international payment settlement **are not implemented**.
 - More integration, concurrency, security and disaster-recovery testing is required. A successful unit build alone does not establish financial correctness.
-- Postman collection assets are not yet covered by CI. The Docker job verifies health plus the demo banking API flow; it does not establish external settlement, regulatory compliance or complete banking correctness.
+- CI checks collection coverage and variable scope, then executes the complete API collection against the Docker stack. Passing it does not establish external settlement, regulatory compliance or complete banking correctness.
 
 Never use actual banking credentials, regulated customer data or real funds with this project.
 

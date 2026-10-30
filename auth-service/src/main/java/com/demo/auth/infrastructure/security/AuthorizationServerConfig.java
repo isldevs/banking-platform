@@ -11,6 +11,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -239,7 +240,10 @@ public class AuthorizationServerConfig {
       if (!OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
         return;
       }
-      context.getClaims().audience(List.of(audience));
+      // JDBC authorization persistence uses Spring Security's allowlisted polymorphic mapper.
+      // JDK immutable collection implementations (List.of/Stream.toList) are intentionally not
+      // allowlisted, so token claims must use stable concrete collection types.
+      context.getClaims().audience(new ArrayList<>(List.of(audience)));
       Authentication principal = context.getPrincipal();
       if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
         return;

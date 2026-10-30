@@ -99,11 +99,11 @@ The recommended application flow is:
 9. Read transfer and financial operation records; verify postings and balances
 ```
 
-**Current repository gap:** the committed tree has no `docs/postman/` collection or Native Git Postman resource directories. Use the [API Reference](API-Reference.md) to construct requests until API assets are added.
+The committed [complete API collection](../postman/banking-platform.postman_collection.json) automates this workflow and every other configured endpoint. Follow the [collection guide](../postman/README.md) to expose the internal test ports, prepare the test-only encryption key and run Newman without a Postman environment.
 
 ## CI and demo limits
 
-GitHub Actions now generates ephemeral CI-only credentials with `infrastructure/scripts/init-local.sh`, then checks Docker Compose configuration and public/internal service health. This is a **startup smoke test**, not a completed end-to-end banking transaction or ledger correctness test. Demo settlement is not a real external payment or correspondent-bank integration.
+GitHub Actions generates ephemeral CI-only credentials, checks Docker Compose and service health, runs the banking smoke workflow, and executes the complete API collection. These are demo integration tests; demo settlement is not a real external payment or correspondent-bank integration.
 
 ## Troubleshooting
 
