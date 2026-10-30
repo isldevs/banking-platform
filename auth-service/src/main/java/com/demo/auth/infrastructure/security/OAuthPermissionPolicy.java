@@ -1,5 +1,6 @@
 package com.demo.auth.infrastructure.security;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +55,11 @@ final class OAuthPermissionPolicy {
         grantedScopes.stream()
             .flatMap(scope -> SCOPE_PERMISSIONS.getOrDefault(scope, Set.of()).stream())
             .collect(Collectors.toSet());
-    return userPermissions.stream().filter(delegated::contains).distinct().sorted().toList();
+    return userPermissions.stream()
+        .filter(delegated::contains)
+        .distinct()
+        .sorted()
+        .collect(Collectors.toCollection(ArrayList::new));
   }
 
   static List<String> roles(Collection<String> userRoles, Set<String> grantedScopes) {
@@ -64,6 +69,6 @@ final class OAuthPermissionPolicy {
         .filter(role -> !"ADMIN".equals(role) || grantedScopes.contains(ADMIN_SCOPE))
         .distinct()
         .sorted()
-        .toList();
+        .collect(Collectors.toCollection(ArrayList::new));
   }
 }

@@ -1,0 +1,28 @@
+# Local API testing only. The normal Compose stack keeps these service ports private.
+services:
+  config-service:
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    environment:
+      ENCRYPT_KEY_STORE_LOCATION: file:/app/secrets/config-encryption.jks
+      ENCRYPT_KEY_STORE_PASSWORD: ${SECURITY_JWT_KEYSTORE_PASSWORD:?Set SECURITY_JWT_KEYSTORE_PASSWORD}
+      ENCRYPT_KEY_STORE_SECRET: ${SECURITY_JWT_KEYSTORE_PASSWORD:?Set SECURITY_JWT_KEYSTORE_PASSWORD}
+      ENCRYPT_KEY_STORE_ALIAS: config-encryption
+    volumes:
+      - ./secrets/config-encryption.jks:/app/secrets/config-encryption.jks:ro
+  customer-service:
+    ports:
+      - "127.0.0.1:8082:8082"
+  account-service:
+    ports:
+      - "127.0.0.1:8083:8083"
+    environment:
+      FUNDING_ENABLED: 'true'
+  transfer-service:
+    ports:
+      - "127.0.0.1:8084:8084"
+  notification-service:
+    ports:
+      - "127.0.0.1:8085:8085"
+  audit-service:
+    ports:
+      - "127.0.0.1:8086:8086"

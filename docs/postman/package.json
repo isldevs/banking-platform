@@ -1,0 +1,15 @@
+{
+  "name": "banking-platform-api-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Run the banking API collection with collection-scoped variables only.",
+  "scripts": {
+    "test": "node ../../infrastructure/scripts/run-postman.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "newman": "6.2.1"
+  }
+}

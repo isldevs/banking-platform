@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -57,6 +58,15 @@ class OAuthScopeAuthorizationTest {
 
     assertThat(jwt.getClaimAsStringList("permissions")).isEmpty();
     assertThat(jwt.getClaimAsStringList("roles")).isEmpty();
+  }
+
+  @Test
+  void customTokenClaimsUseJdbcAuthorizationSafeCollectionTypes() {
+    Jwt jwt = issue(Set.of("openid", "account.read"), ADMIN_PERMISSIONS, List.of("USER"));
+
+    assertThat(jwt.getAudience()).isExactlyInstanceOf(ArrayList.class);
+    assertThat(jwt.getClaimAsStringList("permissions")).isExactlyInstanceOf(ArrayList.class);
+    assertThat(jwt.getClaimAsStringList("roles")).isExactlyInstanceOf(ArrayList.class);
   }
 
   @Test
